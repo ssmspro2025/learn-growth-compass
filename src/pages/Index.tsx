@@ -1,13 +1,39 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Layout, type UserRole } from "@/components/Layout";
+import { AdminDashboard } from "@/components/Dashboard/AdminDashboard";
+import { TeacherDashboard } from "@/components/Dashboard/TeacherDashboard";
+import { StudentDashboard } from "@/components/Dashboard/StudentDashboard";
+import { ParentDashboard } from "@/components/Dashboard/ParentDashboard";
+import { DeveloperDashboard } from "@/components/Dashboard/DeveloperDashboard";
 
 const Index = () => {
+  const [currentRole, setCurrentRole] = useState<UserRole>('admin');
+
+  const renderDashboard = () => {
+    switch (currentRole) {
+      case 'admin':
+        return <AdminDashboard />;
+      case 'principal':
+        return <AdminDashboard />; // Can be customized later
+      case 'teacher':
+        return <TeacherDashboard />;
+      case 'student':
+        return <StudentDashboard />;
+      case 'parent':
+        return <ParentDashboard />;
+      case 'vendor':
+        return <AdminDashboard />; // Can be customized later
+      case 'developer':
+        return <DeveloperDashboard />;
+      default:
+        return <AdminDashboard />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <Layout currentRole={currentRole} onRoleChange={setCurrentRole}>
+      {renderDashboard()}
+    </Layout>
   );
 };
 
