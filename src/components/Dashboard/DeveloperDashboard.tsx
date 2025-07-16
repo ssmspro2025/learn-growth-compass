@@ -266,19 +266,19 @@ export function DeveloperDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2 hover-scale" onClick={() => alert('Opening analytics dashboard...')}>
               <BarChart3 className="h-8 w-8" />
               <span className="text-sm">Analytics</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2 hover-scale" onClick={() => alert('Opening database console...')}>
               <Database className="h-8 w-8" />
               <span className="text-sm">DB Console</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2 hover-scale" onClick={() => alert('Opening system monitoring...')}>
               <Monitor className="h-8 w-8" />
               <span className="text-sm">Monitoring</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2 hover-scale" onClick={() => alert('Opening configuration panel...')}>
               <Settings className="h-8 w-8" />
               <span className="text-sm">Config</span>
             </Button>

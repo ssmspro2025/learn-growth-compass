@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, BarChart, Bar } from "recharts";
 import {
   BookOpen,
   Calendar,
@@ -14,15 +17,34 @@ import {
   Star,
   MessageSquare,
   FileText,
-  Users
+  Users,
+  Eye,
+  Play,
+  BookMarked
 } from "lucide-react";
 
 export function StudentDashboard() {
+  const [studyMode, setStudyMode] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+
   const courses = [
     { name: "Mathematics", teacher: "Ms. Johnson", grade: "A-", progress: 85, nextClass: "Today 10:00 AM" },
     { name: "English Literature", teacher: "Mr. Smith", grade: "B+", progress: 78, nextClass: "Today 11:30 AM" },
     { name: "Chemistry", teacher: "Dr. Wilson", grade: "A", progress: 92, nextClass: "Tomorrow 9:00 AM" },
     { name: "History", teacher: "Ms. Davis", grade: "B", progress: 73, nextClass: "Tomorrow 2:00 PM" }
+  ];
+
+  const progressData = [
+    { month: "Sep", math: 78, english: 72, chemistry: 85, history: 68 },
+    { month: "Oct", math: 82, english: 75, chemistry: 88, history: 70 },
+    { month: "Nov", math: 85, english: 78, chemistry: 92, history: 73 },
+  ];
+
+  const studyStats = [
+    { subject: "Math", hours: 12, target: 15 },
+    { subject: "English", hours: 8, target: 10 },
+    { subject: "Chemistry", hours: 15, target: 12 },
+    { subject: "History", hours: 6, target: 8 },
   ];
 
   const assignments = [
@@ -64,9 +86,52 @@ export function StudentDashboard() {
           <p className="text-muted-foreground">Ready to learn something new today?</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">View Schedule</Button>
-          <Button variant="secondary">Messages</Button>
-          <Button variant="gradient">Study Mode</Button>
+          <Button variant="outline" onClick={() => alert('Opening weekly schedule...')}>
+            <Calendar className="h-4 w-4 mr-2" />
+            View Schedule
+          </Button>
+          <Button variant="secondary" onClick={() => alert('Opening messages...')}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Messages
+          </Button>
+          <Dialog open={studyMode} onOpenChange={setStudyMode}>
+            <DialogTrigger asChild>
+              <Button variant="gradient">
+                <Play className="h-4 w-4 mr-2" />
+                Study Mode
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Study Mode Activated</DialogTitle>
+                <DialogDescription>
+                  Focus on your learning with personalized study tools
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {courses.map((course) => (
+                    <Card key={course.name} className="p-4">
+                      <h3 className="font-medium mb-2">{course.name}</h3>
+                      <Progress value={course.progress} className="mb-2" />
+                      <Button size="sm" className="w-full">
+                        Start Learning
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2">Today's Study Goals:</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>Complete Math Chapter 8 exercises</li>
+                    <li>Review Chemistry lab notes</li>
+                    <li>Read English Literature assignment</li>
+                    <li>Practice History timeline quiz</li>
+                  </ul>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -125,6 +190,37 @@ export function StudentDashboard() {
                   </div>
                   <div className="text-sm text-muted-foreground">{course.progress}%</div>
                   <Progress value={course.progress} className="w-20" />
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="ghost" className="mt-1">
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{course.name} - Course Details</DialogTitle>
+                        <DialogDescription>
+                          Detailed progress and performance analytics
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-muted/50 p-3 rounded-lg">
+                            <div className="text-xl font-bold">{course.grade}</div>
+                            <div className="text-sm text-muted-foreground">Current Grade</div>
+                          </div>
+                          <div className="bg-muted/50 p-3 rounded-lg">
+                            <div className="text-xl font-bold">{course.progress}%</div>
+                            <div className="text-sm text-muted-foreground">Course Progress</div>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Teacher: {course.teacher}</p>
+                          <p className="text-sm text-muted-foreground">Next Class: {course.nextClass}</p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             ))}
@@ -225,6 +321,59 @@ export function StudentDashboard() {
                 <div className="text-sm font-medium">12:30 PM</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Learning Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Grade Progress
+            </CardTitle>
+            <CardDescription>
+              Your performance trends over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={progressData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="chemistry" stroke="#10b981" strokeWidth={3} />
+                <Line type="monotone" dataKey="math" stroke="#8b5cf6" strokeWidth={3} />
+                <Line type="monotone" dataKey="english" stroke="#06b6d4" strokeWidth={3} />
+                <Line type="monotone" dataKey="history" stroke="#f59e0b" strokeWidth={3} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Study Time Goals
+            </CardTitle>
+            <CardDescription>
+              Weekly study hours vs targets
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={studyStats}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="subject" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="hours" fill="#8b5cf6" name="Actual Hours" />
+                <Bar dataKey="target" fill="#e2e8f0" name="Target Hours" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>

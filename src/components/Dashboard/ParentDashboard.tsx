@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import {
   Users,
   TrendingUp,
@@ -13,10 +16,16 @@ import {
   Clock,
   Award,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  Eye,
+  Phone,
+  Mail
 } from "lucide-react";
 
 export function ParentDashboard() {
+  const [selectedChild, setSelectedChild] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+
   const children = [
     { 
       name: "Alex Chen", 
@@ -36,6 +45,18 @@ export function ParentDashboard() {
       recentGrades: [{ subject: "Reading", grade: "A" }, { subject: "Science", grade: "A-" }],
       nextEvent: "Field Trip Permission Due - Wednesday"
     }
+  ];
+
+  const progressData = [
+    { month: "Sep", alex: 3.5, emma: 3.8 },
+    { month: "Oct", alex: 3.6, emma: 3.9 },
+    { month: "Nov", alex: 3.7, emma: 3.9 },
+  ];
+
+  const attendanceData = [
+    { month: "Sep", alex: 94, emma: 96 },
+    { month: "Oct", alex: 95, emma: 98 },
+    { month: "Nov", alex: 96, emma: 98 },
   ];
 
   const alerts = [
@@ -68,9 +89,52 @@ export function ParentDashboard() {
           <p className="text-muted-foreground">Stay connected with your children's education</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Schedule Meeting</Button>
-          <Button variant="secondary">Fee Payment</Button>
-          <Button variant="gradient">Contact Teacher</Button>
+          <Button variant="outline" onClick={() => alert('Opening meeting scheduler...')}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Schedule Meeting
+          </Button>
+          <Dialog open={showPayment} onOpenChange={setShowPayment}>
+            <DialogTrigger asChild>
+              <Button variant="secondary">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Fee Payment
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Fee Payment Center</DialogTitle>
+                <DialogDescription>
+                  Pay outstanding fees for your children
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {children.map((child) => (
+                  <div key={child.name} className="border rounded-lg p-4">
+                    <h3 className="font-medium mb-2">{child.name}</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Tuition Fee</span>
+                        <span className="font-medium">$850.00</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Activity Fee</span>
+                        <span className="font-medium">$150.00</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total Due</span>
+                        <span>$1000.00</span>
+                      </div>
+                      <Button className="w-full mt-2">Pay Now</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button variant="gradient" onClick={() => alert('Opening teacher contact form...')}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Contact Teacher
+          </Button>
         </div>
       </div>
 
@@ -126,9 +190,55 @@ export function ParentDashboard() {
                 <div className="text-sm text-muted-foreground mt-1">{child.nextEvent}</div>
               </div>
 
-              <Button className="w-full" variant="outline">
-                View Full Profile
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="w-full" variant="outline">
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Full Profile
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{child.name} - Complete Profile</DialogTitle>
+                    <DialogDescription>
+                      Comprehensive view of your child's academic progress
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/50 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-success">{child.gpa}</div>
+                        <div className="text-sm text-muted-foreground">Current GPA</div>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-primary">{child.attendance}%</div>
+                        <div className="text-sm text-muted-foreground">Attendance</div>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-warning">5</div>
+                        <div className="text-sm text-muted-foreground">Assignments Due</div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Recent Activity</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Math Quiz Score</span>
+                          <span className="font-medium">92%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Science Project Grade</span>
+                          <span className="font-medium">A-</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>English Essay</span>
+                          <span className="font-medium">B+</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         ))}
@@ -211,19 +321,35 @@ export function ParentDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button 
+              variant="outline" 
+              className="flex flex-col h-auto p-4 gap-2 hover-scale"
+              onClick={() => setShowPayment(true)}
+            >
               <DollarSign className="h-8 w-8" />
               <span className="text-sm">Pay Fees</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button 
+              variant="outline" 
+              className="flex flex-col h-auto p-4 gap-2 hover-scale"
+              onClick={() => alert('Opening teacher messaging system...')}
+            >
               <MessageSquare className="h-8 w-8" />
               <span className="text-sm">Message Teacher</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button 
+              variant="outline" 
+              className="flex flex-col h-auto p-4 gap-2 hover-scale"
+              onClick={() => alert('Viewing children assignments...')}
+            >
               <BookOpen className="h-8 w-8" />
               <span className="text-sm">View Assignments</span>
             </Button>
-            <Button variant="outline" className="flex flex-col h-auto p-4 gap-2">
+            <Button 
+              variant="outline" 
+              className="flex flex-col h-auto p-4 gap-2 hover-scale"
+              onClick={() => alert('Generating attendance report...')}
+            >
               <Clock className="h-8 w-8" />
               <span className="text-sm">Attendance Report</span>
             </Button>
