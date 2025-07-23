@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, User, Settings, LogOut } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,26 +15,51 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export type UserRole = 'admin' | 'principal' | 'teacher' | 'student' | 'parent' | 'vendor' | 'developer';
+export type UserRole = 'super_admin' | 'admin' | 'principal' | 'teacher' | 'student' | 'parent' | 'vendor';
+
+interface UserProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  status: string;
+  school_id?: string;
+  tenant_id: string;
+  profile_image_url?: string;
+}
 
 export interface LayoutProps {
   children: React.ReactNode;
   currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
+  profile: UserProfile;
 }
 
 const roleColors = {
-  admin: 'bg-destructive text-destructive-foreground',
-  principal: 'bg-primary text-primary-foreground',
-  teacher: 'bg-secondary text-secondary-foreground',
-  student: 'bg-accent text-accent-foreground',
-  parent: 'bg-success text-success-foreground',
-  vendor: 'bg-warning text-warning-foreground',
-  developer: 'bg-muted text-muted-foreground'
+  super_admin: 'bg-destructive text-destructive-foreground',
+  admin: 'bg-primary text-primary-foreground',
+  principal: 'bg-secondary text-secondary-foreground',
+  teacher: 'bg-accent text-accent-foreground',
+  student: 'bg-success text-success-foreground',
+  parent: 'bg-warning text-warning-foreground',
+  vendor: 'bg-muted text-muted-foreground'
 };
 
-export function Layout({ children, currentRole, onRoleChange }: LayoutProps) {
+export function Layout({ children, currentRole, profile }: LayoutProps) {
+  const { signOut } = useAuth();
   const [notifications] = useState(3);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
 
   return (
     <SidebarProvider>
@@ -45,37 +72,15 @@ export function Layout({ children, currentRole, onRoleChange }: LayoutProps) {
               <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">S</span>
               </div>
-              <h1 className="text-xl font-bold text-foreground">EduManage Pro</h1>
+              <h1 className="text-xl font-bold text-foreground">SchoolOS</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Role Switcher for Demo */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Badge className={roleColors[currentRole]}>
-                    {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}
-                  </Badge>
-                  Switch Role
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Demo Mode - Switch Role</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {(Object.keys(roleColors) as UserRole[]).map((role) => (
-                  <DropdownMenuItem
-                    key={role}
-                    onClick={() => onRoleChange(role)}
-                    className={currentRole === role ? "bg-muted" : ""}
-                  >
-                    <Badge className={`${roleColors[role]} mr-2`} variant="secondary">
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </Badge>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Current Role Badge */}
+            <Badge className={roleColors[currentRole as keyof typeof roleColors]}>
+              {currentRole.replace('_', ' ').charAt(0).toUpperCase() + currentRole.replace('_', ' ').slice(1)}
+            </Badge>
 
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="relative">
@@ -91,14 +96,24 @@ export function Layout({ children, currentRole, onRoleChange }: LayoutProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">
-                  <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <span className="hidden md:inline">John Doe</span>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile.profile_image_url} />
+                    <AvatarFallback>
+                      {getInitials(profile.first_name, profile.last_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden md:inline">
+                    {profile.first_name} {profile.last_name}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>
+                  <div>
+                    <p className="font-medium">{profile.first_name} {profile.last_name}</p>
+                    <p className="text-xs text-muted-foreground">{profile.email}</p>
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
@@ -109,7 +124,7 @@ export function Layout({ children, currentRole, onRoleChange }: LayoutProps) {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
@@ -119,7 +134,7 @@ export function Layout({ children, currentRole, onRoleChange }: LayoutProps) {
         </header>
 
         <div className="flex w-full pt-16">
-          <AppSidebar currentRole={currentRole} />
+          <AppSidebar currentRole={currentRole} profile={profile} />
           <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
