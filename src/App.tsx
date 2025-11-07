@@ -7,6 +7,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import RegisterStudent from "./pages/RegisterStudent";
 import TakeAttendance from "./pages/TakeAttendance";
+import ChaptersTracking from "./pages/ChaptersTracking";
 import ViewRecords from "./pages/ViewRecords";
 import Summary from "./pages/Summary";
 import NotFound from "./pages/NotFound";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Layout><Dashboard /></Layout>} />
           <Route path="/register" element={<Layout><RegisterStudent /></Layout>} />
           <Route path="/attendance" element={<Layout><TakeAttendance /></Layout>} />
+          <Route path="/chapters" element={<Layout><ChaptersTracking /></Layout>} />
           <Route path="/records" element={<Layout><ViewRecords /></Layout>} />
           <Route path="/summary" element={<Layout><Summary /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -18,10 +19,17 @@ interface Student {
   grade: string;
 }
 
+interface AttendanceRecord {
+  studentId: string;
+  present: boolean;
+  timeIn: string;
+  timeOut: string;
+}
+
 export default function TakeAttendance() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+  const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
@@ -42,7 +50,7 @@ export default function TakeAttendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance")
-        .select("student_id, status")
+        .select("student_id, status, time_in, time_out")
         .eq("date", dateStr);
       if (error) throw error;
       return data;
@@ -53,10 +61,15 @@ export default function TakeAttendance() {
   // Initialize attendance state when data is loaded
   useState(() => {
     if (existingAttendance && students) {
-      const newAttendance: Record<string, boolean> = {};
+      const newAttendance: Record<string, AttendanceRecord> = {};
       students.forEach((student) => {
         const record = existingAttendance.find((a) => a.student_id === student.id);
-        newAttendance[student.id] = record?.status === "Present";
+        newAttendance[student.id] = {
+          present: record?.status === "Present",
+          timeIn: record?.time_in || "",
+          timeOut: record?.time_out || "",
+          studentId: student.id,
+        };
       });
       setAttendance(newAttendance);
     }
@@ -73,7 +86,9 @@ export default function TakeAttendance() {
       const records = students.map((student) => ({
         student_id: student.id,
         date: dateStr,
-        status: attendance[student.id] ? "Present" : "Absent",
+        status: attendance[student.id]?.present ? "Present" : "Absent",
+        time_in: attendance[student.id]?.timeIn || null,
+        time_out: attendance[student.id]?.timeOut || null,
       }));
 
       const { error } = await supabase.from("attendance").insert(records);
@@ -92,24 +107,52 @@ export default function TakeAttendance() {
   const handleToggle = (studentId: string) => {
     setAttendance((prev) => ({
       ...prev,
-      [studentId]: !prev[studentId],
+      [studentId]: {
+        ...prev[studentId],
+        present: !prev[studentId]?.present,
+        studentId,
+        timeIn: prev[studentId]?.timeIn || "",
+        timeOut: prev[studentId]?.timeOut || "",
+      },
+    }));
+  };
+
+  const handleTimeChange = (studentId: string, field: "timeIn" | "timeOut", value: string) => {
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [field]: value,
+        studentId,
+        present: prev[studentId]?.present || false,
+      },
     }));
   };
 
   const markAllPresent = () => {
     if (!students) return;
-    const newAttendance: Record<string, boolean> = {};
+    const newAttendance: Record<string, AttendanceRecord> = {};
     students.forEach((student) => {
-      newAttendance[student.id] = true;
+      newAttendance[student.id] = {
+        present: true,
+        timeIn: attendance[student.id]?.timeIn || "",
+        timeOut: attendance[student.id]?.timeOut || "",
+        studentId: student.id,
+      };
     });
     setAttendance(newAttendance);
   };
 
   const markAllAbsent = () => {
     if (!students) return;
-    const newAttendance: Record<string, boolean> = {};
+    const newAttendance: Record<string, AttendanceRecord> = {};
     students.forEach((student) => {
-      newAttendance[student.id] = false;
+      newAttendance[student.id] = {
+        present: false,
+        timeIn: "",
+        timeOut: "",
+        studentId: student.id,
+      };
     });
     setAttendance(newAttendance);
   };
@@ -182,22 +225,50 @@ export default function TakeAttendance() {
                 {students.map((student) => (
                   <div
                     key={student.id}
-                    className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                    className="rounded-lg border p-4 transition-colors hover:bg-muted/50"
                   >
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        id={student.id}
-                        checked={attendance[student.id] || false}
-                        onCheckedChange={() => handleToggle(student.id)}
-                      />
-                      <Label
-                        htmlFor={student.id}
-                        className="cursor-pointer font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {student.name}
-                      </Label>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          id={student.id}
+                          checked={attendance[student.id]?.present || false}
+                          onCheckedChange={() => handleToggle(student.id)}
+                        />
+                        <Label
+                          htmlFor={student.id}
+                          className="cursor-pointer font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {student.name}
+                        </Label>
+                      </div>
+                      <span className="text-sm text-muted-foreground">{student.grade}</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">{student.grade}</span>
+                    <div className="flex gap-4 ml-7">
+                      <div className="flex-1">
+                        <Label htmlFor={`time-in-${student.id}`} className="text-xs text-muted-foreground">
+                          Time In
+                        </Label>
+                        <Input
+                          id={`time-in-${student.id}`}
+                          type="time"
+                          value={attendance[student.id]?.timeIn || ""}
+                          onChange={(e) => handleTimeChange(student.id, "timeIn", e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor={`time-out-${student.id}`} className="text-xs text-muted-foreground">
+                          Time Out
+                        </Label>
+                        <Input
+                          id={`time-out-${student.id}`}
+                          type="time"
+                          value={attendance[student.id]?.timeOut || ""}
+                          onChange={(e) => handleTimeChange(student.id, "timeOut", e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

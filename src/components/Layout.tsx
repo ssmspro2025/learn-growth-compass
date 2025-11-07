@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, UserPlus, CheckSquare, FileText, BarChart3 } from "lucide-react";
+import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
   { to: "/register", label: "Register Student", icon: UserPlus },
   { to: "/attendance", label: "Take Attendance", icon: CheckSquare },
+  { to: "/chapters", label: "Chapters Tracking", icon: BookOpen },
   { to: "/records", label: "View Records", icon: FileText },
   { to: "/summary", label: "Summary", icon: BarChart3 },
 ];

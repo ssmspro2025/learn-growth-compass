@@ -21,6 +21,8 @@ export type Database = {
           id: string
           status: string
           student_id: string
+          time_in: string | null
+          time_out: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +30,8 @@ export type Database = {
           id?: string
           status: string
           student_id: string
+          time_in?: string | null
+          time_out?: string | null
         }
         Update: {
           created_at?: string
@@ -35,10 +39,50 @@ export type Database = {
           id?: string
           status?: string
           student_id?: string
+          time_in?: string | null
+          time_out?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chapters_studied: {
+        Row: {
+          chapter_name: string
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          student_id: string
+          subject: string
+        }
+        Insert: {
+          chapter_name: string
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          student_id: string
+          subject: string
+        }
+        Update: {
+          chapter_name?: string
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          student_id?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapters_studied_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
