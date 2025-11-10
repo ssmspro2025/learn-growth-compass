@@ -55,15 +55,21 @@ serve(async (req) => {
 
     if (userError || !user) {
       console.error('User not found:', userError);
+      console.log('Attempted username:', username);
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid credentials' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
+    console.log('User found:', user.username, 'Role:', user.role);
+
     // Verify password
     const passwordMatch = await verifyPassword(password, user.password_hash);
+    console.log('Password match result:', passwordMatch);
+    
     if (!passwordMatch) {
+      console.log('Password verification failed for user:', username);
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid credentials' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
