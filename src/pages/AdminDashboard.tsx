@@ -107,6 +107,37 @@ const AdminDashboard = () => {
     }
   });
 
+  // Update center mutation
+  const updateCenterMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('centers')
+        .update({
+          center_name: editedCenterData.centerName,
+          address: editedCenterData.address
+        })
+        .eq('id', editingCenter.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Center updated',
+        description: 'Center details have been updated successfully',
+      });
+      setIsEditDialogOpen(false);
+      setEditingCenter(null);
+      queryClient.invalidateQueries({ queryKey: ['centers-with-users'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to update center',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  });
+
   const handleCreateCenter = () => {
     if (!newCenter.centerName || !newCenter.username || !newCenter.password) {
       toast({
