@@ -18,6 +18,12 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCenter, setEditingCenter] = useState<any>(null);
+  const [editedCenterData, setEditedCenterData] = useState({
+    centerName: '',
+    address: ''
+  });
   const [newCenter, setNewCenter] = useState({
     centerName: '',
     address: '',
