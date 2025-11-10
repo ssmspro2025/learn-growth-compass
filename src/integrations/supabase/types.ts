@@ -87,8 +87,68 @@ export type Database = {
           },
         ]
       }
+      centers: {
+        Row: {
+          address: string | null
+          center_name: string
+          contact_number: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          address?: string | null
+          center_name: string
+          contact_number?: string | null
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          address?: string | null
+          center_name?: string
+          contact_number?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      chapter_teachings: {
+        Row: {
+          chapter_id: string
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          students_present: Json | null
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          students_present?: Json | null
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          students_present?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_teachings_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chapters: {
         Row: {
+          center_id: string | null
           chapter_name: string
           created_at: string
           date_taught: string
@@ -97,6 +157,7 @@ export type Database = {
           subject: string
         }
         Insert: {
+          center_id?: string | null
           chapter_name: string
           created_at?: string
           date_taught: string
@@ -105,6 +166,7 @@ export type Database = {
           subject: string
         }
         Update: {
+          center_id?: string | null
           chapter_name?: string
           created_at?: string
           date_taught?: string
@@ -112,7 +174,15 @@ export type Database = {
           notes?: string | null
           subject?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chapters_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chapters_studied: {
         Row: {
@@ -196,6 +266,7 @@ export type Database = {
       }
       students: {
         Row: {
+          center_id: string | null
           contact_number: string
           created_at: string
           grade: string
@@ -205,6 +276,7 @@ export type Database = {
           school_name: string
         }
         Insert: {
+          center_id?: string | null
           contact_number: string
           created_at?: string
           grade: string
@@ -214,6 +286,7 @@ export type Database = {
           school_name: string
         }
         Update: {
+          center_id?: string | null
           contact_number?: string
           created_at?: string
           grade?: string
@@ -222,7 +295,15 @@ export type Database = {
           parent_name?: string
           school_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_results: {
         Row: {
@@ -277,33 +358,91 @@ export type Database = {
       }
       tests: {
         Row: {
+          center_id: string | null
           created_at: string
           date: string
+          extracted_text: string | null
           grade: string | null
           id: string
           name: string
           subject: string
           total_marks: number
+          uploaded_file_url: string | null
         }
         Insert: {
+          center_id?: string | null
           created_at?: string
           date: string
+          extracted_text?: string | null
           grade?: string | null
           id?: string
           name: string
           subject: string
           total_marks: number
+          uploaded_file_url?: string | null
         }
         Update: {
+          center_id?: string | null
           created_at?: string
           date?: string
+          extracted_text?: string | null
           grade?: string | null
           id?: string
           name?: string
           subject?: string
           total_marks?: number
+          uploaded_file_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          center_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_login: string | null
+          password_hash: string
+          role: Database["public"]["Enums"]["app_role"]
+          username: string
+        }
+        Insert: {
+          center_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          password_hash: string
+          role?: Database["public"]["Enums"]["app_role"]
+          username: string
+        }
+        Update: {
+          center_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          password_hash?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -313,7 +452,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "center"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -440,6 +579,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "center"],
+    },
   },
 } as const
