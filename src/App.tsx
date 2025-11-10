@@ -18,6 +18,7 @@ import Summary from "./pages/Summary";
 import Login from "./pages/Login";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/init-admin" element={<InitAdmin />} />
             <Route path="/login" element={<Login />} />
             <Route path="/login-admin" element={<AdminLogin />} />
             <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
