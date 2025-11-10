@@ -326,22 +326,31 @@ const AdminDashboard = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {centerUser && (
+                          <div className="flex gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleStatusMutation.mutate({
-                                userId: centerUser.id,
-                                isActive: centerUser.is_active
-                              })}
+                              onClick={() => handleOpenEditDialog(center)}
                             >
-                              {centerUser.is_active ? (
-                                <><PowerOff className="h-4 w-4 mr-1" /> Deactivate</>
-                              ) : (
-                                <><Power className="h-4 w-4 mr-1" /> Activate</>
-                              )}
+                              <Edit className="h-4 w-4 mr-1" /> Edit
                             </Button>
-                          )}
+                            {centerUser && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleStatusMutation.mutate({
+                                  userId: centerUser.id,
+                                  isActive: centerUser.is_active
+                                })}
+                              >
+                                {centerUser.is_active ? (
+                                  <><PowerOff className="h-4 w-4 mr-1" /> Deactivate</>
+                                ) : (
+                                  <><Power className="h-4 w-4 mr-1" /> Activate</>
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
