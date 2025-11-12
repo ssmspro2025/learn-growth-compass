@@ -13,7 +13,6 @@ const ParentLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
