@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -6,46 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, Calendar, BookOpen, FileText, LogOut } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useState } from 'react';
-import { Input, Label } from '@/components/ui/input';
 
 const ParentDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if not parent or missing student_id
-  if (!user || user.role !== 'parent' || !user.student_id) {
-    navigate('/login-parent');
-    return null;
-  }
-
-  // Frontend-only fee info (joining date, monthly fee, monthly paid)
-  const [studentFee, setStudentFee] = useState({
-    joiningDate: '', // YYYY-MM-DD
-    monthlyFee: 0,
-    paid: {} as Record<string, boolean>, // e.g. { "2025-01": true }
-  });
-
-  // Generate months from joining date to current month
-  const generateMonths = (joiningDate: string) => {
-    if (!joiningDate) return [];
-    const months: string[] = [];
-    const start = new Date(joiningDate);
-    const today = new Date();
-    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    let dt = new Date(start.getFullYear(), start.getMonth(), 1);
-    while (dt <= currentMonth) {
-      months.push(`${dt.getFullYear()}-${(dt.getMonth() + 1).toString().padStart(2, '0')}`);
-      dt.setMonth(dt.getMonth() + 1);
+  useEffect(() => {
+    if (!user || user.role !== 'parent' || !user.student_id) {
+      navigate('/login-parent');
     }
-    return months;
-  };
+  }, [user, navigate]);
 
-  // Fetch student details
+  // Fetch assigned student details
   const { data: student } = useQuery({
-    queryKey: ['student', user.student_id],
+    queryKey: ['student', user?.student_id],
     queryFn: async () => {
-      if (!user.student_id) return null;
+      if (!user?.student_id) return null;
       const { data, error } = await supabase
         .from('students')
         .select('*')
@@ -54,13 +32,14 @@ const ParentDashboard = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.student_id,
   });
 
-  // Fetch attendance
+  // Fetch attendance for this student
   const { data: attendance = [] } = useQuery({
-    queryKey: ['attendance', user.student_id],
+    queryKey: ['attendance', user?.student_id],
     queryFn: async () => {
-      if (!user.student_id) return [];
+      if (!user?.student_id) return [];
       const { data, error } = await supabase
         .from('attendance')
         .select('*')
@@ -69,13 +48,14 @@ const ParentDashboard = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.student_id,
   });
 
   // Fetch test results
   const { data: testResults = [] } = useQuery({
-    queryKey: ['test-results', user.student_id],
+    queryKey: ['test-results', user?.student_id],
     queryFn: async () => {
-      if (!user.student_id) return [];
+      if (!user?.student_id) return [];
       const { data, error } = await supabase
         .from('test_results')
         .select('*, tests(*)')
@@ -84,13 +64,14 @@ const ParentDashboard = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.student_id,
   });
 
   // Fetch chapters studied
   const { data: chapters = [] } = useQuery({
-    queryKey: ['chapters-studied', user.student_id],
+    queryKey: ['chapters-studied', user?.student_id],
     queryFn: async () => {
-      if (!user.student_id) return [];
+      if (!user?.student_id) return [];
       const { data, error } = await supabase
         .from('student_chapters')
         .select('*, chapters(*)')
@@ -99,6 +80,7 @@ const ParentDashboard = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.student_id,
   });
 
   // Attendance stats
@@ -112,10 +94,11 @@ const ParentDashboard = () => {
     navigate('/login-parent');
   };
 
+  if (!user || !user.student_id) return null;
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-
         {/* HEADER */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -157,24 +140,6 @@ const ParentDashboard = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Contact</p>
                   <p className="font-semibold">{student.contact_number}</p>
-                </div>
-
-                {/* FRONTEND ONLY FIELDS */}
-                <div>
-                  <Label>Joining Date</Label>
-                  <Input
-                    type="date"
-                    value={studentFee.joiningDate}
-                    onChange={(e) => setStudentFee({...studentFee, joiningDate: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label>Monthly Fee</Label>
-                  <Input
-                    type="number"
-                    value={studentFee.monthlyFee}
-                    onChange={(e) => setStudentFee({...studentFee, monthlyFee: Number(e.target.value)})}
-                  />
                 </div>
               </div>
             ) : (
@@ -218,35 +183,6 @@ const ParentDashboard = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* MONTHLY FEE CHECKBOXES */}
-        {studentFee.joiningDate && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Fee Paid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {generateMonths(studentFee.joiningDate).map((month) => (
-                <div key={month} className="flex items-center gap-2">
-                  <Input
-                    type="checkbox"
-                    checked={studentFee.paid[month] || false}
-                    onChange={(e) =>
-                      setStudentFee({
-                        ...studentFee,
-                        paid: {
-                          ...studentFee.paid,
-                          [month]: e.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  <span>{month}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
         {/* TEST RESULTS */}
         <Card>
@@ -344,7 +280,6 @@ const ParentDashboard = () => {
             )}
           </CardContent>
         </Card>
-
       </div>
     </div>
   );
