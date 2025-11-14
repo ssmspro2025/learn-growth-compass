@@ -25,7 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session in localStorage
     const storedUser = localStorage.getItem('auth_user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
@@ -33,7 +32,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string, role?: 'admin' | 'center' | 'parent') => {
+  const login = async (
+    username: string,
+    password: string,
+    role?: 'admin' | 'center' | 'parent'
+  ) => {
     try {
       const { data, error } = await supabase.functions.invoke('auth-login', {
         body: { username, password, role }
@@ -43,6 +46,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.success) {
         const userData = data.user;
+
+        // 🔹 Restrict parent accounts from logging in to center dashboard
+        if (role === 'center' && userData.role === 'parent') {
+          return { success: false, error: 'Parent accounts cannot log in to the center dashboard' };
+        }
+
         setUser(userData);
         localStorage.setItem('auth_user', JSON.stringify(userData));
         return { success: true };
