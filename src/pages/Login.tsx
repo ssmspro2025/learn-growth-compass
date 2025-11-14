@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-const Login = () => {
+const CenterLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,11 +28,20 @@ const Login = () => {
       });
       navigate('/');
     } else {
-      toast({
-        title: 'Login failed',
-        description: result.error || 'Invalid username or password',
-        variant: 'destructive',
-      });
+      // Check for parent restriction
+      if (result.error === 'Parent accounts cannot log in to the center dashboard') {
+        toast({
+          title: 'Login restricted',
+          description: 'Parent accounts must log in via the parent dashboard.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Login failed',
+          description: result.error || 'Invalid username or password',
+          variant: 'destructive',
+        });
+      }
     }
 
     setLoading(false);
@@ -83,4 +92,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default CenterLogin;
