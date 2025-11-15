@@ -35,7 +35,7 @@ export default function StudentReport() {
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [aiSummary, setAiSummary] = useState<string>("");
 
-  // Fetch students (center-specific and grade filter)
+  // Fetch students
   const { data: students = [] } = useQuery({
     queryKey: ["students", user?.center_id, selectedGrade],
     queryFn: async () => {
@@ -83,7 +83,7 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
-  // Fetch all chapters (for statistics)
+  // Fetch all chapters
   const { data: allChapters = [] } = useQuery({
     queryKey: ["all-chapters", user?.center_id],
     queryFn: async () => {
@@ -109,9 +109,9 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
-  // Compute statistics
+  // Statistics
   const totalDays = attendanceData.length;
-  const presentDays = attendanceData.filter((a) => a.status === "Present").length;
+  const presentDays = attendanceData.filter(a => a.status === "Present").length;
   const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
   const totalTests = testResults.length;
@@ -130,7 +130,7 @@ export default function StudentReport() {
     ...testResults.map(t => t.tests?.subject).filter(Boolean)
   ]));
 
-  const selectedStudent = students.find((s) => s.id === selectedStudentId);
+  const selectedStudent = students.find(s => s.id === selectedStudentId);
 
   // AI Summary mutation
   const generateSummaryMutation = useMutation({
@@ -167,13 +167,14 @@ export default function StudentReport() {
       ["Percentage", attendancePercentage + "%"],
       [""],
       ["Test Results"],
-      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date"],
+      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date", "Answersheet URL"],
       ...testResults.map(r => [
         r.tests?.name,
         r.tests?.subject,
         r.marks_obtained,
         r.tests?.total_marks,
-        format(new Date(r.date_taken), "PPP")
+        format(new Date(r.date_taken), "PPP"),
+        r.answersheet_url ? supabase.storage.from("test-files").getPublicUrl(r.answersheet_url).publicUrl : ""
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -211,7 +212,7 @@ export default function StudentReport() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Grades</SelectItem>
-                {[...new Set(students.map(s => s.grade))].map((grade) => (
+                {[...new Set(students.map(s => s.grade))].map(grade => (
                   <SelectItem key={grade} value={grade}>{grade}</SelectItem>
                 ))}
               </SelectContent>
@@ -229,7 +230,7 @@ export default function StudentReport() {
                 <SelectValue placeholder="Choose a student" />
               </SelectTrigger>
               <SelectContent>
-                {students.map((student) => (
+                {students.map(student => (
                   <SelectItem key={student.id} value={student.id}>
                     {student.name} - Grade {student.grade}
                   </SelectItem>
@@ -240,7 +241,6 @@ export default function StudentReport() {
         </Card>
       </div>
 
-      {/* Remaining sections */}
       {selectedStudent && (
         <>
           {/* Date Range & Subject Filter */}
@@ -272,10 +272,8 @@ export default function StudentReport() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Subjects</SelectItem>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject} value={subject}>
-                        {subject}
-                      </SelectItem>
+                    {subjects.map(subject => (
+                      <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -323,7 +321,7 @@ export default function StudentReport() {
                       </tr>
                     </thead>
                     <tbody>
-                      {attendanceData.slice(0, 10).map((record) => (
+                      {attendanceData.slice(0, 10).map(record => (
                         <tr key={record.id} className="border-t">
                           <td className="px-4 py-2">{format(new Date(record.date), "PPP")}</td>
                           <td className="px-4 py-2">
@@ -372,22 +370,17 @@ export default function StudentReport() {
                     <p className="text-2xl font-bold">{chapterCompletionPercentage}%</p>
                   </div>
                 </div>
-                {chapterProgress.map((progress) => (
-                  <div
-                    key={progress.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
+                {chapterProgress.map(progress => (
+                  <div key={progress.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium">{progress.chapters?.chapter_name}</p>
                       <p className="text-sm text-muted-foreground">
                         {progress.chapters?.subject} • {format(new Date(progress.date_completed), "PPP")}
                       </p>
                     </div>
-                    <div
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        progress.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      progress.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                    }`}>
                       {progress.completed ? "Completed" : "In Progress"}
                     </div>
                   </div>
@@ -399,7 +392,7 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
-          {/* Test Results */}
+          {/* Test Results with answersheet links */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -422,7 +415,8 @@ export default function StudentReport() {
                   <p className="text-2xl font-bold">{totalMarksObtained}/{totalMaxMarks}</p>
                 </div>
               </div>
-              {testResults.map((result) => (
+
+              {testResults.map(result => (
                 <div key={result.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium">{result.tests?.name}</p>
@@ -430,17 +424,33 @@ export default function StudentReport() {
                       {result.tests?.subject} • {format(new Date(result.date_taken), "PPP")}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold">
-                      {result.marks_obtained}/{result.tests?.total_marks}
-                    </p>
+                  <div className="text-right space-y-1">
+                    <p className="text-lg font-bold">{result.marks_obtained}/{result.tests?.total_marks}</p>
                     <p className="text-sm text-muted-foreground">
                       {Math.round((result.marks_obtained / (result.tests?.total_marks || 1)) * 100)}%
                     </p>
+                    {result.answersheet_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          window.open(
+                            supabase.storage.from("test-files").getPublicUrl(result.answersheet_url).publicUrl,
+                            "_blank"
+                          )
+                        }
+                      >
+                        <FileText className="mr-1 h-4 w-4" />
+                        View Answersheet
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
-              {testResults.length === 0 && <p className="text-muted-foreground text-center py-8">No test results recorded yet</p>}
+
+              {testResults.length === 0 && (
+                <p className="text-muted-foreground text-center py-8">No test results recorded yet</p>
+              )}
             </CardContent>
           </Card>
 
