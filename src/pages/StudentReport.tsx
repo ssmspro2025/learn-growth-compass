@@ -24,8 +24,8 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function StudentReport() {
-  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -33,11 +33,10 @@ export default function StudentReport() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
-  const [subjectFilterTests, setSubjectFilterTests] = useState<string>("all");
-  const [subjectFilterChapters, setSubjectFilterChapters] = useState<string>("all");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [aiSummary, setAiSummary] = useState<string>("");
 
-  // Fetch students (with grade filter)
+  // Fetch students
   const { data: students = [] } = useQuery({
     queryKey: ["students", user?.center_id, selectedGrade],
     queryFn: async () => {
@@ -68,29 +67,16 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
-  // Fetch all chapters
-  const { data: allChapters = [] } = useQuery({
-    queryKey: ["all-chapters", user?.center_id],
-    queryFn: async () => {
-      let query = supabase.from("chapters").select("*");
-      if (user?.role !== "admin" && user?.center_id) query = query.eq("center_id", user.center_id);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch chapter progress
+  // Fetch chapters progress
   const { data: chapterProgress = [] } = useQuery({
-    queryKey: ["student-chapters", selectedStudentId, subjectFilterChapters],
+    queryKey: ["student-chapters", selectedStudentId, subjectFilter],
     queryFn: async () => {
       if (!selectedStudentId) return [];
       let query = supabase
         .from("student_chapters")
         .select("*, chapters(*)")
         .eq("student_id", selectedStudentId);
-
-      if (subjectFilterChapters !== "all") query = query.eq("chapters.subject", subjectFilterChapters);
+      if (subjectFilter !== "all") query = query.eq("chapters.subject", subjectFilter);
       const { data, error } = await query.order("date_completed", { ascending: false });
       if (error) throw error;
       return data;
@@ -98,24 +84,37 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
-  // Fetch test results including uploaded answersheets
+  // Fetch all chapters
+  const { data: allChapters = [] } = useQuery({
+    queryKey: ["all-chapters", user?.center_id, subjectFilter],
+    queryFn: async () => {
+      let query = supabase.from("chapters").select("*");
+      if (user?.role !== "admin" && user?.center_id) query = query.eq("center_id", user.center_id);
+      if (subjectFilter !== "all") query = query.eq("subject", subjectFilter);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch test results with uploaded file
   const { data: testResults = [] } = useQuery({
-    queryKey: ["student-test-results", selectedStudentId, subjectFilterTests],
+    queryKey: ["student-test-results", selectedStudentId, subjectFilter],
     queryFn: async () => {
       if (!selectedStudentId) return [];
       let query = supabase
         .from("test_results")
         .select("*, tests(*)")
         .eq("student_id", selectedStudentId);
-
-      if (subjectFilterTests !== "all") query = query.eq("tests.subject", subjectFilterTests);
-
+      if (subjectFilter !== "all") query = query.eq("tests.subject", subjectFilter);
       const { data, error } = await query.order("date_taken", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!selectedStudentId,
   });
+
+  const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
   // Compute statistics
   const totalDays = attendanceData.length;
@@ -128,17 +127,17 @@ export default function StudentReport() {
   const averagePercentage = totalMaxMarks > 0 ? Math.round((totalMarksObtained / totalMaxMarks) * 100) : 0;
 
   const completedChaptersCount = chapterProgress.filter(cp => cp.completed).length;
-  const totalChaptersCount = allChapters.filter(c => subjectFilterChapters === "all" || c.subject === subjectFilterChapters).length;
+  const totalChaptersCount = allChapters.length;
   const chapterCompletionPercentage = totalChaptersCount > 0
     ? Math.round((completedChaptersCount / totalChaptersCount) * 100)
     : 0;
 
-  const subjectsTests = Array.from(new Set(testResults.map(t => t.tests?.subject).filter(Boolean)));
-  const subjectsChapters = Array.from(new Set(chapterProgress.map(c => c.chapters?.subject).filter(Boolean)));
+  const subjects = Array.from(new Set([
+    ...chapterProgress.map(c => c.chapters?.subject).filter(Boolean),
+    ...testResults.map(t => t.tests?.subject).filter(Boolean)
+  ]));
 
-  const selectedStudent = students.find((s) => s.id === selectedStudentId);
-
-  // AI Summary mutation
+  // AI summary mutation
   const generateSummaryMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("ai-student-summary", {
@@ -160,7 +159,6 @@ export default function StudentReport() {
   // Export CSV
   const exportToCSV = () => {
     if (!selectedStudent) return;
-
     const csvContent = [
       ["Student Report"],
       ["Name", selectedStudent.name],
@@ -173,14 +171,14 @@ export default function StudentReport() {
       ["Percentage", attendancePercentage + "%"],
       [""],
       ["Test Results"],
-      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date", "Answersheet URL"],
+      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date", "Answer Sheet"],
       ...testResults.map(r => [
         r.tests?.name,
         r.tests?.subject,
         r.marks_obtained,
         r.tests?.total_marks,
         format(new Date(r.date_taken), "PPP"),
-        r.answersheet_url || ""
+        r.answersheet_url ? r.answersheet_url : "N/A",
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -205,8 +203,8 @@ export default function StudentReport() {
         )}
       </div>
 
-      {/* Grade & Student Selector */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Filters */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Select Grade</CardTitle>
@@ -245,126 +243,189 @@ export default function StudentReport() {
             </Select>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Filter by Subject</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Subjects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Attendance */}
       {selectedStudent && (
-        <>
-          {/* Filters */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardContent className="pt-6">
-                <Label>Filter Test Results by Subject</Label>
-                <Select value={subjectFilterTests} onValueChange={setSubjectFilterTests}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Subjects</SelectItem>
-                    {subjectsTests.map(subj => (
-                      <SelectItem key={subj} value={subj}>{subj}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <Label>Filter Chapters by Subject</Label>
-                <Select value={subjectFilterChapters} onValueChange={setSubjectFilterChapters}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Subjects</SelectItem>
-                    {subjectsChapters.map(subj => (
-                      <SelectItem key={subj} value={subj}>{subj}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Attendance, Chapters, Test Results, AI Summary */}
-          {/* Similar structure as previous code, but now using correct filtered queries */}
-          {/* Test Results: display marks + uploaded answersheet */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Test Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {testResults.length === 0 && <p className="text-center text-muted-foreground py-8">No test results</p>}
-              {testResults.map(result => (
-                <div key={result.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-semibold">{result.tests?.name}</p>
-                    <p className="text-sm text-muted-foreground">{result.tests?.subject} • {format(new Date(result.date_taken), "PPP")}</p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="font-bold">{result.marks_obtained}/{result.tests?.total_marks}</p>
-                    <p>{Math.round((result.marks_obtained / (result.tests?.total_marks || 1)) * 100)}%</p>
-                    {result.answersheet_url && (
-                      <a
-                        href={`${supabase.storage.from("answersheets").getPublicUrl(result.answersheet_url).publicUrl}`}
-                        target="_blank"
-                        className="text-blue-600 underline text-sm block"
-                        rel="noreferrer"
-                      >
-                        View Answersheet
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Chapter Progress */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Chapter Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3 mb-4">
-                <div>Total Chapters: {totalChaptersCount}</div>
-                <div>Completed: {completedChaptersCount}</div>
-                <div>Progress: {chapterCompletionPercentage}%</div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" /> Attendance Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Total Days</p>
+                <p className="text-2xl font-bold">{totalDays}</p>
               </div>
-              {chapterProgress.map(cp => (
-                <div key={cp.id} className="flex justify-between p-2 border rounded">
-                  <div>
-                    <p className="font-medium">{cp.chapters?.chapter_name}</p>
-                    <p className="text-sm text-muted-foreground">{cp.chapters?.subject} • {format(new Date(cp.date_completed), "PPP")}</p>
-                  </div>
-                  <div>{cp.completed ? "Completed" : "In Progress"}</div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Present</p>
+                <p className="text-2xl font-bold text-green-600">{presentDays}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Absent</p>
+                <p className="text-2xl font-bold text-red-600">{totalDays - presentDays}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Attendance %</p>
+                <p className="text-2xl font-bold">{attendancePercentage}%</p>
+              </div>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Date</th>
+                    <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-left">Time In</th>
+                    <th className="px-4 py-2 text-left">Time Out</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceData.slice(0, 10).map(record => (
+                    <tr key={record.id} className="border-t">
+                      <td className="px-4 py-2">{format(new Date(record.date), "PPP")}</td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${record.status === "Present" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                          {record.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">{record.time_in || "-"}</td>
+                      <td className="px-4 py-2">{record.time_out || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* AI Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
-                AI Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => generateSummaryMutation.mutate()} disabled={generateSummaryMutation.isLoading}>
-                {generateSummaryMutation.isLoading ? <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : "Generate Summary"}
+      {/* Chapter Progress */}
+      {selectedStudent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" /> Chapter Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Total Chapters</p>
+                <p className="text-2xl font-bold">{totalChaptersCount}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{completedChaptersCount}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Progress</p>
+                <p className="text-2xl font-bold">{chapterCompletionPercentage}%</p>
+              </div>
+            </div>
+            {chapterProgress.map(progress => (
+              <div key={progress.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex-1">
+                  <p className="font-medium">{progress.chapters?.chapter_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {progress.chapters?.subject} • {format(new Date(progress.date_completed), "PPP")}
+                  </p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${progress.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                  {progress.completed ? "Completed" : "In Progress"}
+                </div>
+              </div>
+            ))}
+            {chapterProgress.length === 0 && <p className="text-muted-foreground text-center py-8">No chapters recorded yet</p>}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Test Results with Answersheets */}
+      {selectedStudent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Test Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {testResults.map(result => (
+              <div key={result.id} className="flex items-center justify-between p-4 border rounded-lg mb-2">
+                <div className="flex-1">
+                  <p className="font-medium">{result.tests?.name}</p>
+                  <p className="text-sm text-muted-foreground">{result.tests?.subject} • {format(new Date(result.date_taken), "PPP")}</p>
+                </div>
+                <div className="text-right mr-4">
+                  <p className="text-lg font-bold">{result.marks_obtained}/{result.tests?.total_marks}</p>
+                  <p className="text-sm text-muted-foreground">{Math.round((result.marks_obtained / (result.tests?.total_marks || 1)) * 100)}%</p>
+                </div>
+                <div>
+                  {result.answersheet_url && (
+                    <a href={supabase.storage.from("test-files").getPublicUrl(result.answersheet_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                      View Answersheet
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+            {testResults.length === 0 && <p className="text-muted-foreground text-center py-8">No test results recorded yet</p>}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Summary */}
+      {selectedStudent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" /> AI Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
+              <Button
+                onClick={() => generateSummaryMutation.mutate()}
+                disabled={generateSummaryMutation.isLoading}
+              >
+                {generateSummaryMutation.isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Summary"
+                )}
               </Button>
-              <Textarea value={aiSummary} readOnly placeholder="AI summary will appear here..." />
-            </CardContent>
-          </Card>
-        </>
+            </div>
+            <Textarea
+              value={aiSummary}
+              readOnly
+              placeholder="AI summary will appear here..."
+            />
+          </CardContent>
+        </Card>
       )}
     </div>
   );
