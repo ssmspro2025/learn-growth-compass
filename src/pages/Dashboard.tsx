@@ -1,31 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CheckCircle2, XCircle, TrendingUp } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * CenterDashboard
- * This component is for tuition center users to view their own center's data.
- * Displays total students, today's attendance, and attendance rate in cards.
- * All queries are filtered by the center_id of the logged-in user.
+ * Dashboard for tuition center users to view their center's statistics.
+ * Features:
+ *  - Total Students
+ *  - Present Today
+ *  - Absent Today
+ *  - Attendance Rate
+ * 
+ * All data is filtered by the logged-in user's center_id.
  */
 
 export default function CenterDashboard() {
   const { user, loading } = useAuth();
+  const { toast } = useToast();
 
   // ---------------------------
-  // Role / Access check
+  // 0️⃣ Access control
   // ---------------------------
-  if (!user) return <p>Loading user info...</p>;
-  if (user.role === "admin") return <p>Admins should use the Admin Dashboard.</p>;
-
-  const centerId = user.center_id;
+  if (!user && loading) return <p>Loading user info...</p>;
+  if (user?.role === "admin") return <p>Admins should use the Admin Dashboard.</p>;
+  const centerId = user?.center_id;
 
   // ---------------------------
-  // Date helpers
+  // 1️⃣ Date helpers
   // ---------------------------
   const today = new Date();
   const formatDate = (date: Date) => {
@@ -34,17 +39,21 @@ export default function CenterDashboard() {
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   };
-  const todayString = formatDate(today);
+  const todayString = formatDate(today); // "YYYY-MM-DD"
 
   // ---------------------------
-  // State for debugging/logging
+  // 2️⃣ Debug state (optional)
   // ---------------------------
   const [debugAttendance, setDebugAttendance] = useState<any[]>([]);
 
   // ---------------------------
-  // 1️⃣ Fetch total students
+  // 3️⃣ Fetch total students
   // ---------------------------
-  const { data: studentsCount, isLoading: loadingStudents } = useQuery({
+  const {
+    data: studentsCount,
+    isLoading: loadingStudents,
+    error: errorStudents,
+  } = useQuery({
     queryKey: ["students-count", centerId],
     queryFn: async () => {
       if (!centerId) return 0;
@@ -52,6 +61,7 @@ export default function CenterDashboard() {
         .from("students")
         .select("*", { count: "exact", head: true })
         .eq("center_id", centerId);
+
       if (error) throw error;
       return count || 0;
     },
@@ -59,23 +69,23 @@ export default function CenterDashboard() {
   });
 
   // ---------------------------
-  // 2️⃣ Fetch today's attendance
+  // 4️⃣ Fetch today's attendance
   // ---------------------------
-  const { data: todayAttendance, isLoading: loadingAttendance } = useQuery({
+  const {
+    data: todayAttendance,
+    isLoading: loadingAttendance,
+    error: errorAttendance,
+  } = useQuery({
     queryKey: ["today-attendance", todayString, centerId],
     queryFn: async () => {
       if (!centerId) return [];
 
-      // Handle timestamp vs date safely
-      const startOfDay = new Date(todayString + "T00:00:00.000Z").toISOString();
-      const endOfDay = new Date(todayString + "T23:59:59.999Z").toISOString();
-
+      // Supabase column 'date' is assumed to be type 'date'
       const { data, error } = await supabase
         .from("attendance")
         .select("status")
-        .gte("date", startOfDay)
-        .lte("date", endOfDay)
-        .eq("center_id", centerId);
+        .eq("center_id", centerId)
+        .eq("date", todayString);
 
       if (error) throw error;
 
@@ -86,14 +96,14 @@ export default function CenterDashboard() {
   });
 
   // ---------------------------
-  // 3️⃣ Calculate counts
+  // 5️⃣ Calculate present / absent / attendance rate
   // ---------------------------
   const presentCount = todayAttendance?.filter(a => a.status === "Present").length || 0;
   const absentCount = todayAttendance?.filter(a => a.status === "Absent").length || 0;
   const attendanceRate = studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
 
   // ---------------------------
-  // 4️⃣ Stats cards setup
+  // 6️⃣ Stats cards array
   // ---------------------------
   const stats = [
     {
@@ -127,22 +137,44 @@ export default function CenterDashboard() {
   ];
 
   // ---------------------------
-  // 5️⃣ Loading check
-  // ---------------------------
-  if (loading || loadingStudents || loadingAttendance) return <p>Loading dashboard...</p>;
-
-  // ---------------------------
-  // 6️⃣ Debug / optional log
+  // 7️⃣ Error handling
   // ---------------------------
   useEffect(() => {
-    console.log("Today Attendance Data:", debugAttendance);
+    if (errorStudents) {
+      toast({
+        title: "Error fetching students",
+        description: errorStudents.message,
+        variant: "destructive",
+      });
+    }
+    if (errorAttendance) {
+      toast({
+        title: "Error fetching attendance",
+        description: errorAttendance.message,
+        variant: "destructive",
+      });
+    }
+  }, [errorStudents, errorAttendance, toast]);
+
+  // ---------------------------
+  // 8️⃣ Optional debug log
+  // ---------------------------
+  useEffect(() => {
+    console.log("Today's attendance data:", debugAttendance);
   }, [debugAttendance]);
 
   // ---------------------------
-  // 7️⃣ Render
+  // 9️⃣ Loading states
+  // ---------------------------
+  if (loading || loadingStudents || loadingAttendance) {
+    return <p>Loading dashboard...</p>;
+  }
+
+  // ---------------------------
+  // 🔟 Render UI
   // ---------------------------
   return (
-    <div className="space-y-6 min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6 space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Center Dashboard</h2>
@@ -169,6 +201,11 @@ export default function CenterDashboard() {
             </Card>
           );
         })}
+      </div>
+
+      {/* Optional footer / notes */}
+      <div className="text-sm text-muted-foreground">
+        * Data is updated live from your center's records.
       </div>
     </div>
   );
