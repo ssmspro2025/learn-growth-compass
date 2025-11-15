@@ -1,66 +1,99 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CheckCircle2, XCircle, TrendingUp } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
-export default function Dashboard() {
+/**
+ * CenterDashboard
+ * This component is for tuition center users to view their own center's data.
+ * Displays total students, today's attendance, and attendance rate in cards.
+ * All queries are filtered by the center_id of the logged-in user.
+ */
+
+export default function CenterDashboard() {
   const { user, loading } = useAuth();
-  const today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd
-
-  const centerId = user?.center_id;
-  const role = user?.role;
 
   // ---------------------------
-  // 1️⃣ TOTAL STUDENTS COUNT
+  // Role / Access check
   // ---------------------------
-  const { data: studentsCount } = useQuery({
+  if (!user) return <p>Loading user info...</p>;
+  if (user.role === "admin") return <p>Admins should use the Admin Dashboard.</p>;
+
+  const centerId = user.center_id;
+
+  // ---------------------------
+  // Date helpers
+  // ---------------------------
+  const today = new Date();
+  const formatDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+  const todayString = formatDate(today);
+
+  // ---------------------------
+  // State for debugging/logging
+  // ---------------------------
+  const [debugAttendance, setDebugAttendance] = useState<any[]>([]);
+
+  // ---------------------------
+  // 1️⃣ Fetch total students
+  // ---------------------------
+  const { data: studentsCount, isLoading: loadingStudents } = useQuery({
     queryKey: ["students-count", centerId],
     queryFn: async () => {
-      let query = supabase
+      if (!centerId) return 0;
+      const { count, error } = await supabase
         .from("students")
-        .select("*", { count: "exact", head: true });
-
-      if (role !== "admin") {
-        query = query.eq("center_id", centerId);
-      }
-
-      const { count, error } = await query;
+        .select("*", { count: "exact", head: true })
+        .eq("center_id", centerId);
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!user && !loading,
+    enabled: !!centerId && !loading,
   });
 
   // ---------------------------
-  // 2️⃣ TODAY'S ATTENDANCE
+  // 2️⃣ Fetch today's attendance
   // ---------------------------
-  const { data: todayAttendance } = useQuery({
-    queryKey: ["today-attendance", today, centerId],
+  const { data: todayAttendance, isLoading: loadingAttendance } = useQuery({
+    queryKey: ["today-attendance", todayString, centerId],
     queryFn: async () => {
-      let query = supabase
+      if (!centerId) return [];
+
+      // Handle timestamp vs date safely
+      const startOfDay = new Date(todayString + "T00:00:00.000Z").toISOString();
+      const endOfDay = new Date(todayString + "T23:59:59.999Z").toISOString();
+
+      const { data, error } = await supabase
         .from("attendance")
         .select("status")
-        .eq("date", today);
+        .gte("date", startOfDay)
+        .lte("date", endOfDay)
+        .eq("center_id", centerId);
 
-      if (role !== "admin") {
-        query = query.eq("center_id", centerId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
+
+      setDebugAttendance(data || []);
       return data || [];
     },
-    enabled: !!user && !loading,
+    enabled: !!centerId && !loading,
   });
 
-  const presentCount = todayAttendance?.filter((a) => a.status === "Present").length || 0;
-  const absentCount = todayAttendance?.filter((a) => a.status === "Absent").length || 0;
+  // ---------------------------
+  // 3️⃣ Calculate counts
+  // ---------------------------
+  const presentCount = todayAttendance?.filter(a => a.status === "Present").length || 0;
+  const absentCount = todayAttendance?.filter(a => a.status === "Absent").length || 0;
   const attendanceRate = studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
 
   // ---------------------------
-  // 3️⃣ STATS CARDS DATA
+  // 4️⃣ Stats cards setup
   // ---------------------------
   const stats = [
     {
@@ -93,17 +126,32 @@ export default function Dashboard() {
     },
   ];
 
-  if (loading) return <p>Loading dashboard...</p>;
+  // ---------------------------
+  // 5️⃣ Loading check
+  // ---------------------------
+  if (loading || loadingStudents || loadingAttendance) return <p>Loading dashboard...</p>;
 
+  // ---------------------------
+  // 6️⃣ Debug / optional log
+  // ---------------------------
+  useEffect(() => {
+    console.log("Today Attendance Data:", debugAttendance);
+  }, [debugAttendance]);
+
+  // ---------------------------
+  // 7️⃣ Render
+  // ---------------------------
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen bg-background p-6">
+      {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Center Dashboard</h2>
         <p className="text-muted-foreground">
-          Welcome back! Here's today's attendance overview.
+          Welcome back! Here's today's attendance overview for your center.
         </p>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
