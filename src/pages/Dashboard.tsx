@@ -7,10 +7,14 @@ import { Users, CheckCircle2, XCircle, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd
+
+  // Today as YYYY-MM-DD
+  const today = new Date().toISOString().split("T")[0]; 
 
   const centerId = user?.center_id;
   const role = user?.role;
+
+  if (loading) return <p>Loading dashboard...</p>;
 
   // ---------------------------
   // 1️⃣ TOTAL STUDENTS COUNT
@@ -30,19 +34,26 @@ export default function Dashboard() {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!user && !loading,
+    enabled: !!user,
   });
 
   // ---------------------------
-  // 2️⃣ TODAY'S ATTENDANCE
+  // 2️⃣ TODAY ATTENDANCE — FIXED (TIMESTAMP SAFE)
   // ---------------------------
+
   const { data: todayAttendance } = useQuery({
     queryKey: ["today-attendance", today, centerId],
     queryFn: async () => {
+
+      // 🔥 FIX: timestamp-safe start/end of day
+      const startOfDay = new Date(`${today}T00:00:00`);
+      const endOfDay = new Date(`${today}T23:59:59`);
+
       let query = supabase
         .from("attendance")
         .select("status")
-        .eq("date", today);
+        .gte("date", startOfDay.toISOString())
+        .lte("date", endOfDay.toISOString());
 
       if (role !== "admin") {
         query = query.eq("center_id", centerId);
@@ -50,18 +61,29 @@ export default function Dashboard() {
 
       const { data, error } = await query;
       if (error) throw error;
+
       return data || [];
     },
-    enabled: !!user && !loading,
+    enabled: !!user,
   });
 
-  const presentCount = todayAttendance?.filter((a) => a.status === "Present").length || 0;
-  const absentCount = todayAttendance?.filter((a) => a.status === "Absent").length || 0;
-  const attendanceRate = studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
+  // ---------------------------
+  // 3️⃣ CALCULATE COUNTS
+  // ---------------------------
+
+  const presentCount =
+    todayAttendance?.filter((a) => a.status === "Present").length || 0;
+
+  const absentCount =
+    todayAttendance?.filter((a) => a.status === "Absent").length || 0;
+
+  const attendanceRate =
+    studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
 
   // ---------------------------
-  // 3️⃣ STATS CARDS DATA
+  // 4️⃣ STATS CARD DATA
   // ---------------------------
+
   const stats = [
     {
       title: "Total Students",
@@ -93,10 +115,13 @@ export default function Dashboard() {
     },
   ];
 
-  if (loading) return <p>Loading dashboard...</p>;
+  // ---------------------------
+  // 5️⃣ RENDER DASHBOARD UI
+  // ---------------------------
 
   return (
     <div className="space-y-6">
+      
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">
@@ -108,13 +133,19 @@ export default function Dashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.title} className="transition-all hover:shadow-md">
+            <Card
+              key={stat.title}
+              className="transition-all hover:shadow-md"
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
                 <div className={`rounded-lg p-2 ${stat.bgColor}`}>
                   <Icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
               </CardHeader>
+
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
               </CardContent>
