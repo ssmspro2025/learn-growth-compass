@@ -7,7 +7,7 @@ import { Users, CheckCircle2, XCircle, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd
 
   const centerId = user?.center_id;
   const role = user?.role;
@@ -30,48 +30,37 @@ export default function Dashboard() {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!centerId && !loading,
+    enabled: !!user && !loading,
   });
 
   // ---------------------------
-  // 2️⃣ TODAY'S ATTENDANCE — FIXED (same logic as adminDashboard)
+  // 2️⃣ TODAY'S ATTENDANCE
   // ---------------------------
   const { data: todayAttendance } = useQuery({
-    queryKey: ["today-attendance-center", today, centerId],
+    queryKey: ["today-attendance", today, centerId],
     queryFn: async () => {
-      if (!centerId) return [];
-
-      // Must join students table to ensure
-      // attendance pulled belongs to this center
-      const { data, error } = await supabase
+      let query = supabase
         .from("attendance")
-        .select("status, student_id, students(center_id)")
+        .select("status")
         .eq("date", today);
 
+      if (role !== "admin") {
+        query = query.eq("center_id", centerId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-
-      // filter by center (because supabase does not auto filter joined table)
-      const filtered = data.filter(
-        (a) => a.students?.center_id === centerId
-      );
-
-      return filtered;
+      return data || [];
     },
-    enabled: !!centerId && !loading,
+    enabled: !!user && !loading,
   });
 
-  const presentCount =
-    todayAttendance?.filter((a) => a.status === "Present").length || 0;
-
-  const absentCount =
-    todayAttendance?.filter((a) => a.status === "Absent").length || 0;
-
-  const attendanceRate = studentsCount
-    ? Math.round((presentCount / studentsCount) * 100)
-    : 0;
+  const presentCount = todayAttendance?.filter((a) => a.status === "Present").length || 0;
+  const absentCount = todayAttendance?.filter((a) => a.status === "Absent").length || 0;
+  const attendanceRate = studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
 
   // ---------------------------
-  // 3️⃣ STATS CARDS
+  // 3️⃣ STATS CARDS DATA
   // ---------------------------
   const stats = [
     {
