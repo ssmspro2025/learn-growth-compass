@@ -196,6 +196,14 @@ export default function ChaptersTracking() {
     setSelectedStudentIds(filtered.map((s) => s.id));
   };
 
+  // New: select only present students (respecting grade filter)
+  const selectPresentStudents = () => {
+    const filteredPresent = students.filter(
+      (s) => (filterGrade === "all" || s.grade === filterGrade) && presentToday.includes(s.id)
+    );
+    setSelectedStudentIds(filteredPresent.map((s) => s.id));
+  };
+
   const subjects = Array.from(new Set(chapters.map(c => c.subject)));
   const grades = Array.from(new Set(students.map(s => s.grade)));
 
@@ -270,7 +278,10 @@ export default function ChaptersTracking() {
                   <Label className="flex items-center gap-2">
                     <Users className="h-4 w-4" /> Select Students ({selectedStudentIds.length} selected)
                   </Label>
-                  <Button type="button" variant="outline" size="sm" onClick={selectAllStudents}> Select All </Button>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={selectAllStudents}> Select All </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={selectPresentStudents}> Select Present </Button>
+                  </div>
                 </div>
 
                 {/* Grade Filter */}
