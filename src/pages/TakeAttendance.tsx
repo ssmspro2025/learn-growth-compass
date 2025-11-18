@@ -34,14 +34,15 @@ export default function TakeAttendance() {
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
   const [holidayFor, setHolidayFor] = useState<"" | "all" | string>("");
 
-  // NEW — grade filter (added as requested)
+  // Grade filter
   const [gradeFilter, setGradeFilter] = useState<string>("all");
 
-  // Track holidays per date for frontend
+  // Track holidays per date
   const [holidayMap, setHolidayMap] = useState<Record<string, "" | "all" | string>>({});
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
+  // Fetch students for this center
   const { data: students } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
@@ -53,16 +54,21 @@ export default function TakeAttendance() {
     },
   });
 
+  // Fetch attendance for selected date
   const { data: existingAttendance } = useQuery({
     queryKey: ["attendance", dateStr],
     queryFn: async () => {
-      const { data, error } = await supabase.from("attendance").select("student_id, status, time_in, time_out").eq("date", dateStr);
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("student_id, status, time_in, time_out")
+        .eq("date", dateStr);
       if (error) throw error;
       return data;
     },
     enabled: !!dateStr,
   });
 
+  // Initialize attendance state whenever students or date changes
   useEffect(() => {
     if (students) {
       const newAttendance: Record<string, AttendanceRecord> = {};
@@ -82,7 +88,7 @@ export default function TakeAttendance() {
     }
   }, [students, existingAttendance, dateStr, holidayMap]);
 
-  // Apply holiday automatically whenever holidayFor changes
+  // Apply holiday when holidayFor changes
   useEffect(() => {
     if (!students || !holidayFor) return;
     const newAttendance = { ...attendance };
@@ -101,9 +107,11 @@ export default function TakeAttendance() {
     setHolidayMap(prev => ({ ...prev, [dateStr]: holidayFor }));
   }, [holidayFor, students, dateStr]);
 
+  // Save attendance mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!students) return;
+      // Remove existing attendance for selected date
       await supabase.from("attendance").delete().eq("date", dateStr);
 
       const records = students.map((student) => ({
@@ -164,7 +172,7 @@ export default function TakeAttendance() {
 
   const isStudentDisabled = (student: Student) => holidayFor === "all" || student.grade === holidayFor;
 
-  // FILTERED LIST (added only this — NO OTHER CHANGES)
+  // Filter students by selected grade
   const filteredStudents =
     gradeFilter === "all"
       ? students
@@ -177,7 +185,7 @@ export default function TakeAttendance() {
         <p className="text-muted-foreground">Mark students as present or absent</p>
       </div>
 
-      {/* Grade Filter (ADDED ONLY THIS COMPONENT) */}
+      {/* Grade Filter */}
       <Card>
         <CardHeader>
           <CardTitle>Filter by Grade</CardTitle>
