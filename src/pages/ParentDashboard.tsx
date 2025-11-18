@@ -5,19 +5,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, Calendar, BookOpen, FileText, LogOut } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+import { useState, useEffect } from 'react';
+
+interface AttendanceNote {
+  status: 'Present' | 'Absent' | 'None';
+  note: string;
+}
 
 const ParentDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if not parent or missing student_id
   if (!user || user.role !== 'parent' || !user.student_id) {
     navigate('/login-parent');
     return null;
   }
 
-  // ✅ Fetch student details (only assigned student)
   const { data: student } = useQuery({
     queryKey: ['student', user.student_id],
     queryFn: async () => {
@@ -32,7 +44,6 @@ const ParentDashboard = () => {
     },
   });
 
-  // ✅ Fetch attendance for this student only
   const { data: attendance = [] } = useQuery({
     queryKey: ['attendance', user.student_id],
     queryFn: async () => {
@@ -47,7 +58,6 @@ const ParentDashboard = () => {
     },
   });
 
-  // ✅ Fetch test results (linked tests)
   const { data: testResults = [] } = useQuery({
     queryKey: ['test-results', user.student_id],
     queryFn: async () => {
@@ -62,7 +72,6 @@ const ParentDashboard = () => {
     },
   });
 
-  // ✅ Fetch chapters studied (linked chapters)
   const { data: chapters = [] } = useQuery({
     queryKey: ['chapters-studied', user.student_id],
     queryFn: async () => {
@@ -77,7 +86,7 @@ const ParentDashboard = () => {
     },
   });
 
-  // ✅ Attendance stats
+  // Attendance summary stats
   const totalDays = attendance.length;
   const presentDays = attendance.filter((a: any) => a.status === 'Present').length;
   const absentDays = totalDays - presentDays;
@@ -88,6 +97,56 @@ const ParentDashboard = () => {
     navigate('/login-parent');
   };
 
+  // -----------------------------
+  // Mini Calendar localStorage
+  // -----------------------------
+  const localStorageKey = `parentAttendanceNotes-${user.student_id}`;
+  const [calendarNotes, setCalendarNotes] = useState<Record<string, AttendanceNote>>({});
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [showCalendar, setShowCalendar] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(localStorageKey);
+    if (stored) setCalendarNotes(JSON.parse(stored));
+  }, [localStorageKey]);
+
+  const saveNote = (date: string, note: string) => {
+    const existing = calendarNotes[date] || { status: 'None', note: '' };
+    const updated = { ...calendarNotes, [date]: { ...existing, note } };
+    setCalendarNotes(updated);
+    localStorage.setItem(localStorageKey, JSON.stringify(updated));
+  };
+
+  const toggleStatus = (date: string) => {
+    const current = calendarNotes[date] || { status: 'None', note: '' };
+    let nextStatus: AttendanceNote['status'];
+    if (current.status === 'None') nextStatus = 'Present';
+    else if (current.status === 'Present') nextStatus = 'Absent';
+    else nextStatus = 'None';
+
+    const updated = { ...calendarNotes, [date]: { ...current, status: nextStatus } };
+    setCalendarNotes(updated);
+    localStorage.setItem(localStorageKey, JSON.stringify(updated));
+  };
+
+  const daysInMonth = eachDayOfInterval({
+    start: startOfMonth(selectedMonth),
+    end: endOfMonth(selectedMonth),
+  });
+
+  const getDayStatus = (dateStr: string): AttendanceNote['status'] => {
+    return calendarNotes[dateStr]?.status || 'None';
+  };
+
+  const colors = {
+    Present: 'bg-green-500',
+    Absent: 'bg-red-500',
+    None: 'bg-gray-300',
+  };
+
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -150,19 +209,19 @@ const ParentDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <p className="text-2xl font-bold text-blue-600">{totalDays}</p>
                 <p className="text-sm text-muted-foreground">Total Days</p>
               </div>
-              <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
+              <div className="text-center p-4 bg-green-50 rounded-lg">
                 <p className="text-2xl font-bold text-green-600">{presentDays}</p>
                 <p className="text-sm text-muted-foreground">Present</p>
               </div>
-              <div className="text-center p-4 bg-red-50 dark:bg-red-950/20 rounded-lg">
+              <div className="text-center p-4 bg-red-50 rounded-lg">
                 <p className="text-2xl font-bold text-red-600">{absentDays}</p>
                 <p className="text-sm text-muted-foreground">Absent</p>
               </div>
-              <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <p className="text-2xl font-bold text-purple-600">{attendancePercentage}%</p>
                 <p className="text-sm text-muted-foreground">Attendance</p>
               </div>
@@ -174,6 +233,71 @@ const ParentDashboard = () => {
               />
             </div>
           </CardContent>
+        </Card>
+
+        {/* MINI CALENDAR */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" /> Attendance Calendar
+              </span>
+              <Button size="sm" onClick={() => setShowCalendar(prev => !prev)}>
+                {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {showCalendar && (
+            <CardContent>
+              {/* Month selector */}
+              <div className="mb-4">
+                <input
+                  type="month"
+                  value={format(selectedMonth, 'yyyy-MM')}
+                  onChange={(e) => {
+                    const [y, m] = e.target.value.split('-');
+                    setSelectedMonth(new Date(parseInt(y), parseInt(m) - 1));
+                  }}
+                  className="border p-2 rounded"
+                />
+              </div>
+
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 gap-2">
+                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                  <div key={d} className="text-center font-semibold text-sm">{d}</div>
+                ))}
+                {daysInMonth.map(date => {
+                  const dateStr = format(date, 'yyyy-MM-dd');
+                  const status = getDayStatus(dateStr);
+                  return (
+                    <div
+                      key={dateStr}
+                      className={`aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer p-1 border ${
+                        status === 'Present' ? 'bg-green-100' :
+                        status === 'Absent' ? 'bg-red-100' :
+                        'bg-gray-100'
+                      }`}
+                      onClick={() => toggleStatus(dateStr)}
+                    >
+                      <span className="text-xs">{format(date, 'd')}</span>
+                      {calendarNotes[dateStr]?.note && (
+                        <span className="text-[8px] text-gray-600 truncate w-full">{calendarNotes[dateStr].note}</span>
+                      )}
+                      <input
+                        type="text"
+                        placeholder="Note"
+                        value={calendarNotes[dateStr]?.note || ''}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => saveNote(dateStr, e.target.value)}
+                        className="mt-1 w-full text-[8px] p-0.5 border rounded"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* TEST RESULTS */}
