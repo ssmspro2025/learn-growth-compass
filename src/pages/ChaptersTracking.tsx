@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,34 +210,169 @@ export default function ChaptersTracking() {
 
   return (
     <div className="space-y-6">
-      {/* Dialog + record chapter functionality remains intact */}
+      {/* Heading + Record Chapter */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Chapter Tracking</h1>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" /> Record Chapter
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Record Chapter</DialogTitle>
+              <DialogDescription>Select a previously taught chapter or create a new one</DialogDescription>
+            </DialogHeader>
 
-      {/* Student selection UI */}
-      <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-        {students
-          .filter(s => filterGrade === "all" || s.grade === filterGrade)
-          .map(student => {
-            const isPresentToday = presentToday.includes(student.id);
-            return (
-              <div key={student.id} className={`flex items-center space-x-2 p-1 rounded ${isPresentToday ? "bg-green-100" : ""}`}>
-                <Checkbox
-                  id={student.id}
-                  checked={selectedStudentIds.includes(student.id)}
-                  onCheckedChange={() => toggleStudentSelection(student.id)}
-                />
-                <label htmlFor={student.id} className="text-sm font-medium cursor-pointer">
-                  {student.name} - Grade {student.grade}
-                  {isPresentToday && <span className="ml-2 text-green-600 text-xs">(Present Today)</span>}
-                </label>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Date</Label>
+                <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
               </div>
-            );
-          })}
+
+              {/* Select previous chapter */}
+              <div className={`space-y-3 border rounded-lg p-4 ${selectedChapterId ? "border-primary" : ""}`}>
+                <Label className="text-base font-semibold">Select from Previous Chapters</Label>
+                {uniqueChapters.length > 0 ? (
+                  <Select value={selectedChapterId} onValueChange={setSelectedChapterId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a chapter..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueChapters.map(ch => (
+                        <SelectItem key={ch.id} value={ch.id}>
+                          {ch.subject} - {ch.chapter_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No previous chapters found.</p>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+
+              {/* Create new chapter */}
+              <div className={`space-y-3 border rounded-lg p-4 ${subject && chapterName ? "border-primary" : ""}`}>
+                <Label className="text-base font-semibold">Create New Chapter</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Subject</Label>
+                    <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g., Mathematics" />
+                  </div>
+                  <div>
+                    <Label>Chapter Name</Label>
+                    <Input value={chapterName} onChange={e => setChapterName(e.target.value)} placeholder="e.g., Algebra" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label>Notes (Optional)</Label>
+                <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Additional notes..." rows={2} />
+              </div>
+
+              {/* Student selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Users className="h-4 w-4" /> Select Students ({selectedStudentIds.length} selected)
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={selectAllStudents}>
+                    Select All
+                  </Button>
+                </div>
+
+                <div className="mt-2">
+                  <Label>Filter by Grade</Label>
+                  <Select value={filterGrade} onValueChange={setFilterGrade}>
+                    <SelectTrigger><SelectValue placeholder="All Grades" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Grades</SelectItem>
+                      {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                  {students
+                    .filter(s => filterGrade === "all" || s.grade === filterGrade)
+                    .map(student => {
+                      const isPresentToday = presentToday.includes(student.id);
+                      return (
+                        <div key={student.id} className={`flex items-center space-x-2 p-1 rounded ${isPresentToday ? "bg-green-100" : ""}`}>
+                          <Checkbox
+                            id={student.id}
+                            checked={selectedStudentIds.includes(student.id)}
+                            onCheckedChange={() => toggleStudentSelection(student.id)}
+                          />
+                          <label htmlFor={student.id} className="text-sm font-medium cursor-pointer">
+                            {student.name} - Grade {student.grade}
+                            {isPresentToday && <span className="ml-2 text-green-600 text-xs">(Present Today)</span>}
+                          </label>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <Button
+                onClick={() => addChapterMutation.mutate()}
+                disabled={selectedStudentIds.length === 0 || (!selectedChapterId && (!subject || !chapterName)) || addChapterMutation.isPending}
+                className="w-full"
+              >
+                Record Chapter for {selectedStudentIds.length} Student(s)
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Chapters table */}
+      {/* Filters for Chapters Table */}
       <Card>
         <CardHeader>
           <CardTitle>Chapters Taught</CardTitle>
+          <div className="flex gap-4 mt-4">
+            <div className="flex-1">
+              <Label>Filter by Subject</Label>
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {subjects.map(subj => <SelectItem key={subj} value={subj}>{subj}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label>Filter by Student</Label>
+              <Select value={filterStudent} onValueChange={setFilterStudent}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Students</SelectItem>
+                  {students.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label>Filter by Grade</Label>
+              <Select value={filterGrade} onValueChange={setFilterGrade}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Grades</SelectItem>
+                  {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -282,9 +417,7 @@ export default function ChaptersTracking() {
               </div>
             ))}
             {chapters.length === 0 && (
-              <p className="text-muted-foreground text-center py-8">
-                No chapters recorded yet
-              </p>
+              <p className="text-muted-foreground text-center py-8">No chapters recorded yet</p>
             )}
           </div>
         </CardContent>
