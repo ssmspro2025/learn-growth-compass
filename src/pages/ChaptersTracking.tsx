@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,36 +14,64 @@ import { toast } from "sonner";
 import { Trash2, Users, Plus } from "lucide-react";
 import { format } from "date-fns";
 
+/**
+ * ChaptersTracking component
+ *
+ * - Preserves original features.
+ * - Adds popup grade filter, show-present-only (for selected date), auto-select present students.
+ * - Select All respects filters.
+ * - Ensures chapters are center-scoped and new chapters store center_id.
+ * - Fixes auto-select-on-date-change by normalizing dates and watching date + presentStudents.
+ */
+
 export default function ChaptersTracking() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Core states (original features preserved)
+  // ----------------------------
+  // Core states (original)
+  // ----------------------------
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd")); // used for attendance lookup & insertion
-  const [subject, setSubject] = useState("");
-  const [chapterName, setChapterName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [filterSubject, setFilterSubject] = useState("all");
-  const [filterStudent, setFilterStudent] = useState("all");
-  const [filterGrade, setFilterGrade] = useState("all");
-  const [selectedChapterId, setSelectedChapterId] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [date, setDate] = useState<string>(format(new Date(), "yyyy-MM-dd")); // primary 'date' used in popup and mutations
+  const [subject, setSubject] = useState<string>("");
+  const [chapterName, setChapterName] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [filterSubject, setFilterSubject] = useState<string>("all");
+  const [filterStudent, setFilterStudent] = useState<string>("all");
+  const [filterGrade, setFilterGrade] = useState<string>("all");
+  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
-  // Popup-specific features requested
-  const [popupGradeFilter, setPopupGradeFilter] = useState("all");
-  const [showPresentOnly, setShowPresentOnly] = useState(false);
-  const [autoSelectPresent, setAutoSelectPresent] = useState(true);
+  // ----------------------------
+  // Popup-specific requested features
+  // ----------------------------
+  const [popupGradeFilter, setPopupGradeFilter] = useState<string>("all");
+  const [showPresentOnly, setShowPresentOnly] = useState<boolean>(false);
+  const [autoSelectPresent, setAutoSelectPresent] = useState<boolean>(true);
 
-  // ----------------------
-  // FETCH STUDENTS (center-scoped)
-  // ----------------------
+  // ----------------------------
+  // Helper: normalize date string to YYYY-MM-DD
+  // Ensures we compare the same format whether the input returns "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM"
+  // ----------------------------
+  const normalizeDate = useCallback((d: string | undefined) => {
+    if (!d) return "";
+    // If string contains 'T', split off time
+    if (d.includes("T")) return d.split("T")[0];
+    // If it contains a space and time, split
+    if (d.includes(" ")) return d.split(" ")[0];
+    // Otherwise assume YYYY-MM-DD or already normalized
+    return d;
+  }, []);
+
+  // ----------------------------
+  // Fetch students (center-scoped)
+  // ----------------------------
   const { data: students = [] } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
       let query = supabase.from("students").select("*").order("name", { ascending: true });
 
-      // non-admins only see their center students; admin might want to pass center filter via UI
+      // If not an admin, limit to own center
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
@@ -52,38 +80,46 @@ export default function ChaptersTracking() {
       if (error) throw error;
       return data || [];
     },
-    // keep previous data while refetching for smoother UI
     staleTime: 1000 * 30,
   });
 
-  // ----------------------
-  // FETCH PRESENT STUDENTS FOR SELECTED DATE (works for past dates)
-  // ----------------------
-  const { data: presentStudents = [] } = useQuery({
-    queryKey: ["present-students", date, user?.center_id],
-    queryFn: async () => {
-      if (!date) return [];
+  // Derived grade list for selects
+  const grades = Array.from(new Set((students || []).map((s: any) => s.grade))).filter(Boolean);
 
+  // ----------------------------
+  // Fetch present students for the selected date (works for past dates)
+  // ----------------------------
+  // Use normalized date for query key & equality checks
+  const normalizedDate = normalizeDate(date);
+
+  const { data: presentStudents = [] } = useQuery({
+    queryKey: ["present-students", normalizedDate, user?.center_id],
+    queryFn: async () => {
+      if (!normalizedDate || !user?.center_id) return [];
       const { data, error } = await supabase
         .from("attendance")
         .select("student_id")
-        .eq("date", date)
+        .eq("date", normalizedDate)
         .eq("center_id", user?.center_id)
         .eq("status", "present");
 
       if (error) throw error;
-      // return array of student_id strings
       return (data || []).map((r: any) => r.student_id);
     },
-    enabled: !!date && !!user?.center_id,
+    enabled: !!normalizedDate && !!user?.center_id,
     staleTime: 1000 * 30,
   });
 
-  // If user toggles autoSelectPresent or date/presentStudents change, auto-select present students
+  // ----------------------------
+  // Auto-select present students when date or presentStudents change (fixes the bug)
+  // - Runs even if presentStudents is empty (so it clears selection if nobody present)
+  // - Respects popupGradeFilter (auto selects only those present + matching grade)
+  // ----------------------------
   useEffect(() => {
+    if (!normalizedDate) return;
+
     if (autoSelectPresent) {
-      // Only auto select those that also match popup grade filter (so auto selection respects grade filter)
-      const autoSelected = students
+      const autoSelected = (students || [])
         .filter((s: any) => presentStudents.includes(s.id))
         .filter((s: any) => popupGradeFilter === "all" || s.grade === popupGradeFilter)
         .map((s: any) => s.id);
@@ -91,18 +127,18 @@ export default function ChaptersTracking() {
       setSelectedStudentIds(autoSelected);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presentStudents, autoSelectPresent, popupGradeFilter]); // popupGradeFilter included to re-auto-select when grade filter changes
+  }, [presentStudents, normalizedDate, autoSelectPresent, popupGradeFilter, students]);
 
-  // ----------------------
-  // FETCH CHAPTERS (center-scoped) and apply filters (subject / student / grade)
-  // ----------------------
+  // ----------------------------
+  // Fetch chapters (center-scoped) and apply index-level filters
+  // ----------------------------
   const { data: chapters = [] } = useQuery({
     queryKey: ["chapters", filterSubject, filterStudent, filterGrade, user?.center_id],
     queryFn: async () => {
       let query = supabase
         .from("chapters")
         .select("*, student_chapters(*, students(name, grade, center_id))")
-        .eq("center_id", user?.center_id) // IMPORTANT: restrict chapters to this center
+        .eq("center_id", user?.center_id) // center scoping — prevents cross-center leakage
         .order("date_taught", { ascending: false });
 
       if (filterSubject !== "all") query = query.eq("subject", filterSubject);
@@ -111,14 +147,12 @@ export default function ChaptersTracking() {
       if (error) throw error;
       let filtered = data || [];
 
-      // Filter by student (if set)
       if (filterStudent !== "all") {
         filtered = filtered.filter((chapter: any) =>
           chapter.student_chapters?.some((sc: any) => sc.student_id === filterStudent)
         );
       }
 
-      // Filter by grade (if set)
       if (filterGrade !== "all") {
         filtered = filtered.filter((chapter: any) =>
           chapter.student_chapters?.some((sc: any) => sc.students?.grade === filterGrade)
@@ -130,9 +164,9 @@ export default function ChaptersTracking() {
     staleTime: 1000 * 30,
   });
 
-  // ----------------------
-  // FETCH UNIQUE CHAPTERS (center-scoped)
-  // ----------------------
+  // ----------------------------
+  // Unique chapters for Select (center-scoped)
+  // ----------------------------
   const { data: uniqueChapters = [] } = useQuery({
     queryKey: ["unique-chapters", user?.center_id],
     queryFn: async () => {
@@ -156,17 +190,15 @@ export default function ChaptersTracking() {
     staleTime: 1000 * 60,
   });
 
-  // ----------------------
-  // ADD CHAPTER MUTATION (inserts center_id) - preserves original behavior + center_id
-  // ----------------------
+  // ----------------------------
+  // Add chapter mutation (inserts center_id)
+  // ----------------------------
   const addChapterMutation = useMutation({
     mutationFn: async () => {
       let chapterId: string;
 
       if (selectedChapterId) {
-        // recording an existing chapter (clone into this center by linking or by creating a new chapter instance)
-        // We will create a new chapter record under this center with same subject/name + date/notes
-        const selected = uniqueChapters.find((c: any) => c.id === selectedChapterId);
+        const selected = (uniqueChapters || []).find((c: any) => c.id === selectedChapterId);
         if (!selected) throw new Error("Chapter not found");
 
         const { data: chapterData, error } = await supabase
@@ -174,7 +206,7 @@ export default function ChaptersTracking() {
           .insert({
             subject: selected.subject,
             chapter_name: selected.chapter_name,
-            date_taught: date,
+            date_taught: normalizedDate,
             notes: notes || null,
             center_id: user?.center_id,
           })
@@ -189,9 +221,9 @@ export default function ChaptersTracking() {
           .insert({
             subject,
             chapter_name: chapterName,
-            date_taught: date,
+            date_taught: normalizedDate,
             notes: notes || null,
-            center_id: user?.center_id, // ensure chapter is bound to current center
+            center_id: user?.center_id,
           })
           .select()
           .single();
@@ -202,12 +234,13 @@ export default function ChaptersTracking() {
         throw new Error("Select a previous chapter or enter a new one");
       }
 
+      // link students if any selected
       if (selectedStudentIds.length > 0) {
         const studentChapters = selectedStudentIds.map((studentId) => ({
           student_id: studentId,
           chapter_id: chapterId,
           completed: true,
-          date_completed: date,
+          date_completed: normalizedDate,
         }));
 
         const { error: linkError } = await supabase.from("student_chapters").insert(studentChapters);
@@ -217,9 +250,9 @@ export default function ChaptersTracking() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chapters"] });
       queryClient.invalidateQueries({ queryKey: ["unique-chapters"] });
-      queryClient.invalidateQueries({ queryKey: ["present-students", date, user?.center_id] });
+      queryClient.invalidateQueries({ queryKey: ["present-students", normalizedDate, user?.center_id] });
       toast.success("Chapter recorded for selected students");
-      // reset popup state
+      // reset popup state (but keep date as user likely wants to record multiple for same date)
       setSelectedStudentIds([]);
       setSubject("");
       setChapterName("");
@@ -234,13 +267,12 @@ export default function ChaptersTracking() {
     },
   });
 
-  // ----------------------
-  // DELETE CHAPTER MUTATION (keeps simple behavior of original; only deletes chapter row)
-  // ----------------------
+  // ----------------------------
+  // Delete chapter mutation
+  // ----------------------------
   const deleteChapterMutation = useMutation({
     mutationFn: async (id: string) => {
-      // optionally: remove linked student_chapters first to avoid FK issues if any
-      // await supabase.from("student_chapters").delete().eq("chapter_id", id);
+      // optional: remove student_chapters first if your DB requires that
       const { error } = await supabase.from("chapters").delete().eq("id", id);
       if (error) throw error;
     },
@@ -253,21 +285,20 @@ export default function ChaptersTracking() {
     },
   });
 
-  // ----------------------
-  // Helper selection functions
-  // ----------------------
+  // ----------------------------
+  // Selection helpers
+  // ----------------------------
   const toggleStudentSelection = (studentId: string) => {
     setSelectedStudentIds((prev) =>
       prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
     );
   };
 
-  // select all respects popup grade filter & present-only filter
+  // Select all respects popup grade filter & present-only filter
   const selectAllStudents = () => {
     const filtered = (students || [])
       .filter((s: any) => popupGradeFilter === "all" || s.grade === popupGradeFilter)
       .filter((s: any) => !showPresentOnly || presentStudents.includes(s.id));
-
     setSelectedStudentIds(filtered.map((s: any) => s.id));
   };
 
@@ -275,7 +306,7 @@ export default function ChaptersTracking() {
     setSelectedStudentIds([]);
   };
 
-  // toggle present-only: when enabling it, auto-select present students (respecting grade filter)
+  // Toggle present-only: when enabling, auto-select present students respecting grade filter.
   const handlePresentOnlyToggle = () => {
     const next = !showPresentOnly;
     setShowPresentOnly(next);
@@ -286,11 +317,11 @@ export default function ChaptersTracking() {
         .filter((s: any) => presentStudents.includes(s.id));
       setSelectedStudentIds(filtered.map((s: any) => s.id));
     } else {
-      // if disabling present-only, do not change selection (or you may choose to clear)
+      // do not automatically clear selection when turning presentOnly off (may be desired)
     }
   };
 
-  // if popupGradeFilter changes, and autoSelectPresent is on, update selectedStudentIds to match present+grade
+  // When popupGradeFilter changes and autoSelectPresent is on, update selection (keeps selection consistent)
   useEffect(() => {
     if (autoSelectPresent) {
       const auto = (students || [])
@@ -300,15 +331,20 @@ export default function ChaptersTracking() {
       setSelectedStudentIds(auto);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [popupGradeFilter, students]);
+  }, [popupGradeFilter]);
 
-  const subjects = Array.from(new Set((chapters || []).map((c: any) => c.subject)));
-  const grades = Array.from(new Set((students || []).map((s: any) => s.grade)));
+  // Derived subjects for filter
+  const subjects = Array.from(new Set((chapters || []).map((c: any) => c.subject))).filter(Boolean);
 
+  // ----------------------------
+  // Render
+  // ----------------------------
   return (
     <div className="space-y-6">
+      {/* Header + Record Button */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Chapters Tracking</h1>
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -326,19 +362,23 @@ export default function ChaptersTracking() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Date - using setDate with normalized value */}
               <div>
                 <Label>Date</Label>
                 <Input
                   type="date"
                   value={date}
                   onChange={(e) => {
-                    setDate(e.target.value);
-                    // reset selection on date change to avoid stale selection; auto-select present will kick in via effect
+                    // normalize and set; normalizedDate will update presentStudents query
+                    const nd = normalizeDate(e.target.value);
+                    setDate(nd);
+                    // clear selection first; autoSelectPresent effect will repopulate if enabled
                     setSelectedStudentIds([]);
                   }}
                 />
               </div>
 
+              {/* Select previous chapter */}
               <div className={`space-y-3 border rounded-lg p-4 ${selectedChapterId ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Select from Previous Chapters</Label>
                 {uniqueChapters.length > 0 ? (
@@ -359,6 +399,7 @@ export default function ChaptersTracking() {
                 )}
               </div>
 
+              {/* Divider "Or" */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -368,6 +409,7 @@ export default function ChaptersTracking() {
                 </div>
               </div>
 
+              {/* Create new chapter */}
               <div className={`space-y-3 border rounded-lg p-4 ${subject && chapterName ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Create New Chapter</Label>
                 <div className="grid grid-cols-2 gap-4">
@@ -382,11 +424,13 @@ export default function ChaptersTracking() {
                 </div>
               </div>
 
+              {/* Notes */}
               <div>
                 <Label>Notes (Optional)</Label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional notes..." rows={2} />
               </div>
 
+              {/* Student selection area */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
@@ -417,7 +461,7 @@ export default function ChaptersTracking() {
                   </Select>
                 </div>
 
-                {/* Show present only + auto-select toggle */}
+                {/* Show present only & Auto-select toggles */}
                 <div className="flex items-center gap-4 mt-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="presentOnly" checked={showPresentOnly} onCheckedChange={handlePresentOnlyToggle} />
@@ -434,10 +478,11 @@ export default function ChaptersTracking() {
                   </div>
                 </div>
 
+                {/* Students list */}
                 <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-                  {students
+                  {(students || [])
                     .filter((s: any) => popupGradeFilter === "all" || s.grade === popupGradeFilter)
-                    .filter((s: any) => !showPresentOnly || presentStudents.includes(s.id))
+                    .filter((s: any) => !showPresentOnly || (presentStudents || []).includes(s.id))
                     .map((student: any) => (
                       <div key={student.id} className="flex items-center space-x-2">
                         <Checkbox
@@ -453,6 +498,7 @@ export default function ChaptersTracking() {
                 </div>
               </div>
 
+              {/* Submit button */}
               <Button
                 onClick={() => addChapterMutation.mutate()}
                 disabled={
@@ -469,6 +515,7 @@ export default function ChaptersTracking() {
         </Dialog>
       </div>
 
+      {/* Chapters list & filters */}
       <Card>
         <CardHeader>
           <CardTitle>Chapters Taught</CardTitle>
@@ -489,7 +536,7 @@ export default function ChaptersTracking() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Students</SelectItem>
-                  {students.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  {(students || []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -505,9 +552,10 @@ export default function ChaptersTracking() {
             </div>
           </div>
         </CardHeader>
+
         <CardContent>
           <div className="space-y-4">
-            {chapters.map((chapter: any) => (
+            {(chapters || []).map((chapter: any) => (
               <div key={chapter.id} className="border rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -516,7 +564,7 @@ export default function ChaptersTracking() {
                       <span className="text-sm text-muted-foreground">{chapter.subject}</span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Date Taught: {format(new Date(chapter.date_taught), "PPP")}
+                      Date Taught: {chapter.date_taught ? format(new Date(chapter.date_taught), "PPP") : "-"}
                     </p>
                     {chapter.notes && <p className="text-sm mb-2">{chapter.notes}</p>}
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -533,7 +581,7 @@ export default function ChaptersTracking() {
                 </div>
               </div>
             ))}
-            {chapters.length === 0 && (
+            {(chapters || []).length === 0 && (
               <p className="text-muted-foreground text-center py-8">
                 No chapters recorded yet
               </p>
