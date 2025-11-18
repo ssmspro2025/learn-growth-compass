@@ -33,16 +33,13 @@ export default function TakeAttendance() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
   const [holidayFor, setHolidayFor] = useState<"" | "all" | string>("");
-
-  // Grade filter
   const [gradeFilter, setGradeFilter] = useState<string>("all");
 
-  // Track holidays per date
   const [holidayMap, setHolidayMap] = useState<Record<string, "" | "all" | string>>({});
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-  // Fetch students for this center
+  // Fetch students
   const { data: students } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
@@ -52,6 +49,24 @@ export default function TakeAttendance() {
       if (error) throw error;
       return data as Student[];
     },
+  });
+
+  // Fetch all dates with attendance for this center
+  const { data: attendanceDates } = useQuery({
+    queryKey: ["attendance-dates", user?.center_id],
+    queryFn: async () => {
+      const studentIds = students?.map(s => s.id) || [];
+      if (studentIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("date")
+        .in("student_id", studentIds)
+        .order("date", { ascending: false });
+      if (error) throw error;
+      const uniqueDates = Array.from(new Set(data?.map((d: any) => d.date)));
+      return uniqueDates;
+    },
+    enabled: !!students?.length,
   });
 
   // Fetch attendance for selected date
@@ -68,27 +83,25 @@ export default function TakeAttendance() {
     enabled: !!dateStr,
   });
 
-  // Initialize attendance state whenever students or date changes
+  // Initialize attendance state when students or date changes
   useEffect(() => {
-    if (students) {
-      const newAttendance: Record<string, AttendanceRecord> = {};
-      students.forEach((student) => {
-        const record = existingAttendance?.find(a => a.student_id === student.id);
-        newAttendance[student.id] = {
-          present: record?.status === "Present",
-          timeIn: record?.time_in || "",
-          timeOut: record?.time_out || "",
-          studentId: student.id,
-        };
-      });
-      setAttendance(newAttendance);
+    if (!students) return;
+    const newAttendance: Record<string, AttendanceRecord> = {};
+    students.forEach((student) => {
+      const record = existingAttendance?.find(a => a.student_id === student.id);
+      newAttendance[student.id] = {
+        present: record?.status === "Present",
+        timeIn: record?.time_in || "",
+        timeOut: record?.time_out || "",
+        studentId: student.id,
+      };
+    });
+    setAttendance(newAttendance);
 
-      // Reset holiday for this date if previously saved
-      setHolidayFor(holidayMap[dateStr] || "");
-    }
+    setHolidayFor(holidayMap[dateStr] || "");
   }, [students, existingAttendance, dateStr, holidayMap]);
 
-  // Apply holiday when holidayFor changes
+  // Apply holiday
   useEffect(() => {
     if (!students || !holidayFor) return;
     const newAttendance = { ...attendance };
@@ -107,11 +120,9 @@ export default function TakeAttendance() {
     setHolidayMap(prev => ({ ...prev, [dateStr]: holidayFor }));
   }, [holidayFor, students, dateStr]);
 
-  // Save attendance mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!students) return;
-      // Remove existing attendance for selected date
       await supabase.from("attendance").delete().eq("date", dateStr);
 
       const records = students.map((student) => ({
@@ -126,7 +137,8 @@ export default function TakeAttendance() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance", dateStr] });
+      queryClient.invalidateQueries({ queryKey: ["attendance-dates", user?.center_id] });
       toast.success("Attendance saved successfully!");
     },
     onError: () => toast.error("Failed to save attendance"),
@@ -172,7 +184,6 @@ export default function TakeAttendance() {
 
   const isStudentDisabled = (student: Student) => holidayFor === "all" || student.grade === holidayFor;
 
-  // Filter students by selected grade
   const filteredStudents =
     gradeFilter === "all"
       ? students
@@ -184,6 +195,28 @@ export default function TakeAttendance() {
         <h2 className="text-3xl font-bold tracking-tight">Take Attendance</h2>
         <p className="text-muted-foreground">Mark students as present or absent</p>
       </div>
+
+      {/* Past Dates Dropdown */}
+      {attendanceDates && attendanceDates.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Past Attendance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="border p-2 rounded"
+              value={dateStr}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            >
+              {attendanceDates.map((d: string) => (
+                <option key={d} value={d}>
+                  {format(new Date(d), "PPP")}
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Grade Filter */}
       <Card>
@@ -230,7 +263,7 @@ export default function TakeAttendance() {
         </CardContent>
       </Card>
 
-      {/* Date Picker */}
+      {/* Calendar */}
       <Card>
         <CardHeader>
           <CardTitle>Select Date</CardTitle>
