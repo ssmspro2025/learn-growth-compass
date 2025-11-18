@@ -21,6 +21,7 @@ export default function StudentReport() {
     to: endOfMonth(new Date()),
   });
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [gradeFilter, setGradeFilter] = useState<string>("all"); // Added grade filter
   const [aiSummary, setAiSummary] = useState<string>("");
 
   // Fetch students (center-specific)
@@ -34,6 +35,9 @@ export default function StudentReport() {
       return data;
     },
   });
+
+  // Filter students by grade
+  const filteredStudents = students.filter(s => gradeFilter === "all" || s.grade === gradeFilter);
 
   // Fetch attendance
   const { data: attendanceData = [] } = useQuery({
@@ -184,6 +188,28 @@ export default function StudentReport() {
         )}
       </div>
 
+      {/* Grade Filter */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter by Grade</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <SelectTrigger className="w-full md:w-[200px]">
+              <SelectValue placeholder="Select grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {Array.from(new Set(students.map(s => s.grade))).map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
       {/* Student Selector */}
       <Card>
         <CardHeader>
@@ -195,7 +221,7 @@ export default function StudentReport() {
               <SelectValue placeholder="Choose a student" />
             </SelectTrigger>
             <SelectContent>
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
                   {student.name} - Grade {student.grade}
                 </SelectItem>
@@ -205,7 +231,7 @@ export default function StudentReport() {
         </CardContent>
       </Card>
 
-      {/* All sections visible only when student selected */}
+      {/* Sections visible only when student selected */}
       {selectedStudent && (
         <>
           {/* Date Range & Subject Filter */}
@@ -248,7 +274,7 @@ export default function StudentReport() {
             </Card>
           </div>
 
-          {/* Attendance */}
+          {/* Attendance Overview */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
