@@ -56,8 +56,8 @@ export default function Dashboard() {
   });
 
   const presentCount = todayAttendance?.filter((a) => a.status === "Present").length || 0;
-  const absentCount = todayAttendance?.filter((a) => a.status === "Absent").length || 0;
-  const attendanceRate = studentsCount ? Math.round((presentCount / studentsCount) * 100) : 0;
+  const absentCount = Math.max(0, (studentsCount || 0) - presentCount);
+  const absentRate = studentsCount ? Math.round((absentCount / studentsCount) * 100) : 0;
 
   // ---------------------------
   // 3️⃣ STATS CARDS DATA
@@ -85,8 +85,8 @@ export default function Dashboard() {
       bgColor: "bg-destructive/10",
     },
     {
-      title: "Attendance Rate",
-      value: `${attendanceRate}%`,
+      title: "Absent Rate",
+      value: `${absentRate}%`,
       icon: TrendingUp,
       color: "text-accent",
       bgColor: "bg-accent/10",
