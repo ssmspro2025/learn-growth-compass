@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import Tooltip from "@/components/ui/tooltip"; // Assuming you have a Tooltip component
 
 interface StudentSummary {
   id: string;
@@ -62,7 +63,6 @@ export default function Summary() {
 
   const grades = [...new Set(students?.map((s) => s.grade) || [])];
 
-  // Filter and calculate summary data
   const summaryData: StudentSummary[] =
     students
       ?.map((student) => {
@@ -125,6 +125,12 @@ export default function Summary() {
     window.URL.revokeObjectURL(url);
   };
 
+  // Function to format absent dates for display
+  const formatAbsentDates = (dates: string[]) => {
+    if (dates.length <= 3) return dates.map(d => format(new Date(d), "MMM d")).join(", ");
+    return dates.slice(0, 3).map(d => format(new Date(d), "MMM d")).join(", ") + ", ...";
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -147,7 +153,7 @@ export default function Summary() {
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row gap-4">
           <Select value={gradeFilter} onValueChange={setGradeFilter}>
-            <SelectTrigger className="w-full md:w-[200px]">
+            <SelectTrigger className="w-full md:w-[150px]">
               <SelectValue placeholder="Select grade" />
             </SelectTrigger>
             <SelectContent>
@@ -160,7 +166,7 @@ export default function Summary() {
             </SelectContent>
           </Select>
 
-          <div className="flex-1 md:w-[200px]">
+          <div className="flex-1 md:w-[150px]">
             <label className="block text-sm font-medium mb-1">Month</label>
             <input
               type="month"
@@ -203,29 +209,27 @@ export default function Summary() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="overflow-x-auto max-w-[200px]">
-                          <Badge variant="destructive">
-                            {student.absent}
-                          </Badge>
-                        </div>
+                        <Badge variant="destructive">
+                          {student.absent}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">{student.total}</TableCell>
                       <TableCell className="text-center">
                         <Badge
                           variant={student.percentage >= 75 ? "default" : "destructive"}
-                          className={
-                            student.percentage >= 75 ? "bg-secondary hover:bg-secondary/80" : ""
-                          }
+                          className={student.percentage >= 75 ? "bg-secondary hover:bg-secondary/80" : ""}
                         >
                           {student.percentage}%
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="overflow-x-auto max-w-[250px] whitespace-nowrap">
-                          {student.absentDates.length > 0
-                            ? student.absentDates.map((date) => format(new Date(date), "MMM d")).join(", ")
-                            : "None"}
-                        </div>
+                      <TableCell>
+                        {student.absentDates.length > 0 ? (
+                          <Tooltip content={student.absentDates.map(d => format(new Date(d), "MMM d")).join(", ")}>
+                            <div className="cursor-pointer">{formatAbsentDates(student.absentDates)}</div>
+                          </Tooltip>
+                        ) : (
+                          "None"
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
