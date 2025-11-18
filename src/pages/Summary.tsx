@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
-import Tooltip from "@/components/ui/tooltip"; // Assuming you have a Tooltip component
+import { Tooltip } from "@/components/ui/tooltip"; // <-- fixed named import
 
 interface StudentSummary {
   id: string;
@@ -25,20 +25,15 @@ interface StudentSummary {
 export default function Summary() {
   const { user } = useAuth();
   const [gradeFilter, setGradeFilter] = useState<string>("all");
-  const [monthFilter, setMonthFilter] = useState<string>("all"); // "YYYY-MM" format or "all"
+  const [monthFilter, setMonthFilter] = useState<string>(format(new Date(), "yyyy-MM"));
 
   const { data: students } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      let query = supabase
-        .from("students")
-        .select("*")
-        .order("name");
-
-      if (user?.role !== 'admin' && user?.center_id) {
-        query = query.eq('center_id', user.center_id);
+      let query = supabase.from("students").select("*").order("name");
+      if (user?.role !== "admin" && user?.center_id) {
+        query = query.eq("center_id", user.center_id);
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -46,17 +41,25 @@ export default function Summary() {
   });
 
   const { data: allAttendance } = useQuery({
-    queryKey: ["all-attendance", user?.center_id],
+    queryKey: ["all-attendance", user?.center_id, monthFilter],
     queryFn: async () => {
-      const studentIds = students?.map(s => s.id) || [];
+      const studentIds = students?.map((s) => s.id) || [];
       if (studentIds.length === 0) return [];
 
       const { data, error } = await supabase
         .from("attendance")
         .select("*")
         .in("student_id", studentIds);
+
       if (error) throw error;
-      return data;
+
+      // Filter by selected month
+      const startDate = startOfMonth(parseISO(monthFilter + "-01"));
+      const endDate = endOfMonth(startDate);
+
+      return data.filter((a) =>
+        isWithinInterval(new Date(a.date), { start: startDate, end: endDate })
+      );
     },
     enabled: (students?.length || 0) > 0,
   });
@@ -66,18 +69,8 @@ export default function Summary() {
   const summaryData: StudentSummary[] =
     students
       ?.map((student) => {
-        let studentAttendance = allAttendance?.filter((a) => a.student_id === student.id) || [];
-
-        // Apply month filter
-        if (monthFilter !== "all") {
-          const [year, month] = monthFilter.split("-");
-          const start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
-          const end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
-          studentAttendance = studentAttendance.filter((a) =>
-            isWithinInterval(parseISO(a.date), { start, end })
-          );
-        }
-
+        const studentAttendance =
+          allAttendance?.filter((a) => a.student_id === student.id) || [];
         const present = studentAttendance.filter((a) => a.status === "Present").length;
         const absent = studentAttendance.filter((a) => a.status === "Absent").length;
         const total = present + absent;
@@ -125,12 +118,6 @@ export default function Summary() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Function to format absent dates for display
-  const formatAbsentDates = (dates: string[]) => {
-    if (dates.length <= 3) return dates.map(d => format(new Date(d), "MMM d")).join(", ");
-    return dates.slice(0, 3).map(d => format(new Date(d), "MMM d")).join(", ") + ", ...";
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -138,12 +125,36 @@ export default function Summary() {
         <p className="text-muted-foreground">View detailed attendance statistics</p>
       </div>
 
+      {/* Filters Card */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div>
-              <CardTitle>Filters</CardTitle>
-              <CardDescription>Select grade and month to filter students</CardDescription>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <div>
+                <CardTitle>Filter by Grade</CardTitle>
+                <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {grades.map((grade) => (
+                      <SelectItem key={grade} value={grade}>
+                        {grade}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <CardTitle>Filter by Month</CardTitle>
+                <input
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="px-3 py-1 border rounded-md w-[150px]"
+                />
+              </div>
             </div>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="mr-2 h-4 w-4" />
@@ -151,33 +162,9 @@ export default function Summary() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col md:flex-row gap-4">
-          <Select value={gradeFilter} onValueChange={setGradeFilter}>
-            <SelectTrigger className="w-full md:w-[150px]">
-              <SelectValue placeholder="Select grade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Grades</SelectItem>
-              {grades.map((grade) => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex-1 md:w-[150px]">
-            <label className="block text-sm font-medium mb-1">Month</label>
-            <input
-              type="month"
-              value={monthFilter === "all" ? "" : monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value || "all")}
-              className="w-full px-3 py-2 border rounded-md"
-            />
-          </div>
-        </CardContent>
       </Card>
 
+      {/* Student Statistics Table */}
       <Card>
         <CardHeader>
           <CardTitle>Student Statistics</CardTitle>
@@ -209,9 +196,7 @@ export default function Summary() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="destructive">
-                          {student.absent}
-                        </Badge>
+                        <Badge variant="destructive">{student.absent}</Badge>
                       </TableCell>
                       <TableCell className="text-center">{student.total}</TableCell>
                       <TableCell className="text-center">
@@ -223,12 +208,16 @@ export default function Summary() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {student.absentDates.length > 0 ? (
-                          <Tooltip content={student.absentDates.map(d => format(new Date(d), "MMM d")).join(", ")}>
-                            <div className="cursor-pointer">{formatAbsentDates(student.absentDates)}</div>
+                        {student.absentDates.length > 3 ? (
+                          <Tooltip content={student.absentDates.map((d) => format(new Date(d), "MMM d")).join(", ")}>
+                            <div className="truncate max-w-[100px] cursor-pointer text-sm text-blue-600 underline">
+                              {student.absentDates.slice(0, 3).map((d) => format(new Date(d), "MMM d")).join(", ")}...
+                            </div>
                           </Tooltip>
                         ) : (
-                          "None"
+                          <div className="text-sm">
+                            {student.absentDates.map((d) => format(new Date(d), "MMM d")).join(", ") || "None"}
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
