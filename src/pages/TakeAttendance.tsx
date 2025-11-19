@@ -182,16 +182,17 @@ export default function TakeAttendance() {
   };
 
   /* --------------------------------------------------------------------------
-    8️⃣ SAVE ATTENDANCE (CENTER-SAFE & GRADE-SAFE)
+    8️⃣ SAVE ATTENDANCE (CENTER-SAFE & GRADE-SAFE & STUDENT-SAFE)
   -------------------------------------------------------------------------- */
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!students || !filteredStudents) return;
 
-      // Only overwrite attendance of students that are in filteredStudents
-      const studentsToSave = filteredStudents;
+      const studentsToSave = filteredStudents.filter(
+        (s) => attendance[s.id]?.present !== undefined
+      );
 
-      // Delete only these students attendance for selected date
+      // Delete only attendance of these students for selected date
       await supabase
         .from("attendance")
         .delete()
@@ -251,7 +252,7 @@ export default function TakeAttendance() {
   };
 
   /* --------------------------------------------------------------------------
-    10️⃣ COUNT SELECTED STUDENTS FOR SAVE BUTTON
+    🔟 COUNT SELECTED STUDENTS FOR SAVE BUTTON (VISIBLE ONLY)
   -------------------------------------------------------------------------- */
   const selectedStudentsCount = filteredStudents
     ? filteredStudents.filter((s) => attendance[s.id]?.present !== undefined).length
