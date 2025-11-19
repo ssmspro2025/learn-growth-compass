@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Users, Plus } from "lucide-react";
+import { Trash2, Users, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 
 export default function ChaptersTracking() {
@@ -29,6 +29,9 @@ export default function ChaptersTracking() {
   const [filterGrade, setFilterGrade] = useState("all");
   const [selectedChapterId, setSelectedChapterId] = useState(""); // previous chapter dropdown
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Track which chapters have students shown
+  const [showStudentsMap, setShowStudentsMap] = useState<{ [chapterId: string]: boolean }>({});
 
   // Fetch students
   const { data: students = [] } = useQuery({
@@ -148,7 +151,7 @@ export default function ChaptersTracking() {
           .from("chapters")
           .insert({
             subject,
-            chapter_name: chapterName, // <- fix here
+            chapter_name: chapterName,
             date_taught: date,
             notes: notes || null,
             center_id: user?.center_id ?? null,
@@ -236,6 +239,10 @@ export default function ChaptersTracking() {
 
   const subjects = Array.from(new Set(chapters.map((c: any) => c.subject).filter(Boolean)));
   const grades = Array.from(new Set(students.map((s: any) => s.grade).filter(Boolean)));
+
+  const toggleShowStudents = (chapterId: string) => {
+    setShowStudentsMap((prev) => ({ ...prev, [chapterId]: !prev[chapterId] }));
+  };
 
   return (
     <div className="space-y-6">
@@ -407,34 +414,48 @@ export default function ChaptersTracking() {
 
         <CardContent>
           <div className="space-y-4">
-            {chapters.map((chapter: any) => (
-              <div key={chapter.id} className="border rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg">{chapter.chapter_name}</h3>
-                      <span className="text-sm text-muted-foreground">{chapter.subject}</span>
+            {chapters.map((chapter: any) => {
+              const isShown = showStudentsMap[chapter.id];
+              return (
+                <div key={chapter.id} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">{chapter.chapter_name}</h3>
+                        <span className="text-sm text-muted-foreground">{chapter.subject}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">Date Taught: {format(new Date(chapter.date_taught), "PPP")}</p>
+                      {chapter.notes && <p className="text-sm mb-2">{chapter.notes}</p>}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleShowStudents(chapter.id)}
+                        className="mb-2"
+                      >
+                        {isShown ? <><ChevronUp className="h-4 w-4 mr-1" /> Hide Students</> :
+                          <><ChevronDown className="h-4 w-4 mr-1" /> Show Students</>}
+                      </Button>
+
+                      {isShown && chapter.student_chapters && chapter.student_chapters.length > 0 && (
+                        <div className="border rounded p-2 max-h-48 overflow-y-auto space-y-1">
+                          {chapter.student_chapters.map((sc: any) => (
+                            <div key={sc.id} className="flex justify-between items-center text-sm p-1">
+                              <span>{sc.students?.name || "Unknown Student"}</span>
+                              <span>{sc.completed ? "Completed" : "Pending"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">Date Taught: {format(new Date(chapter.date_taught), "PPP")}</p>
-                    {chapter.notes && <p className="text-sm mb-2">{chapter.notes}</p>}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {chapter.student_chapters?.map((sc: any) => (
-                        <span key={sc.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                          {sc.students?.name} - Grade {sc.students?.grade}
-                        </span>
-                      ))}
-                    </div>
+
+                    <Button variant="destructive" size="sm" onClick={() => deleteChapterMutation.mutate(chapter.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteChapterMutation.mutate(chapter.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {chapters.length === 0 && <p className="text-sm text-muted-foreground">No chapters recorded yet.</p>}
           </div>
         </CardContent>
