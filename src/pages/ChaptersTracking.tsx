@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,17 +61,22 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Filtered students for the selected grade
+  // Auto select present students whenever date or grade changes
   const filteredStudents = students.filter(
-    (s) => filterGrade === "all" || s.grade === filterGrade
+    (s) => (filterGrade === "all" || s.grade === filterGrade)
   );
 
-  // Auto-select present students for the selected date
-  useEffect(() => {
+  // Update selectedStudentIds to include present students
+  const autoSelectPresent = () => {
     const presentIds = filteredStudents
       .filter((s) => presentToday.includes(s.id))
       .map((s) => s.id);
     setSelectedStudentIds(presentIds);
+  };
+
+  // Call autoSelectPresent whenever date or grade changes
+  useState(() => {
+    autoSelectPresent();
   }, [date, filterGrade, students, presentToday]);
 
   // Fetch chapters for this center
@@ -81,14 +86,15 @@ export default function ChaptersTracking() {
       let query = supabase
         .from("chapters")
         .select("*, student_chapters(*, students(name, grade, center_id))")
-        .eq("center_id", user?.center_id)
         .order("date_taught", { ascending: false });
 
       if (filterSubject !== "all") query = query.eq("subject", filterSubject);
       const { data, error } = await query;
       if (error) throw error;
 
-      let filtered = data;
+      let filtered = data.filter((chapter: any) =>
+        chapter.student_chapters.some((sc: any) => sc.students.center_id === user?.center_id)
+      );
 
       if (filterStudent !== "all") {
         filtered = filtered.filter((chapter: any) =>
@@ -106,16 +112,13 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Fetch unique chapters for this center
+  // Fetch unique chapters
   const { data: uniqueChapters = [] } = useQuery({
     queryKey: ["unique-chapters", user?.center_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chapters")
-        .select("id, subject, chapter_name")
-        .eq("center_id", user?.center_id);
+      let query = supabase.from("chapters").select("id, subject, chapter_name");
+      const { data, error } = await query;
       if (error) throw error;
-
       const seen = new Set<string>();
       const unique = [];
       for (const chapter of data) {
@@ -129,51 +132,32 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Add chapter mutation
+  // Add chapter
   const addChapterMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedChapterId && (!subject || !chapterName)) {
-        throw new Error("Select a previous chapter or enter a new one");
-      }
-
       let chapterId: string;
-
       if (selectedChapterId) {
         const selectedChapter = uniqueChapters.find((c) => c.id === selectedChapterId);
         if (!selectedChapter) throw new Error("Chapter not found");
-
         const { data: chapterData, error } = await supabase
           .from("chapters")
-          .insert({
-            subject: selectedChapter.subject,
-            chapter_name: selectedChapter.chapter_name,
-            date_taught: date,
-            center_id: user?.center_id,
-            notes: notes || null,
-          })
+          .insert({ subject: selectedChapter.subject, chapter_name: selectedChapter.chapter_name, date_taught: date, notes: notes || null })
           .select()
           .single();
-
+        if (error) throw error;
+        chapterId = chapterData.id;
+      } else if (subject && chapterName) {
+        const { data: chapterData, error } = await supabase
+          .from("chapters")
+          .insert({ subject, chapter_name, date_taught: date, notes: notes || null })
+          .select()
+          .single();
         if (error) throw error;
         chapterId = chapterData.id;
       } else {
-        const { data: chapterData, error } = await supabase
-          .from("chapters")
-          .insert({
-            subject,
-            chapter_name,
-            date_taught: date,
-            center_id: user?.center_id,
-            notes: notes || null,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        chapterId = chapterData.id;
+        throw new Error("Select a previous chapter or enter a new one");
       }
 
-      // Link students
       const studentChapters = selectedStudentIds.map((studentId) => ({
         student_id: studentId,
         chapter_id: chapterId,
@@ -251,13 +235,13 @@ export default function ChaptersTracking() {
               </DialogDescription>
             </DialogHeader>
 
+            {/* Form */}
             <div className="space-y-4 py-4">
               <div>
                 <Label>Date</Label>
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
 
-              {/* Previous Chapters */}
               <div className={`space-y-3 border rounded-lg p-4 ${selectedChapterId ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Select from Previous Chapters</Label>
                 {uniqueChapters.length > 0 ? (
@@ -287,7 +271,6 @@ export default function ChaptersTracking() {
                 </div>
               </div>
 
-              {/* New Chapter */}
               <div className={`space-y-3 border rounded-lg p-4 ${subject && chapterName ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Create New Chapter</Label>
                 <div className="grid grid-cols-2 gap-4">
