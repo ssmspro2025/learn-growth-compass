@@ -59,11 +59,9 @@ export default function TakeAttendance() {
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
       let query = supabase.from("students").select("id, name, grade").order("name");
-
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return data as Student[];
@@ -79,13 +77,11 @@ export default function TakeAttendance() {
     queryKey: ["attendance", dateStr, centerStudentIds.join(",")],
     queryFn: async () => {
       if (!centerStudentIds.length) return [];
-
       const { data, error } = await supabase
         .from("attendance")
         .select("student_id, status, time_in, time_out, date")
         .eq("date", dateStr)
         .in("student_id", centerStudentIds);
-
       if (error) throw error;
       return data;
     },
@@ -98,19 +94,16 @@ export default function TakeAttendance() {
   useEffect(() => {
     async function fetchAttendanceDates() {
       if (!centerStudentIds.length) return;
-
       const { data, error } = await supabase
         .from("attendance")
         .select("date")
         .in("student_id", centerStudentIds)
         .order("date", { ascending: false });
-
       if (!error && data) {
         const uniqueDates = Array.from(new Set(data.map((d: any) => d.date)));
         setAttendanceDates(uniqueDates);
       }
     }
-
     fetchAttendanceDates();
   }, [centerStudentIds.join(",")]);
 
@@ -120,10 +113,8 @@ export default function TakeAttendance() {
   useEffect(() => {
     if (students) {
       const newAttendance: Record<string, AttendanceRecord> = {};
-
       students.forEach((student) => {
         const record = existingAttendance?.find((a) => a.student_id === student.id);
-
         newAttendance[student.id] = {
           present: record?.status === "Present",
           timeIn: record?.time_in || "",
@@ -131,31 +122,81 @@ export default function TakeAttendance() {
           studentId: student.id,
         };
       });
-
       setAttendance(newAttendance);
     }
   }, [students, existingAttendance]);
 
   /* --------------------------------------------------------------------------
-    5️⃣ SAVE ATTENDANCE (DELETE + INSERT) — CENTER SAFE
-    Only overwrites selected students (grade filtered)
+    5️⃣ FILTER STUDENTS BY GRADE
+  -------------------------------------------------------------------------- */
+  const filteredStudents =
+    gradeFilter === "all" ? students : students?.filter((s) => s.grade === gradeFilter);
+
+  /* --------------------------------------------------------------------------
+    6️⃣ AUTO-UPDATE CHECKBOXES WHEN GRADE CHANGES
+  -------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!filteredStudents) return;
+    const updated: Record<string, AttendanceRecord> = { ...attendance };
+    filteredStudents.forEach((student) => {
+      if (!(student.id in updated)) {
+        updated[student.id] = { studentId: student.id, present: false, timeIn: "", timeOut: "" };
+      }
+    });
+    setAttendance(updated);
+  }, [gradeFilter, students]);
+
+  /* --------------------------------------------------------------------------
+    7️⃣ UI HELPERS
+  -------------------------------------------------------------------------- */
+  const handleToggle = (studentId: string) => {
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], present: !prev[studentId]?.present },
+    }));
+  };
+
+  const handleTimeChange = (studentId: string, field: "timeIn" | "timeOut", value: string) => {
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], [field]: value },
+    }));
+  };
+
+  const markAllPresent = () => {
+    if (!filteredStudents) return;
+    const updated: Record<string, AttendanceRecord> = { ...attendance };
+    filteredStudents.forEach((student) => {
+      updated[student.id] = { ...updated[student.id], present: true };
+    });
+    setAttendance(updated);
+  };
+
+  const markAllAbsent = () => {
+    if (!filteredStudents) return;
+    const updated: Record<string, AttendanceRecord> = { ...attendance };
+    filteredStudents.forEach((student) => {
+      updated[student.id] = { ...updated[student.id], present: false, timeIn: "", timeOut: "" };
+    });
+    setAttendance(updated);
+  };
+
+  /* --------------------------------------------------------------------------
+    8️⃣ SAVE ATTENDANCE (CENTER-SAFE & GRADE-SAFE)
   -------------------------------------------------------------------------- */
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!students) return;
+      if (!students || !filteredStudents) return;
 
-      // Only take attendance of filtered students (selected grade)
-      const studentsToSave = filteredStudents || [];
+      // Only overwrite attendance of students that are in filteredStudents
+      const studentsToSave = filteredStudents;
 
-      // 🔥 Delete attendance only of these students for this date
+      // Delete only these students attendance for selected date
       await supabase
         .from("attendance")
         .delete()
         .eq("date", dateStr)
-        .in(
-          "student_id",
-          studentsToSave.map((s) => s.id)
-        );
+        .in("student_id", studentsToSave.map((s) => s.id));
 
       // Insert new attendance
       const records = studentsToSave.map((student) => ({
@@ -176,74 +217,10 @@ export default function TakeAttendance() {
     onError: () => toast.error("Failed to save attendance"),
   });
 
-  /* --------------------------------------------------------------------------
-    6️⃣ UI HELPERS
-  -------------------------------------------------------------------------- */
-  const handleToggle = (studentId: string) => {
-    setAttendance((prev) => ({
-      ...prev,
-      [studentId]: { ...prev[studentId], present: !prev[studentId]?.present },
-    }));
-  };
-
-  const handleTimeChange = (studentId: string, field: "timeIn" | "timeOut", value: string) => {
-    setAttendance((prev) => ({
-      ...prev,
-      [studentId]: { ...prev[studentId], [field]: value },
-    }));
-  };
-
-  /* --------------------------------------------------------------------------
-    7️⃣ MARK ALL PRESENT / ABSENT — Only affects students in selected grade
-  -------------------------------------------------------------------------- */
-  const markAllPresent = () => {
-    if (!filteredStudents) return;
-
-    const updated: Record<string, AttendanceRecord> = { ...attendance };
-
-    filteredStudents.forEach((student) => {
-      updated[student.id] = { ...updated[student.id], present: true };
-    });
-
-    setAttendance(updated);
-  };
-
-  const markAllAbsent = () => {
-    if (!filteredStudents) return;
-
-    const updated: Record<string, AttendanceRecord> = { ...attendance };
-
-    filteredStudents.forEach((student) => {
-      updated[student.id] = { ...updated[student.id], present: false, timeIn: "", timeOut: "" };
-    });
-
-    setAttendance(updated);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     saveMutation.mutate();
   };
-
-  /* --------------------------------------------------------------------------
-    8️⃣ FILTER STUDENTS BY GRADE & auto update checkboxes
-  -------------------------------------------------------------------------- */
-  const filteredStudents =
-    gradeFilter === "all" ? students : students?.filter((s) => s.grade === gradeFilter);
-
-  useEffect(() => {
-    if (!filteredStudents) return;
-
-    const updated: Record<string, AttendanceRecord> = { ...attendance };
-
-    filteredStudents.forEach((student) => {
-      if (!(student.id in updated)) {
-        updated[student.id] = { studentId: student.id, present: false, timeIn: "", timeOut: "" };
-      }
-    });
-
-    setAttendance(updated);
-  }, [gradeFilter, students]);
 
   /* --------------------------------------------------------------------------
     9️⃣ MINI CALENDAR (UNCHANGED)
@@ -274,7 +251,14 @@ export default function TakeAttendance() {
   };
 
   /* --------------------------------------------------------------------------
-    10️⃣ RETURN UI
+    10️⃣ COUNT SELECTED STUDENTS FOR SAVE BUTTON
+  -------------------------------------------------------------------------- */
+  const selectedStudentsCount = filteredStudents
+    ? filteredStudents.filter((s) => attendance[s.id]?.present !== undefined).length
+    : 0;
+
+  /* --------------------------------------------------------------------------
+    11️⃣ RETURN UI
   -------------------------------------------------------------------------- */
   return (
     <div className="space-y-6">
@@ -500,7 +484,7 @@ export default function TakeAttendance() {
               ))}
 
               <Button type="submit" className="w-full">
-                Save attendance for {filteredStudents.filter(s => attendance[s.id]?.present !== undefined).length}{" "}
+                Save attendance for {selectedStudentsCount}{" "}
                 {gradeFilter === "all" ? "" : `of grade ${gradeFilter}`}
               </Button>
             </form>
