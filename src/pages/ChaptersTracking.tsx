@@ -59,11 +59,21 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Auto-select present students
+  // Auto-select present students filtered by current grade
   useEffect(() => {
     if (!presentToday) return;
-    setSelectedStudentIds(prev => Array.from(new Set([...prev, ...presentToday])));
-  }, [presentToday]);
+
+    // Students of the selected grade
+    const studentsOfGrade = students.filter(s =>
+      filterGrade === "all" || s.grade === filterGrade
+    );
+
+    const presentFiltered = studentsOfGrade
+      .filter(s => presentToday.includes(s.id))
+      .map(s => s.id);
+
+    setSelectedStudentIds(prev => Array.from(new Set([...prev, ...presentFiltered])));
+  }, [presentToday, filterGrade, students]);
 
   // Unique previous chapters from this center
   const { data: uniqueChapters = [] } = useQuery({
@@ -103,10 +113,12 @@ export default function ChaptersTracking() {
   const toggleStudentSelection = (id: string) => {
     setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
+
   const selectAllStudents = () => {
     const filtered = students.filter(s => filterGrade === "all" || s.grade === filterGrade);
     setSelectedStudentIds(filtered.map(s => s.id));
   };
+
   const deselectAllStudents = () => setSelectedStudentIds([]);
 
   const toggleChapterExpand = (id: string) => {
@@ -119,7 +131,6 @@ export default function ChaptersTracking() {
       let chapter_id: string;
 
       if (selectedChapterId) {
-        // Previous chapter selected
         chapter_id = selectedChapterId;
       } else if (subject && chapterName) {
         const { data: chapterData, error } = await supabase
@@ -140,7 +151,7 @@ export default function ChaptersTracking() {
         completed: true,
         date_completed: date
       }));
-      const { error } = await supabase.from("student_chapters").insert(studentChapters);
+      const { error } = await supabase.from("student_chapters").insert(studentChapters, { onConflict: "ignore" });
       if (error) throw error;
     },
     onSuccess: () => {
