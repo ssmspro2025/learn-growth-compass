@@ -2,32 +2,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Trash2, Users, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
@@ -52,7 +34,10 @@ export default function ChaptersTracking() {
   const { data: students = [] } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      let query = supabase.from("students").select("*").order("name");
+      let query = supabase
+        .from("students")
+        .select("*")
+        .order("name");
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
@@ -76,23 +61,20 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Auto select present students whenever date or grade changes
+  // Filtered students for the selected grade
   const filteredStudents = students.filter(
     (s) => filterGrade === "all" || s.grade === filterGrade
   );
 
-  const autoSelectPresent = () => {
+  // Auto-select present students for the selected date
+  useEffect(() => {
     const presentIds = filteredStudents
       .filter((s) => presentToday.includes(s.id))
       .map((s) => s.id);
     setSelectedStudentIds(presentIds);
-  };
-
-  useEffect(() => {
-    autoSelectPresent();
   }, [date, filterGrade, students, presentToday]);
 
-  // Fetch chapters for this center only
+  // Fetch chapters for this center
   const { data: chapters = [] } = useQuery({
     queryKey: ["chapters", filterSubject, filterStudent, filterGrade, user?.center_id],
     queryFn: async () => {
@@ -106,11 +88,7 @@ export default function ChaptersTracking() {
       const { data, error } = await query;
       if (error) throw error;
 
-      let filtered = data.filter((chapter: any) =>
-        chapter.student_chapters.some(
-          (sc: any) => sc.students.center_id === user?.center_id
-        )
-      );
+      let filtered = data;
 
       if (filterStudent !== "all") {
         filtered = filtered.filter((chapter: any) =>
@@ -128,7 +106,7 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Fetch unique chapters for this center only
+  // Fetch unique chapters for this center
   const { data: uniqueChapters = [] } = useQuery({
     queryKey: ["unique-chapters", user?.center_id],
     queryFn: async () => {
@@ -151,7 +129,7 @@ export default function ChaptersTracking() {
     },
   });
 
-  // Add chapter
+  // Add chapter mutation
   const addChapterMutation = useMutation({
     mutationFn: async () => {
       if (!selectedChapterId && (!subject || !chapterName)) {
@@ -163,17 +141,19 @@ export default function ChaptersTracking() {
       if (selectedChapterId) {
         const selectedChapter = uniqueChapters.find((c) => c.id === selectedChapterId);
         if (!selectedChapter) throw new Error("Chapter not found");
+
         const { data: chapterData, error } = await supabase
           .from("chapters")
           .insert({
             subject: selectedChapter.subject,
             chapter_name: selectedChapter.chapter_name,
             date_taught: date,
-            notes: notes || null,
             center_id: user?.center_id,
+            notes: notes || null,
           })
           .select()
           .single();
+
         if (error) throw error;
         chapterId = chapterData.id;
       } else {
@@ -183,15 +163,17 @@ export default function ChaptersTracking() {
             subject,
             chapter_name,
             date_taught: date,
-            notes: notes || null,
             center_id: user?.center_id,
+            notes: notes || null,
           })
           .select()
           .single();
+
         if (error) throw error;
         chapterId = chapterData.id;
       }
 
+      // Link students
       const studentChapters = selectedStudentIds.map((studentId) => ({
         student_id: studentId,
         chapter_id: chapterId,
@@ -199,9 +181,7 @@ export default function ChaptersTracking() {
         date_completed: date,
       }));
 
-      const { error: linkError } = await supabase
-        .from("student_chapters")
-        .insert(studentChapters);
+      const { error: linkError } = await supabase.from("student_chapters").insert(studentChapters);
       if (linkError) throw linkError;
     },
     onSuccess: () => {
@@ -271,13 +251,13 @@ export default function ChaptersTracking() {
               </DialogDescription>
             </DialogHeader>
 
-            {/* Form */}
             <div className="space-y-4 py-4">
               <div>
                 <Label>Date</Label>
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
 
+              {/* Previous Chapters */}
               <div className={`space-y-3 border rounded-lg p-4 ${selectedChapterId ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Select from Previous Chapters</Label>
                 {uniqueChapters.length > 0 ? (
@@ -307,6 +287,7 @@ export default function ChaptersTracking() {
                 </div>
               </div>
 
+              {/* New Chapter */}
               <div className={`space-y-3 border rounded-lg p-4 ${subject && chapterName ? "border-primary" : ""}`}>
                 <Label className="text-base font-semibold">Create New Chapter</Label>
                 <div className="grid grid-cols-2 gap-4">
@@ -429,7 +410,7 @@ export default function ChaptersTracking() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">{chapter.chapter_name || "Untitled Chapter"}</h3>
+                        <h3 className="font-semibold text-lg">{chapter.chapter_name}</h3>
                         <span className="text-sm text-muted-foreground">{chapter.subject}</span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
