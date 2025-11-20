@@ -3,9 +3,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Layout } from "@/components/Layout";
 import { AdminDashboard } from "@/components/Dashboard/AdminDashboard";
+import { PrincipalDashboard } from "@/components/Dashboard/PrincipalDashboard";
 import { TeacherDashboard } from "@/components/Dashboard/TeacherDashboard";
 import { StudentDashboard } from "@/components/Dashboard/StudentDashboard";
 import { ParentDashboard } from "@/components/Dashboard/ParentDashboard";
+import { VendorDashboard } from "@/components/Dashboard/VendorDashboard";
 import { DeveloperDashboard } from "@/components/Dashboard/DeveloperDashboard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -63,8 +65,9 @@ const Index = () => {
     switch (profile.role) {
       case "super_admin":
       case "admin":
-      case "principal":
         return <AdminDashboard />;
+      case "principal":
+        return <PrincipalDashboard />;
       case "teacher":
         return <TeacherDashboard />;
       case "student":
@@ -72,6 +75,8 @@ const Index = () => {
       case "parent":
         return <ParentDashboard />;
       case "vendor":
+        return <VendorDashboard />;
+      case "developer":
         return <DeveloperDashboard />;
       default:
         return <AdminDashboard />;
