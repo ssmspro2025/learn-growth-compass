@@ -48,8 +48,9 @@ CREATE TABLE IF NOT EXISTS public.centers (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
--- Create app_role enum
-CREATE TYPE IF NOT EXISTS public.app_role AS ENUM ('admin', 'center', 'parent');
+-- Create app_role enum (drop if exists to recreate)
+DROP TYPE IF EXISTS public.app_role CASCADE;
+CREATE TYPE public.app_role AS ENUM ('admin', 'center', 'parent');
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS public.users (
