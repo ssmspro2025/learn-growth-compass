@@ -257,7 +257,7 @@ export type Database = {
           action: string
           created_at: string | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           resource_id: string | null
@@ -270,7 +270,7 @@ export type Database = {
           action: string
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           resource_id?: string | null
@@ -283,7 +283,7 @@ export type Database = {
           action?: string
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           resource_id?: string | null
@@ -1478,26 +1478,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_demo_schools_and_users: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      create_demo_schools_and_users: { Args: never; Returns: undefined }
       get_user_role: {
         Args: { user_uuid?: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
-      get_user_school: {
-        Args: { user_uuid?: string }
-        Returns: string
-      }
-      grant_super_admin_permissions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      is_super_admin: {
-        Args: { user_uuid?: string }
-        Returns: boolean
-      }
+      get_user_school: { Args: { user_uuid?: string }; Returns: string }
+      grant_super_admin_permissions: { Args: never; Returns: undefined }
+      is_super_admin: { Args: { user_uuid?: string }; Returns: boolean }
       setup_real_super_admin: {
         Args: { auth_user_uuid: string }
         Returns: undefined
