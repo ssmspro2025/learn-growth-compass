@@ -25,6 +25,11 @@ import ParentDashboard from "./pages/ParentDashboard";
 import ParentFinanceDashboard from "./pages/ParentFinanceDashboard";
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
+import FinanceDashboard from "./pages/FinanceDashboard";
+import TeacherLessonPlans from "./pages/TeacherLessonPlans";
+import TeacherHomework from "./pages/TeacherHomework";
+import TeacherActivities from "./pages/TeacherActivities";
+import TeacherDiscipline from "./pages/TeacherDiscipline";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +59,24 @@ const App = () => (
             <Route path="/summary" element={<ProtectedRoute><Layout><Summary /></Layout></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Layout><AdminFinance /></Layout></ProtectedRoute>} />
             <Route path="/admin-dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+
+            {/* ========== NEW ERP MODULE ROUTES ========== */}
+            {/* FINANCE MODULE - ADMIN ONLY */}
+            <Route path="/admin/finance" element={<ProtectedRoute adminOnly><Layout><FinanceDashboard /></Layout></ProtectedRoute>} />
+
+            {/* LESSON PLANS MODULE - TEACHER */}
+            <Route path="/teacher/lesson-plans" element={<ProtectedRoute><Layout><TeacherLessonPlans /></Layout></ProtectedRoute>} />
+
+            {/* HOMEWORK MODULE - TEACHER */}
+            <Route path="/teacher/homework" element={<ProtectedRoute><Layout><TeacherHomework /></Layout></ProtectedRoute>} />
+
+            {/* PRESCHOOL ACTIVITIES MODULE - TEACHER */}
+            <Route path="/teacher/activities" element={<ProtectedRoute><Layout><TeacherActivities /></Layout></ProtectedRoute>} />
+
+            {/* DISCIPLINE MODULE - TEACHER */}
+            <Route path="/teacher/discipline" element={<ProtectedRoute><Layout><TeacherDiscipline /></Layout></ProtectedRoute>} />
+
+            {/* CATCH-ALL ROUTE - MUST BE LAST */}
             <Route path="/admin/finance" element={<ProtectedRoute adminOnly><AdminFinance /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
