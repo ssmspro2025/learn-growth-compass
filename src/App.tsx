@@ -17,8 +17,8 @@ import LessonPlans from "./pages/LessonPlans";
 import HomeworkManagement from "./pages/HomeworkManagement";
 import PreschoolActivities from "./pages/PreschoolActivities";
 import DisciplineIssues from "./pages/DisciplineIssues";
-import TeacherManagement from "./pages/TeacherManagement"; // NEW
-import TeacherAttendancePage from "./pages/TeacherAttendance"; // NEW
+import TeacherManagement from "./pages/TeacherManagement";
+import TeacherAttendancePage from "./pages/TeacherAttendance";
 import Tests from "./pages/Tests";
 import StudentReport from "./pages/StudentReport";
 import AIInsights from "./pages/AIInsights";
@@ -37,6 +37,7 @@ import ParentDiscipline from "./pages/ParentDiscipline";
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/admin/Settings";
+import ChangePassword from "./pages/ChangePassword"; // NEW
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/login-admin" element={<AdminLogin />} />
             <Route path="/login-parent" element={<ParentLogin />} />
+            <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} /> {/* NEW */}
 
             {/* Parent Routes */}
             <Route path="/parent-dashboard" element={<ProtectedRoute role="parent"><ParentLayout><ParentDashboard /></ParentLayout></ProtectedRoute>} />
@@ -71,8 +73,8 @@ const App = () => (
             <Route path="/homework" element={<ProtectedRoute role="center"><CenterLayout><HomeworkManagement /></CenterLayout></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute role="center"><CenterLayout><PreschoolActivities /></CenterLayout></ProtectedRoute>} />
             <Route path="/discipline" element={<ProtectedRoute role="center"><CenterLayout><DisciplineIssues /></CenterLayout></ProtectedRoute>} />
-            <Route path="/teachers" element={<ProtectedRoute role="center"><CenterLayout><TeacherManagement /></CenterLayout></ProtectedRoute>} /> {/* NEW */}
-            <Route path="/teacher-attendance" element={<ProtectedRoute role="center"><CenterLayout><TeacherAttendancePage /></CenterLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/teachers" element={<ProtectedRoute role="center"><CenterLayout><TeacherManagement /></CenterLayout></ProtectedRoute>} />
+            <Route path="/teacher-attendance" element={<ProtectedRoute role="center"><CenterLayout><TeacherAttendancePage /></CenterLayout></ProtectedRoute>} />
             <Route path="/tests" element={<ProtectedRoute role="center"><CenterLayout><Tests /></CenterLayout></ProtectedRoute>} />
             <Route path="/student-report" element={<ProtectedRoute role="center"><CenterLayout><StudentReport /></CenterLayout></ProtectedRoute>} />
             <Route path="/ai-insights" element={<ProtectedRoute role="center"><CenterLayout><AIInsights /></CenterLayout></ProtectedRoute>} />

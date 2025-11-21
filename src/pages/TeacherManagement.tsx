@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Check, X, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
+import * as bcrypt from 'bcryptjs';
 
 type Teacher = Tables<'teachers'>;
 
@@ -26,6 +27,11 @@ export default function TeacherManagement() {
   const [email, setEmail] = useState("");
   const [hireDate, setHireDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
+  const [isCreatingTeacherLogin, setIsCreatingTeacherLogin] = useState(false);
+  const [selectedTeacherForLogin, setSelectedTeacherForLogin] = useState<Teacher | null>(null);
+  const [teacherUsername, setTeacherUsername] = useState("");
+  const [teacherPassword, setTeacherPassword] = useState("");
+
   // Fetch teachers
   const { data: teachers = [], isLoading } = useQuery({
     queryKey: ["teachers", user?.center_id],
@@ -33,7 +39,7 @@ export default function TeacherManagement() {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("teachers")
-        .select("*")
+        .select("*, users(id, username, is_active)") // Fetch associated user data
         .eq("center_id", user.center_id)
         .order("name");
       if (error) throw error;
@@ -126,6 +132,47 @@ export default function TeacherManagement() {
     },
   });
 
+  const createTeacherLoginMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTeacherForLogin || !user?.center_id) throw new Error("Teacher or Center ID not found");
+
+      // Check if username already exists
+      const { data: existingUser, error: existingUserError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', teacherUsername)
+        .single();
+
+      if (existingUserError && existingUserError.code !== 'PGRST116') throw existingUserError; // PGRST116 = no rows found
+      if (existingUser) {
+        throw new Error('Username already exists. Please choose a different one.');
+      }
+
+      const hashedPassword = await bcrypt.hash(teacherPassword, 12);
+
+      const { error } = await supabase.from("users").insert({
+        username: teacherUsername,
+        password_hash: hashedPassword,
+        role: 'teacher',
+        center_id: user.center_id,
+        teacher_id: selectedTeacherForLogin.id,
+        is_active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teachers"] }); // Invalidate to refetch user data
+      toast.success("Teacher login created successfully!");
+      setIsCreatingTeacherLogin(false);
+      setSelectedTeacherForLogin(null);
+      setTeacherUsername("");
+      setTeacherPassword("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to create teacher login");
+    },
+  });
+
   const handleEditClick = (teacher: Teacher) => {
     setEditingTeacher(teacher);
     setName(teacher.name);
@@ -141,6 +188,13 @@ export default function TeacherManagement() {
     } else {
       createTeacherMutation.mutate();
     }
+  };
+
+  const handleCreateLoginClick = (teacher: Teacher) => {
+    setSelectedTeacherForLogin(teacher);
+    setTeacherUsername(teacher.email || ''); // Pre-fill with email if available
+    setTeacherPassword('');
+    setIsCreatingTeacherLogin(true);
   };
 
   return (
@@ -208,11 +262,12 @@ export default function TeacherManagement() {
                     <TableHead>Email</TableHead>
                     <TableHead>Hire Date</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Login Account</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teachers.map((teacher) => (
+                  {teachers.map((teacher: any) => (
                     <TableRow key={teacher.id}>
                       <TableCell className="font-medium">{teacher.name}</TableCell>
                       <TableCell>{teacher.contact_number || '-'}</TableCell>
@@ -228,6 +283,21 @@ export default function TeacherManagement() {
                           {teacher.is_active ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                           {teacher.is_active ? 'Active' : 'Inactive'}
                         </Button>
+                      </TableCell>
+                      <TableCell>
+                        {teacher.users && teacher.users.length > 0 ? (
+                          <span className="text-green-600 flex items-center gap-1">
+                            <Check className="h-4 w-4" /> Active ({teacher.users[0].username})
+                          </span>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCreateLoginClick(teacher)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" /> Create Login
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell className="flex gap-2">
                         <Button variant="ghost" size="sm" onClick={() => handleEditClick(teacher)}>
@@ -245,6 +315,50 @@ export default function TeacherManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Teacher Login Dialog */}
+      <Dialog open={isCreatingTeacherLogin} onOpenChange={setIsCreatingTeacherLogin}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Login for {selectedTeacherForLogin?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="teacherUsername">Username</Label>
+              <Input
+                id="teacherUsername"
+                value={teacherUsername}
+                onChange={(e) => setTeacherUsername(e.target.value)}
+                placeholder="Enter username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacherPassword">Password</Label>
+              <Input
+                id="teacherPassword"
+                type="password"
+                value={teacherPassword}
+                onChange={(e) => setTeacherPassword(e.target.value)}
+                placeholder="Enter password"
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsCreatingTeacherLogin(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => createTeacherLoginMutation.mutate()}
+                disabled={!teacherUsername || !teacherPassword || createTeacherLoginMutation.isPending}
+              >
+                {createTeacherLoginMutation.isPending ? 'Creating...' : 'Create Login'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

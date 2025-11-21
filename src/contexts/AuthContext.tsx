@@ -5,17 +5,18 @@ import * as bcrypt from 'bcryptjs';
 interface User {
   id: string;
   username: string;
-  role: 'admin' | 'center' | 'parent';
+  role: 'admin' | 'center' | 'parent' | 'teacher'; // Added 'teacher' role
   center_id: string | null;
   center_name?: string;
   student_id?: string | null;
   student_name?: string | null;
+  teacher_id?: string | null; // Added teacher_id
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string, role?: 'admin' | 'center' | 'parent') => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string, role?: 'admin' | 'center' | 'parent' | 'teacher') => Promise<{ success: boolean; error?: string }>; // Added 'teacher' role
   logout: () => void;
 }
 
@@ -36,13 +37,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (
     username: string,
     password: string,
-    role?: 'admin' | 'center' | 'parent'
+    role?: 'admin' | 'center' | 'parent' | 'teacher' // Added 'teacher' role
   ) => {
     try {
       // Query database directly instead of using Edge Function
       const { data: user, error: userError } = await supabase
         .from('users')
-        .select('id, username, password_hash, role, center_id, student_id, is_active, centers(center_name), students(name)')
+        .select('id, username, password_hash, role, center_id, student_id, teacher_id, is_active, centers(center_name), students(name)') // Added teacher_id
         .eq('username', username)
         .eq('is_active', true)
         .single();
@@ -69,6 +70,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (role === 'center' && user.role === 'parent') {
         return { success: false, error: 'Parent accounts cannot log in to the center dashboard' };
       }
+      // Restrict teacher accounts from logging in to center dashboard
+      if (role === 'center' && user.role === 'teacher') {
+        return { success: false, error: 'Teacher accounts cannot log in to the center dashboard' };
+      }
 
       // Update last login
       await supabase
@@ -80,11 +85,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData: User = {
         id: user.id,
         username: user.username,
-        role: user.role as 'admin' | 'center' | 'parent',
+        role: user.role as 'admin' | 'center' | 'parent' | 'teacher', // Added 'teacher' role
         center_id: user.center_id,
         center_name: (user.centers as any)?.center_name || undefined,
         student_id: user.student_id,
-        student_name: (user.students as any)?.name || undefined
+        student_name: (user.students as any)?.name || undefined,
+        teacher_id: user.teacher_id // Added teacher_id
       };
 
       setUser(userData);
