@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { Plus, Eye, MoreHorizontal } from 'lucide-react';
 import { Invoice, InvoiceWithItems } from '@/integrations/supabase/finance-types';
+import { differenceInDays, isPast } from 'date-fns';
 
 const InvoiceManagement = () => {
   const { user } = useAuth();
@@ -23,7 +24,8 @@ const InvoiceManagement = () => {
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
     academic_year: '2024-2025',
-    due_in_days: 30
+    due_in_days: 30,
+    late_fee_per_day: 10 // Example late fee: 10 INR per day
   });
 
   // Fetch invoices for center
@@ -32,12 +34,12 @@ const InvoiceManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('*')
+        .select('*, students(name)') // Fetch student name
         .eq('center_id', user?.center_id!)
         .order('invoice_date', { ascending: false });
 
       if (error) throw error;
-      return data as Invoice[];
+      return data as (Invoice & { students: { name: string } })[];
     },
     enabled: !!user?.center_id
   });
@@ -51,7 +53,8 @@ const InvoiceManagement = () => {
           month: generateForm.month,
           year: generateForm.year,
           academicYear: generateForm.academic_year,
-          dueInDays: generateForm.due_in_days
+          dueInDays: generateForm.due_in_days,
+          lateFeePerDay: generateForm.late_fee_per_day // Pass late fee rule
         }
       });
 
@@ -73,7 +76,7 @@ const InvoiceManagement = () => {
   const fetchInvoiceDetails = async (invoiceId: string) => {
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('*')
+      .select('*, students(name)') // Fetch student name
       .eq('id', invoiceId)
       .single();
 
@@ -116,6 +119,17 @@ const InvoiceManagement = () => {
       style: 'currency',
       currency: 'INR',
     }).format(amount);
+  };
+
+  const calculateLateFee = (invoice: Invoice) => {
+    if (invoice.status === 'paid' || invoice.status === 'cancelled') return 0;
+    const dueDate = new Date(invoice.due_date);
+    const today = new Date();
+    if (isPast(dueDate) && invoice.total_amount > invoice.paid_amount) {
+      const daysOverdue = differenceInDays(today, dueDate);
+      return daysOverdue * generateForm.late_fee_per_day;
+    }
+    return 0;
   };
 
   return (
@@ -176,6 +190,16 @@ const InvoiceManagement = () => {
                       onChange={(e) => setGenerateForm({ ...generateForm, due_in_days: parseInt(e.target.value) })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="late_fee_per_day">Late Fee per Day (₹)</Label>
+                    <Input
+                      id="late_fee_per_day"
+                      type="number"
+                      step="0.01"
+                      value={generateForm.late_fee_per_day}
+                      onChange={(e) => setGenerateForm({ ...generateForm, late_fee_per_day: parseFloat(e.target.value) })}
+                    />
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     This will generate invoices for all students with active fee assignments
                   </p>
@@ -207,36 +231,46 @@ const InvoiceManagement = () => {
                   <TableHead>Month</TableHead>
                   <TableHead>Total Amount</TableHead>
                   <TableHead>Paid Amount</TableHead>
+                  <TableHead>Outstanding</TableHead>
+                  <TableHead>Late Fee</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                    <TableCell>{invoice.student_id}</TableCell>
-                    <TableCell>{invoice.invoice_month}/{invoice.invoice_year}</TableCell>
-                    <TableCell>{formatCurrency(invoice.total_amount)}</TableCell>
-                    <TableCell>{formatCurrency(invoice.paid_amount)}</TableCell>
-                    <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
-                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewInvoice(invoice.id)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {invoices.map((invoice) => {
+                  const lateFee = calculateLateFee(invoice);
+                  const outstandingWithLateFee = (invoice.total_amount - invoice.paid_amount) + lateFee;
+                  return (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>{invoice.students?.name || 'N/A'}</TableCell>
+                      <TableCell>{invoice.invoice_month}/{invoice.invoice_year}</TableCell>
+                      <TableCell>{formatCurrency(invoice.total_amount)}</TableCell>
+                      <TableCell>{formatCurrency(invoice.paid_amount)}</TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(outstandingWithLateFee)}
+                      </TableCell>
+                      <TableCell className="text-red-600">{lateFee > 0 ? formatCurrency(lateFee) : '-'}</TableCell>
+                      <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
+                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewInvoice(invoice.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -255,6 +289,10 @@ const InvoiceManagement = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Invoice Number</p>
                   <p className="font-semibold">{selectedInvoice.invoice_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Student Name</p>
+                  <p className="font-semibold">{selectedInvoice.students?.name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
@@ -289,8 +327,18 @@ const InvoiceManagement = () => {
                       </TableRow>
                     ))}
                     <TableRow className="font-semibold">
-                      <TableCell>Total</TableCell>
+                      <TableCell>Subtotal</TableCell>
                       <TableCell className="text-right">{formatCurrency(selectedInvoice.total_amount)}</TableCell>
+                    </TableRow>
+                    {calculateLateFee(selectedInvoice) > 0 && (
+                      <TableRow className="font-semibold text-red-600">
+                        <TableCell>Late Fee</TableCell>
+                        <TableCell className="text-right">{formatCurrency(calculateLateFee(selectedInvoice))}</TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow className="font-bold text-lg">
+                      <TableCell>Total Payable</TableCell>
+                      <TableCell className="text-right">{formatCurrency(selectedInvoice.total_amount + calculateLateFee(selectedInvoice))}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

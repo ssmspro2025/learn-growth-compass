@@ -10,7 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Check } from 'lucide-react';
-import { Payment, PaymentMethod } from '@/integrations/supabase/finance-types';
+import { Payment, PaymentMethod, Invoice, LedgerEntry, ACCOUNT_CODES, getInvoiceStatus } from '@/integrations/supabase/finance-types';
+import { Tables } from '@/integrations/supabase/types';
+
+type Student = Tables<'students'>;
 
 const PaymentTracking = () => {
   const { user } = useAuth();
@@ -26,18 +29,51 @@ const PaymentTracking = () => {
     notes: ''
   });
 
+  // Fetch students for dropdown
+  const { data: students = [] } = useQuery({
+    queryKey: ['students-for-payments', user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, name, grade')
+        .eq('center_id', user.center_id)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Fetch invoices for selected student
+  const { data: studentInvoices = [] } = useQuery({
+    queryKey: ['student-invoices-for-payment', paymentForm.student_id],
+    queryFn: async () => {
+      if (!paymentForm.student_id) return [];
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('student_id', paymentForm.student_id)
+        .in('status', ['issued', 'partial', 'overdue']) // Only show outstanding invoices
+        .order('due_date', { ascending: true });
+      if (error) throw error;
+      return data as Invoice[];
+    },
+    enabled: !!paymentForm.student_id,
+  });
+
   // Fetch payments
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['payments', user?.center_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payments')
-        .select('*')
+        .select('*, students(name)')
         .eq('center_id', user?.center_id!)
         .order('payment_date', { ascending: false });
 
       if (error) throw error;
-      return data as Payment[];
+      return data as (Payment & { students: { name: string } })[];
     },
     enabled: !!user?.center_id
   });
@@ -45,23 +81,82 @@ const PaymentTracking = () => {
   // Record payment mutation
   const recordPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !paymentForm.student_id) throw new Error('Missing required fields');
+      if (!user?.center_id || !paymentForm.student_id || !paymentForm.amount_paid) throw new Error('Missing required fields');
 
-      const { error } = await supabase
+      const amountPaid = parseFloat(paymentForm.amount_paid);
+      if (isNaN(amountPaid) || amountPaid <= 0) throw new Error('Invalid amount paid');
+
+      // 1. Record the payment
+      const { data: newPayment, error: paymentError } = await supabase
         .from('payments')
         .insert({
           center_id: user.center_id,
           student_id: paymentForm.student_id,
           invoice_id: paymentForm.invoice_id || null,
-          amount_paid: parseFloat(paymentForm.amount_paid),
+          amount_paid: amountPaid,
           payment_method: paymentForm.payment_method,
           reference_number: paymentForm.reference_number || null,
           notes: paymentForm.notes || null,
           payment_date: new Date().toISOString().split('T')[0],
           received_by_user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (paymentError) throw paymentError;
+
+      // 2. Update the associated invoice (if any)
+      if (paymentForm.invoice_id) {
+        const currentInvoice = studentInvoices.find(inv => inv.id === paymentForm.invoice_id);
+        if (currentInvoice) {
+          const updatedPaidAmount = currentInvoice.paid_amount + amountPaid;
+          const newStatus = getInvoiceStatus(currentInvoice.total_amount, updatedPaidAmount, currentInvoice.due_date);
+
+          const { error: invoiceUpdateError } = await supabase
+            .from('invoices')
+            .update({
+              paid_amount: updatedPaidAmount,
+              status: newStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', paymentForm.invoice_id);
+
+          if (invoiceUpdateError) throw invoiceUpdateError;
+
+          // 3. Create ledger entries for payment and invoice update
+          const ledgerEntries: Tables<'ledger_entries'>[] = [
+            // Debit: Cash/Bank Account
+            {
+              center_id: user.center_id,
+              transaction_date: newPayment.payment_date,
+              transaction_type: 'payment_received',
+              reference_type: 'payment',
+              reference_id: newPayment.id,
+              account_code: ACCOUNT_CODES.ASSETS.CASH, // Assuming cash for simplicity, could be dynamic
+              account_name: 'Cash/Bank',
+              debit_amount: amountPaid,
+              credit_amount: 0,
+              description: `Payment received from student ${paymentForm.student_id} for invoice ${currentInvoice.invoice_number}`
+            },
+            // Credit: Accounts Receivable
+            {
+              center_id: user.center_id,
+              transaction_date: newPayment.payment_date,
+              transaction_type: 'payment_received',
+              reference_type: 'payment',
+              reference_id: newPayment.id,
+              account_code: ACCOUNT_CODES.ASSETS.RECEIVABLE,
+              account_name: 'Accounts Receivable',
+              debit_amount: 0,
+              credit_amount: amountPaid,
+              description: `Reduction in Accounts Receivable for invoice ${currentInvoice.invoice_number}`
+            }
+          ];
+
+          const { error: ledgerError } = await supabase.from('ledger_entries').insert(ledgerEntries);
+          if (ledgerError) throw ledgerError;
+        }
+      }
     },
     onSuccess: () => {
       toast.success('Payment recorded successfully');
@@ -75,6 +170,8 @@ const PaymentTracking = () => {
         notes: ''
       });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] }); // Invalidate invoices to reflect status change
+      queryClient.invalidateQueries({ queryKey: ['financial-summary'] }); // Invalidate summary
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to record payment');
@@ -91,7 +188,7 @@ const PaymentTracking = () => {
   const getPaymentMethodIcon = (method: PaymentMethod) => {
     const icons: Record<PaymentMethod, string> = {
       cash: '💵',
-      cheque: '���',
+      cheque: ' cheques',
       bank_transfer: '🏦',
       upi: '📱',
       card: '💳',
@@ -120,13 +217,35 @@ const PaymentTracking = () => {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="student">Student ID *</Label>
-                    <Input
-                      id="student"
-                      value={paymentForm.student_id}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, student_id: e.target.value })}
-                      placeholder="Enter student ID"
-                    />
+                    <Label htmlFor="student">Student *</Label>
+                    <Select value={paymentForm.student_id} onValueChange={(value) => setPaymentForm({ ...paymentForm, student_id: value, invoice_id: '' })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name} - {s.grade}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invoice">Allocate to Invoice (Optional)</Label>
+                    <Select value={paymentForm.invoice_id} onValueChange={(value) => setPaymentForm({ ...paymentForm, invoice_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Invoice" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Do not allocate</SelectItem>
+                        {studentInvoices.map((inv) => (
+                          <SelectItem key={inv.id} value={inv.id}>
+                            {inv.invoice_number} (Outstanding: {formatCurrency(inv.total_amount - inv.paid_amount)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="amount">Amount (₹) *</Label>
@@ -141,20 +260,23 @@ const PaymentTracking = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="method">Payment Method *</Label>
-                    <select
-                      id="method"
+                    <Select
                       value={paymentForm.payment_method}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, payment_method: e.target.value as PaymentMethod })}
-                      className="w-full px-3 py-2 border rounded-md"
+                      onValueChange={(value: PaymentMethod) => setPaymentForm({ ...paymentForm, payment_method: value })}
                     >
-                      <option value="cash">Cash</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="card">Card</option>
-                      <option value="wallet">Wallet</option>
-                      <option value="other">Other</option>
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="cheque">Cheque</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="upi">UPI</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        <SelectItem value="wallet">Wallet</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="reference">Reference Number</Label>
@@ -195,7 +317,7 @@ const PaymentTracking = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student ID</TableHead>
+                  <TableHead>Student</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Date</TableHead>
@@ -205,7 +327,7 @@ const PaymentTracking = () => {
               <TableBody>
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.student_id}</TableCell>
+                    <TableCell className="font-medium">{payment.students?.name || 'N/A'}</TableCell>
                     <TableCell>{formatCurrency(payment.amount_paid)}</TableCell>
                     <TableCell>{getPaymentMethodIcon(payment.payment_method)} {payment.payment_method}</TableCell>
                     <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>

@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { centerId, month, year, academicYear, dueInDays = 30 } = await req.json();
+    const { centerId, month, year, academicYear, dueInDays = 30, lateFeePerDay = 0 } = await req.json();
 
     if (!centerId || !month || !year || !academicYear) {
       return new Response(
@@ -117,7 +117,8 @@ serve(async (req) => {
             paid_amount: 0,
             status: 'issued',
             academic_year: academicYear,
-            notes: `Monthly invoice for ${invoiceDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`
+            notes: `Monthly invoice for ${invoiceDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+            late_fee_per_day: lateFeePerDay // Store late fee rule
           })
           .select()
           .single();

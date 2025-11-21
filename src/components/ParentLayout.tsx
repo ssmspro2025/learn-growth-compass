@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, DollarSign, LogOut, User } from "lucide-react";
+import { Home, DollarSign, LogOut, User, Book, Paintbrush, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { to: "/parent-dashboard", label: "Dashboard", icon: Home },
   { to: "/parent-finance", label: "Finance", icon: DollarSign },
+  { to: "/parent-homework", label: "Homework", icon: Book }, // New
+  { to: "/parent-activities", label: "Activities", icon: Paintbrush }, // New
+  { to: "/parent-discipline", label: "Discipline", icon: AlertTriangle }, // New
 ];
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {

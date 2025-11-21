@@ -7,9 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, DollarSign, BookOpen, Book, Paintbrush, AlertTriangle, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
+import { Tables } from "@/integrations/supabase/types";
+import { Invoice, Payment } from "@/integrations/supabase/finance-types";
+
+type LessonPlan = Tables<'lesson_plans'>;
+type StudentHomeworkStatus = Tables<'student_homework_status'>;
+type PreschoolActivity = Tables<'preschool_activities'>;
+type DisciplineIssue = Tables<'discipline_issues'>;
 
 export default function StudentReport() {
   const { user } = useAuth();
@@ -55,32 +62,20 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
-  // Fetch chapter progress
-  const { data: chapterProgress = [] } = useQuery({
-    queryKey: ["student-chapters", selectedStudentId, subjectFilter, dateRange],
+  // Fetch lesson records (student_chapters now links to lesson_plans)
+  const { data: lessonRecords = [] } = useQuery({
+    queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      let query = supabase.from("student_chapters").select("*, chapters(*)").eq("student_id", selectedStudentId)
+      let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url)").eq("student_id", selectedStudentId)
         .gte("date_completed", format(dateRange.from, "yyyy-MM-dd"))
         .lte("date_completed", format(dateRange.to, "yyyy-MM-dd"));
-      if (subjectFilter !== "all") query = query.eq("chapters.subject", subjectFilter);
+      if (subjectFilter !== "all") query = query.eq("lesson_plans.subject", subjectFilter);
       const { data, error } = await query.order("date_completed", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!selectedStudentId,
-  });
-
-  // Fetch all chapters for completion %
-  const { data: allChapters = [] } = useQuery({
-    queryKey: ["all-chapters", user?.center_id],
-    queryFn: async () => {
-      let query = supabase.from("chapters").select("*");
-      if (user?.role !== "admin" && user?.center_id) query = query.eq("center_id", user.center_id);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
   });
 
   // Fetch test results
@@ -99,6 +94,77 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
+  // Fetch homework status
+  const { data: homeworkStatus = [] } = useQuery({
+    queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      let query = supabase.from("student_homework_status").select("*, homework(*)").eq("student_id", selectedStudentId)
+        .gte("created_at", format(dateRange.from, "yyyy-MM-dd")) // Assuming created_at is close to assigned date
+        .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
+      if (subjectFilter !== "all") query = query.eq("homework.subject", subjectFilter);
+      const { data, error } = await query.order("homework.due_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedStudentId,
+  });
+
+  // Fetch preschool activities
+  const { data: preschoolActivities = [] } = useQuery({
+    queryKey: ["student-preschool-activities-report", selectedStudentId, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      const { data, error } = await supabase.from("preschool_activities").select("*").eq("student_id", selectedStudentId)
+        .gte("activity_date", format(dateRange.from, "yyyy-MM-dd"))
+        .lte("activity_date", format(dateRange.to, "yyyy-MM-dd"));
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedStudentId,
+  });
+
+  // Fetch discipline issues
+  const { data: disciplineIssues = [] } = useQuery({
+    queryKey: ["student-discipline-issues-report", selectedStudentId, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      const { data, error } = await supabase.from("discipline_issues").select("*").eq("student_id", selectedStudentId)
+        .gte("issue_date", format(dateRange.from, "yyyy-MM-dd"))
+        .lte("issue_date", format(dateRange.to, "yyyy-MM-dd"));
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedStudentId,
+  });
+
+  // Fetch finance data
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["student-invoices-report", selectedStudentId, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
+        .gte("invoice_date", format(dateRange.from, "yyyy-MM-dd"))
+        .lte("invoice_date", format(dateRange.to, "yyyy-MM-dd"));
+      if (error) throw error;
+      return data as Invoice[];
+    },
+    enabled: !!selectedStudentId,
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ["student-payments-report", selectedStudentId, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      const { data, error } = await supabase.from("payments").select("*").eq("student_id", selectedStudentId)
+        .gte("payment_date", format(dateRange.from, "yyyy-MM-dd"))
+        .lte("payment_date", format(dateRange.to, "yyyy-MM-dd"));
+      if (error) throw error;
+      return data as Payment[];
+    },
+    enabled: !!selectedStudentId,
+  });
+
   // Statistics
   const totalDays = attendanceData.length;
   const presentDays = attendanceData.filter((a) => a.status === "Present").length;
@@ -109,15 +175,14 @@ export default function StudentReport() {
   const totalMaxMarks = testResults.reduce((sum, r) => sum + (r.tests?.total_marks || 0), 0);
   const averagePercentage = totalMaxMarks > 0 ? Math.round((totalMarksObtained / totalMaxMarks) * 100) : 0;
 
-  const completedChaptersCount = chapterProgress.filter(cp => cp.completed).length;
-  const totalChaptersCount = allChapters.length;
-  const chapterCompletionPercentage = totalChaptersCount > 0
-    ? Math.round((completedChaptersCount / totalChaptersCount) * 100)
-    : 0;
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
+  const totalPaid = invoices.reduce((sum, inv) => sum + inv.paid_amount, 0);
+  const outstandingDues = totalInvoiced - totalPaid;
 
   const subjects = Array.from(new Set([
-    ...chapterProgress.map(c => c.chapters?.subject).filter(Boolean),
-    ...testResults.map(t => t.tests?.subject).filter(Boolean)
+    ...lessonRecords.map((lr: any) => lr.lesson_plans?.subject).filter(Boolean),
+    ...testResults.map(t => t.tests?.subject).filter(Boolean),
+    ...homeworkStatus.map((hs: any) => hs.homework?.subject).filter(Boolean)
   ]));
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
@@ -156,6 +221,11 @@ export default function StudentReport() {
       ["Absent", totalDays - presentDays],
       ["Percentage", attendancePercentage + "%"],
       [""],
+      ["Finance Summary"],
+      ["Total Invoiced", totalInvoiced],
+      ["Total Paid", totalPaid],
+      ["Outstanding Dues", outstandingDues],
+      [""],
       ["Test Results"],
       ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date"],
       ...testResults.map(r => [
@@ -164,7 +234,49 @@ export default function StudentReport() {
         r.marks_obtained,
         r.tests?.total_marks,
         format(new Date(r.date_taken), "PPP")
-      ])
+      ]),
+      [""],
+      ["Lesson Records"],
+      ["Subject", "Chapter", "Topic", "Date Taught", "File Link", "Media Link"],
+      ...lessonRecords.map((lr: any) => [
+        lr.lesson_plans?.subject,
+        lr.lesson_plans?.chapter,
+        lr.lesson_plans?.topic,
+        format(new Date(lr.date_completed), "PPP"),
+        lr.lesson_plans?.file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl : '',
+        lr.lesson_plans?.media_url ? supabase.storage.from("lesson-plan-media").getPublicUrl(lr.lesson_plans.media_url).data.publicUrl : '',
+      ]),
+      [""],
+      ["Homework Status"],
+      ["Title", "Subject", "Due Date", "Status", "Teacher Remarks"],
+      ...homeworkStatus.map((hs: any) => [
+        hs.homework?.title,
+        hs.homework?.subject,
+        format(new Date(hs.homework?.due_date), "PPP"),
+        hs.status,
+        hs.teacher_remarks,
+      ]),
+      [""],
+      ["Preschool Activities"],
+      ["Type", "Description", "Date", "Involvement", "Photo Link", "Video Link"],
+      ...preschoolActivities.map((pa: any) => [
+        pa.activity_type,
+        pa.description,
+        format(new Date(pa.activity_date), "PPP"),
+        pa.involvement_rating || 'N/A',
+        pa.photo_url ? supabase.storage.from("activity-photos").getPublicUrl(pa.photo_url).data.publicUrl : '',
+        pa.video_url ? supabase.storage.from("activity-videos").getPublicUrl(pa.video_url).data.publicUrl : '',
+      ]),
+      [""],
+      ["Discipline Issues"],
+      ["Category", "Description", "Severity", "Action Taken", "Date"],
+      ...disciplineIssues.map((di: any) => [
+        di.category,
+        di.description,
+        di.severity,
+        di.action_taken || 'N/A',
+        format(new Date(di.issue_date), "PPP"),
+      ]),
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -201,6 +313,35 @@ export default function StudentReport() {
       newWindow?.focus();
       newWindow?.print();
       newWindow?.close();
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount);
+  };
+
+  const getHomeworkStatusIcon = (status: StudentHomeworkStatus['status']) => {
+    switch (status) {
+      case 'completed':
+      case 'checked':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'in_progress':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'assigned':
+      default:
+        return <XCircle className="h-4 w-4 text-red-600" />;
+    }
+  };
+
+  const getSeverityColor = (severity: DisciplineIssue['severity']) => {
+    switch (severity) {
+      case "low": return "text-green-600";
+      case "medium": return "text-orange-600";
+      case "high": return "text-red-600";
+      default: return "text-gray-600";
     }
   };
 
@@ -273,7 +414,50 @@ export default function StudentReport() {
       </div>
 
       {selectedStudent && (
-        <div id="printable-report">
+        <div id="printable-report" className="space-y-6">
+          {/* Finance Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" /> Finance Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>Total Invoiced: {formatCurrency(totalInvoiced)}</div>
+                <div>Total Paid: {formatCurrency(totalPaid)}</div>
+                <div>Outstanding Dues: {formatCurrency(outstandingDues)}</div>
+              </div>
+              <h3 className="font-semibold mb-2">Payment History</h3>
+              {payments.length === 0 ? (
+                <p className="text-muted-foreground">No payments recorded.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-48 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Date</th>
+                        <th className="border px-2 py-1">Amount</th>
+                        <th className="border px-2 py-1">Method</th>
+                        <th className="border px-2 py-1">Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td className="border px-2 py-1">{format(new Date(p.payment_date), "PPP")}</td>
+                          <td className="border px-2 py-1">{formatCurrency(p.amount_paid)}</td>
+                          <td className="border px-2 py-1">{p.payment_method}</td>
+                          <td className="border px-2 py-1">{p.reference_number || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Attendance Overview */}
           <Card>
             <CardHeader>
@@ -287,7 +471,7 @@ export default function StudentReport() {
                 <div>Attendance %: {attendancePercentage}%</div>
               </div>
               <div className="overflow-x-auto max-h-80">
-                <table className="w-full border">
+                <table className="w-full border text-sm">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="border px-2 py-1">Date</th>
@@ -311,45 +495,68 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
-          {/* Chapter Progress with Notes */}
+          {/* Lesson Records */}
           <Card>
             <CardHeader>
-              <CardTitle>Chapter Progress</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" /> Lesson Records
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto max-h-80">
-                <table className="w-full border">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="border px-2 py-1">Chapter</th>
-                      <th className="border px-2 py-1">Subject</th>
-                      <th className="border px-2 py-1">Date Completed</th>
-                      <th className="border px-2 py-1">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chapterProgress.map((cp) => (
-                      <tr key={cp.id}>
-                        <td className="border px-2 py-1">{cp.chapters?.chapter_name}</td>
-                        <td className="border px-2 py-1">{cp.chapters?.subject}</td>
-                        <td className="border px-2 py-1">{format(new Date(cp.date_completed), "PPP")}</td>
-                        <td className="border px-2 py-1">{cp.chapters?.notes || "-"}</td>
+              {lessonRecords.length === 0 ? (
+                <p className="text-muted-foreground">No lesson records found.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Chapter</th>
+                        <th className="border px-2 py-1">Topic</th>
+                        <th className="border px-2 py-1">Date Taught</th>
+                        <th className="border px-2 py-1">Files</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {lessonRecords.map((lr: any) => (
+                        <tr key={lr.id}>
+                          <td className="border px-2 py-1">{lr.lesson_plans?.subject}</td>
+                          <td className="border px-2 py-1">{lr.lesson_plans?.chapter}</td>
+                          <td className="border px-2 py-1">{lr.lesson_plans?.topic}</td>
+                          <td className="border px-2 py-1">{format(new Date(lr.date_completed), "PPP")}</td>
+                          <td className="border px-2 py-1">
+                            {lr.lesson_plans?.file_url && (
+                              <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">File</a>
+                            )}
+                            {lr.lesson_plans?.media_url && (
+                              <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(lr.lesson_plans.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Media</a>
+                            )}
+                            {!lr.lesson_plans?.file_url && !lr.lesson_plans?.media_url && "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Test Results */}
           <Card>
             <CardHeader>
-              <CardTitle>Test Results</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" /> Test Results
+              </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>Total Tests: {totalTests}</div>
+                <div>Average %: {averagePercentage}%</div>
+                <div>Total Marks: {totalMarksObtained}/{totalMaxMarks}</div>
+              </div>
               <div className="overflow-x-auto max-h-80">
-                <table className="w-full border">
+                <table className="w-full border text-sm">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="border px-2 py-1">Test Name</th>
@@ -377,6 +584,137 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
+          {/* Homework Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Book className="h-5 w-5" /> Homework Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {homeworkStatus.length === 0 ? (
+                <p className="text-muted-foreground">No homework assignments found.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Title</th>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Due Date</th>
+                        <th className="border px-2 py-1">Status</th>
+                        <th className="border px-2 py-1">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {homeworkStatus.map((hs: any) => (
+                        <tr key={hs.id}>
+                          <td className="border px-2 py-1">{hs.homework?.title}</td>
+                          <td className="border px-2 py-1">{hs.homework?.subject}</td>
+                          <td className="border px-2 py-1">{format(new Date(hs.homework?.due_date), "PPP")}</td>
+                          <td className="border px-2 py-1 flex items-center gap-1">
+                            {getHomeworkStatusIcon(hs.status)} {hs.status.replace('_', ' ').toUpperCase()}
+                          </td>
+                          <td className="border px-2 py-1">{hs.teacher_remarks || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Preschool Activities */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Paintbrush className="h-5 w-5" /> Preschool Activities
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {preschoolActivities.length === 0 ? (
+                <p className="text-muted-foreground">No preschool activities found.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Type</th>
+                        <th className="border px-2 py-1">Description</th>
+                        <th className="border px-2 py-1">Date</th>
+                        <th className="border px-2 py-1">Involvement</th>
+                        <th className="border px-2 py-1">Media</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preschoolActivities.map((pa: any) => (
+                        <tr key={pa.id}>
+                          <td className="border px-2 py-1">{pa.activity_type.replace('_', ' ').toUpperCase()}</td>
+                          <td className="border px-2 py-1">{pa.description}</td>
+                          <td className="border px-2 py-1">{format(new Date(pa.activity_date), "PPP")}</td>
+                          <td className="border px-2 py-1">{pa.involvement_rating || "N/A"}</td>
+                          <td className="border px-2 py-1">
+                            {pa.photo_url && (
+                              <a href={supabase.storage.from("activity-photos").getPublicUrl(pa.photo_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">Photo</a>
+                            )}
+                            {pa.video_url && (
+                              <a href={supabase.storage.from("activity-videos").getPublicUrl(pa.video_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Video</a>
+                            )}
+                            {!pa.photo_url && !pa.video_url && "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Discipline Issues */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" /> Discipline Issues
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {disciplineIssues.length === 0 ? (
+                <p className="text-muted-foreground">No discipline issues found.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Category</th>
+                        <th className="border px-2 py-1">Description</th>
+                        <th className="border px-2 py-1">Severity</th>
+                        <th className="border px-2 py-1">Action Taken</th>
+                        <th className="border px-2 py-1">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {disciplineIssues.map((di: any) => (
+                        <tr key={di.id}>
+                          <td className="border px-2 py-1">{di.category.replace('_', ' ').toUpperCase()}</td>
+                          <td className="border px-2 py-1">{di.description}</td>
+                          <td className="border px-2 py-1">
+                            <span className={`font-semibold ${getSeverityColor(di.severity)}`}>
+                              {di.severity.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="border px-2 py-1">{di.action_taken || "-"}</td>
+                          <td className="border px-2 py-1">{format(new Date(di.issue_date), "PPP")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* AI Summary */}
           <Card>
             <CardHeader>
@@ -386,9 +724,9 @@ export default function StudentReport() {
               {aiSummary ? (
                 <Textarea value={aiSummary} onChange={e => setAiSummary(e.target.value)} rows={12} className="resize-none" />
               ) : (
-                <p className="text-muted-foreground py-8 text-center">
-                  Click "Generate AI Summary" to get insights
-                </p>
+                <Button onClick={() => generateSummaryMutation.mutate()} disabled={generateSummaryMutation.isPending}>
+                  {generateSummaryMutation.isPending ? "Generating..." : "Generate AI Summary"}
+                </Button>
               )}
             </CardContent>
           </Card>

@@ -454,6 +454,257 @@ export type Database = {
           },
         ]
       }
+      // New tables for ERP expansion
+      lesson_plans: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          chapter: string;
+          topic: string;
+          lesson_date: string;
+          notes: string | null;
+          file_url: string | null;
+          media_url: string | null;
+          created_at: string;
+          is_active: boolean;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          chapter: string;
+          topic: string;
+          lesson_date: string;
+          notes?: string | null;
+          file_url?: string | null;
+          media_url?: string | null;
+          created_at?: string;
+          is_active?: boolean;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          chapter?: string;
+          topic?: string;
+          lesson_date?: string;
+          notes?: string | null;
+          file_url?: string | null;
+          media_url?: string | null;
+          created_at?: string;
+          is_active?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lesson_plans_center_id_fkey";
+            columns: ["center_id"];
+            isOneToOne: false;
+            referencedRelation: "centers";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      homework: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          grade: string;
+          title: string;
+          description: string | null;
+          due_date: string;
+          file_url: string | null;
+          image_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          grade: string;
+          title: string;
+          description?: string | null;
+          due_date: string;
+          file_url?: string | null;
+          image_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          grade?: string;
+          title?: string;
+          description?: string | null;
+          due_date?: string;
+          file_url?: string | null;
+          image_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "homework_center_id_fkey";
+            columns: ["center_id"];
+            isOneToOne: false;
+            referencedRelation: "centers";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      student_homework_status: {
+        Row: {
+          id: string;
+          student_id: string;
+          homework_id: string;
+          status: 'assigned' | 'in_progress' | 'completed' | 'checked';
+          teacher_remarks: string | null;
+          submission_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          homework_id: string;
+          status?: 'assigned' | 'in_progress' | 'completed' | 'checked';
+          teacher_remarks?: string | null;
+          submission_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          student_id?: string;
+          homework_id?: string;
+          status?: 'assigned' | 'in_progress' | 'completed' | 'checked';
+          teacher_remarks?: string | null;
+          submission_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_homework_status_homework_id_fkey";
+            columns: ["homework_id"];
+            isOneToOne: false;
+            referencedRelation: "homework";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_homework_status_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      preschool_activities: {
+        Row: {
+          id: string;
+          center_id: string;
+          student_id: string;
+          activity_type: 'art' | 'music' | 'play' | 'fine_motor' | 'gross_motor' | 'other';
+          description: string;
+          activity_date: string;
+          photo_url: string | null;
+          video_url: string | null;
+          involvement_rating: number | null; // 1-5 scale
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          student_id: string;
+          activity_type: 'art' | 'music' | 'play' | 'fine_motor' | 'gross_motor' | 'other';
+          description: string;
+          activity_date: string;
+          photo_url?: string | null;
+          video_url?: string | null;
+          involvement_rating?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          student_id?: string;
+          activity_type?: 'art' | 'music' | 'play' | 'fine_motor' | 'gross_motor' | 'other';
+          description?: string;
+          activity_date?: string;
+          photo_url?: string | null;
+          video_url?: string | null;
+          involvement_rating?: number | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "preschool_activities_center_id_fkey";
+            columns: ["center_id"];
+            isOneToOne: false;
+            referencedRelation: "centers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "preschool_activities_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      discipline_issues: {
+        Row: {
+          id: string;
+          center_id: string;
+          student_id: string;
+          category: 'behavior' | 'homework' | 'respect' | 'disruption' | 'uniform' | 'other';
+          description: string;
+          severity: 'low' | 'medium' | 'high';
+          action_taken: string | null;
+          issue_date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          student_id: string;
+          category: 'behavior' | 'homework' | 'respect' | 'disruption' | 'uniform' | 'other';
+          description: string;
+          severity: 'low' | 'medium' | 'high';
+          action_taken?: string | null;
+          issue_date: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          student_id?: string;
+          category?: 'behavior' | 'homework' | 'respect' | 'disruption' | 'uniform' | 'other';
+          description?: string;
+          severity?: 'low' | 'medium' | 'high';
+          action_taken?: string | null;
+          issue_date?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "discipline_issues_center_id_fkey";
+            columns: ["center_id"];
+            isOneToOne: false;
+            referencedRelation: "centers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "discipline_issues_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     }
     Views: {
       [_ in never]: never

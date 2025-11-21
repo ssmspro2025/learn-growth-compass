@@ -5,9 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign } from 'lucide-react';
+import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isPast } from 'date-fns';
+import { Tables } from '@/integrations/supabase/types';
 
 // Initialize QueryClient (v4 syntax)
 const queryClient = new QueryClient({
@@ -19,7 +20,11 @@ const queryClient = new QueryClient({
   },
 });
 
-const MiniCalendar = ({ attendance, chapters, tests, selectedMonth, setSelectedMonth }) => {
+type StudentHomeworkStatus = Tables<'student_homework_status'>;
+type PreschoolActivity = Tables<'preschool_activities'>;
+type DisciplineIssue = Tables<'discipline_issues'>;
+
+const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSelectedMonth }) => {
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
 
   const getAttendanceStatus = (date: string) => {
@@ -29,9 +34,9 @@ const MiniCalendar = ({ attendance, chapters, tests, selectedMonth, setSelectedM
   };
 
   const getTooltipData = (date: string) => {
-    const dayChapters = chapters.filter(c => format(new Date(c.date_completed), 'yyyy-MM-dd') === date);
+    const dayLessons = lessonRecords.filter((lr: any) => format(new Date(lr.date_completed), 'yyyy-MM-dd') === date);
     const dayTests = tests.filter(t => format(new Date(t.date_taken), 'yyyy-MM-dd') === date);
-    return { dayChapters, dayTests };
+    return { dayLessons, dayTests };
   };
 
   const colors = { present: '#16a34a', absent: '#dc2626', none: '#e5e7eb' };
@@ -66,14 +71,14 @@ const MiniCalendar = ({ attendance, chapters, tests, selectedMonth, setSelectedM
                 {day.getDate()}
               </div>
 
-              {(tooltipData.dayChapters.length > 0 || tooltipData.dayTests.length > 0) && (
+              {(tooltipData.dayLessons.length > 0 || tooltipData.dayTests.length > 0) && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-56 p-2 bg-white border rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 text-xs">
-                  {tooltipData.dayChapters.length > 0 && (
+                  {tooltipData.dayLessons.length > 0 && (
                     <div className="mb-1">
-                      <p className="font-semibold border-b mb-1">Chapters</p>
-                      {tooltipData.dayChapters.map(c => (
-                        <p key={c.id}>
-                          <span className="font-semibold">{c.chapters?.chapter_name}</span> ({c.chapters?.subject}) - {c.chapters?.notes || 'No notes'}
+                      <p className="font-semibold border-b mb-1">Lessons</p>
+                      {tooltipData.dayLessons.map((lr: any) => (
+                        <p key={lr.id}>
+                          <span className="font-semibold">{lr.lesson_plans?.chapter}</span> ({lr.lesson_plans?.subject}) - {lr.lesson_plans?.topic || 'No topic'}
                         </p>
                       ))}
                     </div>
@@ -140,11 +145,41 @@ const ParentDashboardContent = () => {
     },
   });
 
-  // Chapters
-  const { data: chapters = [] } = useQuery({
-    queryKey: ['chapters-studied', user.student_id],
+  // Lesson Records (student_chapters now links to lesson_plans)
+  const { data: lessonRecords = [] } = useQuery({
+    queryKey: ['student-lesson-records', user.student_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('student_chapters').select('*, chapters(*)').eq('student_id', user.student_id).order('date_completed', { ascending: false });
+      const { data, error } = await supabase.from('student_chapters').select('*, lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url)').eq('student_id', user.student_id).order('date_completed', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Homework Status
+  const { data: homeworkStatus = [] } = useQuery({
+    queryKey: ['student-homework-status', user.student_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('student_homework_status').select('*, homework(*)').eq('student_id', user.student_id).order('homework.due_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Preschool Activities
+  const { data: preschoolActivities = [] } = useQuery({
+    queryKey: ['student-preschool-activities', user.student_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('preschool_activities').select('*').eq('student_id', user.student_id).order('activity_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Discipline Issues
+  const { data: disciplineIssues = [] } = useQuery({
+    queryKey: ['student-discipline-issues', user.student_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('discipline_issues').select('*').eq('student_id', user.student_id).order('issue_date', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -222,6 +257,39 @@ const ParentDashboardContent = () => {
     return '-';
   };
 
+  const getHomeworkStatusIcon = (status: StudentHomeworkStatus['status']) => {
+    switch (status) {
+      case 'completed':
+      case 'checked':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'in_progress':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'assigned':
+      default:
+        return <XCircle className="h-4 w-4 text-red-600" />;
+    }
+  };
+
+  const getSeverityColor = (severity: DisciplineIssue['severity']) => {
+    switch (severity) {
+      case "low": return "text-green-600";
+      case "medium": return "text-orange-600";
+      case "high": return "text-red-600";
+      default: return "text-gray-600";
+    }
+  };
+
+  const getRatingStars = (rating: number | null) => {
+    if (rating === null) return "N/A";
+    return Array(rating).fill("⭐").join("");
+  };
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const upcomingHomework = homeworkStatus.filter((hs: any) => hs.status !== 'completed' && hs.status !== 'checked' && !isPast(new Date(hs.homework?.due_date)));
+  const completedHomework = homeworkStatus.filter((hs: any) => hs.status === 'completed' || hs.status === 'checked');
+  const todaysHomework = homeworkStatus.filter((hs: any) => format(new Date(hs.homework?.due_date), "yyyy-MM-dd") === today && hs.status !== 'completed' && hs.status !== 'checked');
+
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -292,6 +360,63 @@ const ParentDashboardContent = () => {
           </CardContent>
         </Card>
 
+        {/* Homework Card */}
+        <Card
+          className="hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/parent-homework')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Homework
+            </CardTitle>
+            <Book className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">View Homework</div>
+            <p className="text-xs text-muted-foreground">
+              Today's, upcoming, and completed assignments
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Activities Card */}
+        <Card
+          className="hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/parent-activities')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Preschool Activities
+            </CardTitle>
+            <Paintbrush className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Activity Gallery</div>
+            <p className="text-xs text-muted-foreground">
+              Photos, videos, and descriptions of activities
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Discipline Card */}
+        <Card
+          className="hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/parent-discipline')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Discipline Alerts
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">View Alerts</div>
+            <p className="text-xs text-muted-foreground">
+              Track any discipline issues and actions taken
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Attendance Toggle and Mini Calendar */}
         <div className="flex justify-between items-center gap-2">
           <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -304,7 +429,7 @@ const ParentDashboardContent = () => {
         {showMiniCalendar && (
           <MiniCalendar
             attendance={attendance}
-            chapters={chapters}
+            lessonRecords={lessonRecords}
             tests={testResults}
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
@@ -441,34 +566,34 @@ const ParentDashboardContent = () => {
           </CardContent>
         </Card>
 
-        {/* CHAPTERS STUDIED */}
+        {/* LESSON RECORDS */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" /> Chapters Studied
+              <BookOpen className="h-5 w-5" /> Lessons Studied
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {chapters.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No chapters recorded</p>
+            {lessonRecords.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No lessons recorded</p>
             ) : (
               <div className="overflow-x-auto max-h-64">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Subject</TableHead>
-                      <TableHead>Chapter Name</TableHead>
-                      <TableHead>Date Completed</TableHead>
-                      <TableHead>Notes</TableHead>
+                      <TableHead>Chapter</TableHead>
+                      <TableHead>Topic</TableHead>
+                      <TableHead>Date Taught</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {chapters.map(chapter => (
-                      <TableRow key={chapter.id}>
-                        <TableCell>{chapter.chapters?.subject || '-'}</TableCell>
-                        <TableCell>{chapter.chapters?.chapter_name || '-'}</TableCell>
-                        <TableCell>{chapter.date_completed ? new Date(chapter.date_completed).toLocaleDateString() : '-'}</TableCell>
-                        <TableCell>{chapter.chapters?.notes || '-'}</TableCell>
+                    {lessonRecords.map((lr: any) => (
+                      <TableRow key={lr.id}>
+                        <TableCell>{lr.lesson_plans?.subject || '-'}</TableCell>
+                        <TableCell>{lr.lesson_plans?.chapter || '-'}</TableCell>
+                        <TableCell>{lr.lesson_plans?.topic || '-'}</TableCell>
+                        <TableCell>{lr.date_completed ? new Date(lr.date_completed).toLocaleDateString() : '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Invoice } from '@/integrations/supabase/finance-types';
-import { AlertCircle, Download, Eye, ArrowLeft } from 'lucide-react';
+import { Invoice, Payment } from '@/integrations/supabase/finance-types';
+import { AlertCircle, Download, Eye, ArrowLeft, CreditCard } from 'lucide-react';
+import { isPast } from 'date-fns';
 
 const ParentFinanceDashboard = () => {
   const { user } = useAuth();
@@ -60,7 +61,7 @@ const ParentFinanceDashboard = () => {
     total_outstanding: invoices.reduce((sum, inv) => sum + (inv.total_amount - inv.paid_amount), 0),
     overdue_count: invoices.filter(inv => 
       inv.status === 'overdue' || 
-      (new Date(inv.due_date) < new Date() && ['issued', 'partial'].includes(inv.status))
+      (isPast(new Date(inv.due_date)) && ['issued', 'partial'].includes(inv.status))
     ).length
   };
 
@@ -103,6 +104,18 @@ const ParentFinanceDashboard = () => {
     setShowInvoiceDialog(true);
   };
 
+  const handleOnlinePayment = (invoiceId: string, amount: number) => {
+    // Placeholder for online payment integration
+    alert(`Initiating online payment for Invoice ID: ${invoiceId}, Amount: ${formatCurrency(amount)}. (Integration not yet implemented)`);
+    console.log("Online payment initiated for:", { invoiceId, amount });
+  };
+
+  const handleDownloadPdf = (invoiceId: string) => {
+    // Placeholder for PDF generation
+    alert(`Generating PDF for Invoice ID: ${invoiceId}. (PDF generation not yet implemented)`);
+    console.log("PDF download initiated for:", { invoiceId });
+  };
+
   if (studentLoading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -134,7 +147,7 @@ const ParentFinanceDashboard = () => {
                   {summary.overdue_count} overdue invoice{summary.overdue_count > 1 ? 's' : ''}
                 </p>
                 <p className="text-sm text-red-700">
-                  Please make payment to avoid late fees
+                  These invoices require immediate attention
                 </p>
               </div>
             </CardContent>
@@ -367,12 +380,14 @@ const ParentFinanceDashboard = () => {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
-                  <Button className="flex-1" variant="outline">
+                  <Button className="flex-1" variant="outline" onClick={() => handleDownloadPdf(selectedInvoice.id)}>
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
                   </Button>
                   {selectedInvoice.status !== 'paid' && (
-                    <Button className="flex-1">Make Payment</Button>
+                    <Button className="flex-1" onClick={() => handleOnlinePayment(selectedInvoice.id, selectedInvoice.total_amount - selectedInvoice.paid_amount)}>
+                      <CreditCard className="h-4 w-4 mr-2" /> Make Payment
+                    </Button>
                   )}
                 </div>
               </div>
