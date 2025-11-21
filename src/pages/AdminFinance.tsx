@@ -20,54 +20,63 @@ const AdminFinance = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Check admin permission
-  if (user?.role !== 'admin') {
-    navigate('/');
-    return null;
-  }
+  // The finance page is accessible by both admin and center users.
+  // Admin users see all centers' data (if implemented), center users see their own.
+  // The data fetching queries below already filter by user?.center_id,
+  // so no explicit role-based redirect is needed here for center users.
+  // If a user is not logged in, the ProtectedRoute will handle the redirect.
 
   // Fetch current month financial summary
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['financial-summary', selectedMonth, selectedYear],
+    queryKey: ['financial-summary', user?.center_id, selectedMonth, selectedYear],
     queryFn: async () => {
+      if (!user?.center_id) return null; // Ensure center_id exists for center-specific data
       const { data, error } = await supabase
         .from('financial_summaries')
         .select('*')
+        .eq('center_id', user.center_id) // Filter by center_id
         .eq('summary_month', selectedMonth)
         .eq('summary_year', selectedYear)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
       return data as FinancialSummaryType;
-    }
+    },
+    enabled: !!user?.center_id // Only enable query if center_id is available
   });
 
   // Fetch overdue invoices count
   const { data: overdueCount = 0 } = useQuery({
-    queryKey: ['overdue-invoices'],
+    queryKey: ['overdue-invoices', user?.center_id],
     queryFn: async () => {
+      if (!user?.center_id) return 0;
       const { data, error } = await supabase
         .from('invoices')
         .select('id', { count: 'exact' })
+        .eq('center_id', user.center_id) // Filter by center_id
         .eq('status', 'overdue');
 
       if (error) throw error;
       return data?.length || 0;
-    }
+    },
+    enabled: !!user?.center_id
   });
 
   // Fetch unpaid invoices count
   const { data: unpaidCount = 0 } = useQuery({
-    queryKey: ['unpaid-invoices'],
+    queryKey: ['unpaid-invoices', user?.center_id],
     queryFn: async () => {
+      if (!user?.center_id) return 0;
       const { data, error } = await supabase
         .from('invoices')
         .select('id', { count: 'exact' })
+        .eq('center_id', user.center_id) // Filter by center_id
         .in('status', ['issued', 'overdue', 'partial']);
 
       if (error) throw error;
       return data?.length || 0;
-    }
+    },
+    enabled: !!user?.center_id
   });
 
   const formatCurrency = (amount: number) => {
@@ -86,7 +95,7 @@ const AdminFinance = () => {
             <h1 className="text-4xl font-bold mb-2">Finance Management</h1>
             <p className="text-muted-foreground">Manage fees, invoices, payments, and financial reports</p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/admin-dashboard')}>
+          <Button variant="outline" onClick={() => navigate(user?.role === 'admin' ? '/admin-dashboard' : '/')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
@@ -169,7 +178,7 @@ const AdminFinance = () => {
               <AlertCircle className="h-5 w-5 text-orange-600" />
               <div>
                 <p className="font-semibold text-orange-900">
-                  {overdueCount} overdue invoices
+                  {overdueCount} overdue invoice{overdueCount > 1 ? 's' : ''}
                 </p>
                 <p className="text-sm text-orange-700">
                   These invoices require immediate attention
