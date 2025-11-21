@@ -1,6 +1,6 @@
 -- Add 'teacher' to the app_role enum if it doesn't exist
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role' AND enum_range('app_role'::regtype) @> 'teacher'::app_role) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'app_role'::regtype AND enumlabel = 'teacher') THEN
         ALTER TYPE public.app_role ADD VALUE 'teacher';
     END IF;
 END $$;
