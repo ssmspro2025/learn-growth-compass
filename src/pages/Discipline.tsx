@@ -142,7 +142,7 @@ const Discipline = () => {
                 <div className="space-y-2">
                   <Label htmlFor="student">Student *</Label>
                   <Select
-                    value={issueForm.student_id}
+                    value={issueForm.student_id || ""}
                     onValueChange={(value) => setIssueForm({ ...issueForm, student_id: value })}
                   >
                     <SelectTrigger>
@@ -160,7 +160,7 @@ const Discipline = () => {
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
                   <Select
-                    value={issueForm.discipline_category_id}
+                    value={issueForm.discipline_category_id || ""}
                     onValueChange={(value) => setIssueForm({ ...issueForm, discipline_category_id: value })}
                   >
                     <SelectTrigger>
@@ -264,15 +264,15 @@ const Discipline = () => {
               <TableBody>
                 {issues.map((issue: any) => (
                   <TableRow key={issue.id}>
-                    <TableCell className="font-medium">{issue.students?.name}</TableCell>
-                    <TableCell>{issue.discipline_categories?.name}</TableCell>
+                    <TableCell className="font-medium">{issue.students?.name || "-"}</TableCell>
+                    <TableCell>{issue.discipline_categories?.name || "-"}</TableCell>
                     <TableCell>{format(new Date(issue.issue_date), "PPP")}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getSeverityColor(issue.severity)}`}>
                         {issue.severity}
                       </span>
                     </TableCell>
-                    <TableCell>{issue.users?.username}</TableCell>
+                    <TableCell>{issue.users?.username || "-"}</TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -301,11 +301,11 @@ const Discipline = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Student</p>
-                  <p className="font-medium">{viewingIssue.students?.name}</p>
+                  <p className="font-medium">{viewingIssue.students?.name || "-"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Category</p>
-                  <p className="font-medium">{viewingIssue.discipline_categories?.name}</p>
+                  <p className="font-medium">{viewingIssue.discipline_categories?.name || "-"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Date</p>
@@ -322,7 +322,7 @@ const Discipline = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Description</p>
-                <p className="mt-1">{viewingIssue.description}</p>
+                <p className="mt-1">{viewingIssue.description || "-"}</p>
               </div>
               {viewingIssue.incident_location && (
                 <div>
@@ -338,7 +338,7 @@ const Discipline = () => {
               )}
               <div>
                 <p className="text-sm text-muted-foreground">Reported By</p>
-                <p className="mt-1">{viewingIssue.users?.username}</p>
+                <p className="mt-1">{viewingIssue.users?.username || "-"}</p>
               </div>
             </div>
           )}

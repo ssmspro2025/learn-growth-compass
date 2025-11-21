@@ -148,7 +148,7 @@ const Activities = () => {
   const handleEdit = (activity: any) => {
     setEditingActivity(activity);
     setActivityForm({
-      activity_type_id: activity.activity_type_id,
+      activity_type_id: activity.activity_type_id || "",
       title: activity.title,
       description: activity.description || "",
       activity_date: activity.activity_date,
@@ -181,7 +181,7 @@ const Activities = () => {
                 <div className="space-y-2">
                   <Label htmlFor="activity_type">Activity Type *</Label>
                   <Select
-                    value={activityForm.activity_type_id}
+                    value={activityForm.activity_type_id || ""}
                     onValueChange={(value) => setActivityForm({ ...activityForm, activity_type_id: value })}
                   >
                     <SelectTrigger>
@@ -288,13 +288,13 @@ const Activities = () => {
                 {activities.map((activity: any) => (
                   <TableRow key={activity.id}>
                     <TableCell className="font-medium">{activity.title}</TableCell>
-                    <TableCell>{activity.activity_types?.name}</TableCell>
+                    <TableCell>{activity.activity_types?.name || "-"}</TableCell>
                     <TableCell>{format(new Date(activity.activity_date), "PPP")}</TableCell>
                     <TableCell>{activity.grade || "-"}</TableCell>
                     <TableCell>
                       {activity.duration_minutes ? `${activity.duration_minutes} min` : "-"}
                     </TableCell>
-                    <TableCell>{activity.users?.username}</TableCell>
+                    <TableCell>{activity.users?.username || "-"}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button

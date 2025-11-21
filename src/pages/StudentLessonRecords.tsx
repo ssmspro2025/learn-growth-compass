@@ -107,7 +107,7 @@ const StudentLessonRecords = () => {
         <CardContent className="flex gap-4">
           <div className="flex-1">
             <label className="text-sm font-medium">Student</label>
-            <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+            <Select value={selectedStudent || ""} onValueChange={setSelectedStudent}>
               <SelectTrigger>
                 <SelectValue placeholder="Select student" />
               </SelectTrigger>
@@ -123,7 +123,7 @@ const StudentLessonRecords = () => {
           </div>
           <div className="flex-1">
             <label className="text-sm font-medium">Lesson Plan</label>
-            <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+            <Select value={selectedLesson || ""} onValueChange={setSelectedLesson}>
               <SelectTrigger>
                 <SelectValue placeholder="Select lesson plan" />
               </SelectTrigger>
@@ -164,21 +164,21 @@ const StudentLessonRecords = () => {
               <TableBody>
                 {records.map((record: any) => (
                   <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.students?.name}</TableCell>
+                    <TableCell className="font-medium">{record.students?.name || "-"}</TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{record.lesson_plans?.subject}</div>
+                        <div className="font-medium">{record.lesson_plans?.subject || "-"}</div>
                         <div className="text-sm text-muted-foreground">
-                          {record.lesson_plans?.chapter} - {record.lesson_plans?.topic}
+                          {record.lesson_plans?.chapter || "-"} - {record.lesson_plans?.topic || "-"}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>{format(new Date(record.taught_date), "PPP")}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {getCompletionStatusIcon(record.completion_status)}
-                        <span className={getCompletionStatusColor(record.completion_status)}>
-                          {record.completion_status?.replace("_", " ").toUpperCase()}
+                        {getCompletionStatusIcon(record.completion_status || "not_started")}
+                        <span className={getCompletionStatusColor(record.completion_status || "not_started")}>
+                          {record.completion_status ? record.completion_status.replace("_", " ").toUpperCase() : "NOT STARTED"}
                         </span>
                       </div>
                     </TableCell>
