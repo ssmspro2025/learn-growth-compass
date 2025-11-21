@@ -9,12 +9,32 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileUp, Plus, Trash2, Edit, Users, X, FileText } from "lucide-react";
+import { FileUp, Plus, Trash2, Edit, Users, X, FileText, Bot, SquarePen } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import OCRModal from "@/components/OCRModal";
 import BulkMarksEntry from "@/components/BulkMarksEntry";
 import QuestionPaperViewer from "@/components/QuestionPaperViewer";
+import { Tables } from "@/integrations/supabase/types";
+
+type Test = Tables<'tests'>;
+type TestResult = Tables<'test_results'>;
+type Student = Tables<'students'>;
+
+interface Question {
+  id: string;
+  questionText: string;
+  maxMarks: number;
+  correctAnswer?: string;
+}
+
+interface QuestionMark {
+  questionId: string;
+  marksObtained: number;
+  studentAnswer?: string;
+  feedback?: string;
+  aiSuggestedMarks?: number;
+}
 
 export default function Tests() {
   const queryClient = useQueryClient();
@@ -32,10 +52,13 @@ export default function Tests() {
   const [testDate, setTestDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [totalMarks, setTotalMarks] = useState("");
   const [grade, setGrade] = useState("");
+  const [questions, setQuestions] = useState<Question[]>([]); // For question-wise entry
 
   // States for entering marks
   const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [marksObtained, setMarksObtained] = useState("");
+  const [marksObtained, setMarksObtained] = useState(""); // Overall marks
+  const [questionMarks, setQuestionMarks] = useState<QuestionMark[]>([]); // Question-wise marks
+  const [studentAnswer, setStudentAnswer] = useState(""); // For AI grading
   const [resultDate, setResultDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [resultNotes, setResultNotes] = useState("");
 
@@ -48,7 +71,6 @@ export default function Tests() {
         .select("*")
         .order("date", { ascending: false });
       
-      // Filter by center_id if user is not admin
       if (user?.role !== 'admin' && user?.center_id) {
         query = query.eq('center_id', user.center_id);
       }
@@ -68,7 +90,6 @@ export default function Tests() {
         .select("*")
         .order("name");
       
-      // Filter by center_id if user is not admin
       if (user?.role !== 'admin' && user?.center_id) {
         query = query.eq('center_id', user.center_id);
       }
@@ -95,12 +116,29 @@ export default function Tests() {
     enabled: !!selectedTest,
   });
 
+  // Effect to update questionMarks when selectedTest changes
+  useEffect(() => {
+    const test = tests.find(t => t.id === selectedTest);
+    if (test && test.questions) {
+      const parsedQuestions = test.questions as Question[];
+      setQuestions(parsedQuestions);
+      setQuestionMarks(parsedQuestions.map(q => ({
+        questionId: q.id,
+        marksObtained: 0,
+        studentAnswer: '',
+        feedback: '',
+      })));
+    } else {
+      setQuestions([]);
+      setQuestionMarks([]);
+    }
+  }, [selectedTest, tests]);
+
   // Create test mutation
   const createTestMutation = useMutation({
     mutationFn: async () => {
       let uploadedFileUrl = null;
 
-      // Upload file if present
       if (uploadedFile) {
         const fileExt = uploadedFile.name.split(".").pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -119,7 +157,8 @@ export default function Tests() {
         total_marks: parseInt(totalMarks),
         grade: grade || null,
         uploaded_file_url: uploadedFileUrl,
-        center_id: user?.center_id, // Attach center_id
+        center_id: user?.center_id,
+        questions: questions.length > 0 ? questions : null, // Save questions
       }).select().single();
 
       if (error) throw error;
@@ -133,6 +172,7 @@ export default function Tests() {
       setTestSubject("");
       setTotalMarks("");
       setGrade("");
+      setQuestions([]);
       setUploadedFile(null);
     },
     onError: (error: any) => {
@@ -144,12 +184,15 @@ export default function Tests() {
   // Add test result mutation
   const addResultMutation = useMutation({
     mutationFn: async () => {
+      const totalMarksObtainedFromQuestions = questionMarks.reduce((sum, qm) => sum + qm.marksObtained, 0);
+
       const { data, error } = await supabase.from("test_results").insert({
         test_id: selectedTest,
         student_id: selectedStudentId,
-        marks_obtained: parseInt(marksObtained),
+        marks_obtained: totalMarksObtainedFromQuestions, // Use sum of question marks
         date_taken: resultDate,
         notes: resultNotes || null,
+        question_marks: questionMarks.length > 0 ? questionMarks : null, // Save question-wise marks
       });
       if (error) throw error;
       return data;
@@ -159,6 +202,8 @@ export default function Tests() {
       toast.success("Marks recorded successfully");
       setSelectedStudentId("");
       setMarksObtained("");
+      setQuestionMarks([]);
+      setStudentAnswer("");
       setResultNotes("");
     },
     onError: (error: any) => {
@@ -178,17 +223,15 @@ export default function Tests() {
         student_id: m.studentId,
         marks_obtained: m.marks,
         date_taken: format(new Date(), "yyyy-MM-dd"),
+        question_marks: null, // Bulk entry doesn't support question-wise for now
       }));
 
-      // Delete existing records for these students and test
-      const studentIds = marks.map((m) => m.studentId);
       await supabase
         .from("test_results")
         .delete()
         .eq("test_id", selectedTest)
-        .in("student_id", studentIds);
+        .in("student_id", marks.map((m) => m.studentId));
 
-      // Insert new records
       const { error } = await supabase.from("test_results").insert(records);
       if (error) throw error;
     },
@@ -222,25 +265,21 @@ export default function Tests() {
       const test = tests.find(t => t.id === testId);
       if (!test) throw new Error("Test not found");
       
-      // Check permissions: Admin can delete any test, Center can only delete their own
       if (user?.role !== 'admin' && test.center_id !== user?.center_id) {
         throw new Error("You don't have permission to delete this test");
       }
 
-      // Delete associated file if exists
       if (test.uploaded_file_url) {
         await supabase.storage
           .from("test-files")
           .remove([test.uploaded_file_url]);
       }
 
-      // Delete test results first (cascade)
       await supabase
         .from("test_results")
         .delete()
         .eq("test_id", testId);
 
-      // Delete the test
       const { error } = await supabase
         .from("tests")
         .delete()
@@ -258,18 +297,61 @@ export default function Tests() {
     },
   });
 
+  // AI Grade Answer Mutation
+  const aiGradeAnswerMutation = useMutation({
+    mutationFn: async ({ questionText, correctAnswer, studentAnswer, maxMarks }: { questionText: string, correctAnswer: string, studentAnswer: string, maxMarks: number }) => {
+      const { data, error } = await supabase.functions.invoke("ai-grade-answer", {
+        body: {
+          questionText,
+          correctAnswer,
+          studentAnswer,
+          totalMarks: maxMarks,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      toast.success("AI graded successfully!");
+      setQuestionMarks(prev => prev.map(qm => 
+        qm.questionId === variables.questionText // Using questionText as ID for simplicity here, ideally use unique ID
+          ? { ...qm, aiSuggestedMarks: data.suggestedMarks, feedback: data.feedback, marksObtained: data.suggestedMarks }
+          : qm
+      ));
+    },
+    onError: (error: any) => {
+      console.error("AI grading error:", error);
+      toast.error(error.message || "Failed to get AI grade");
+    },
+  });
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setUploadedFile(e.target.files[0]);
     }
   };
 
+  const addQuestion = () => {
+    setQuestions(prev => [...prev, { id: crypto.randomUUID(), questionText: '', maxMarks: 0, correctAnswer: '' }]);
+  };
+
+  const updateQuestion = (id: string, field: keyof Question, value: any) => {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, [field]: value } : q));
+  };
+
+  const removeQuestion = (id: string) => {
+    setQuestions(prev => prev.filter(q => q.id !== id));
+  };
+
+  const updateQuestionMark = (questionId: string, field: keyof QuestionMark, value: any) => {
+    setQuestionMarks(prev => prev.map(qm => qm.questionId === questionId ? { ...qm, [field]: value } : qm));
+  };
+
   const selectedTestData = tests.find((t) => t.id === selectedTest);
   const testsWithFiles = tests.filter((t) => t.uploaded_file_url);
 
-  // === NEW: filteredStudents uses exact match against selected test's grade (A: exact match)
   const filteredStudents = selectedTestData?.grade
-    ? students.filter((s: any) => s.grade === selectedTestData.grade)
+    ? students.filter((s: Student) => s.grade === selectedTestData.grade)
     : students;
 
   return (
@@ -328,7 +410,7 @@ export default function Tests() {
                 Create Test
               </Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Test</DialogTitle>
             </DialogHeader>
@@ -359,7 +441,7 @@ export default function Tests() {
                   />
                 </div>
                 <div>
-                  <Label>Total Marks</Label>
+                  <Label>Total Marks (Overall)</Label>
                   <Input
                     type="number"
                     value={totalMarks}
@@ -389,9 +471,51 @@ export default function Tests() {
                   </p>
                 )}
               </div>
+
+              {/* Question-wise Entry Section */}
+              <div className="space-y-3 border p-4 rounded-lg">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <SquarePen className="h-5 w-5" /> Define Questions (Optional)
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Add individual questions for detailed mark entry. Total marks for questions will override overall total marks.
+                </p>
+                {questions.map((q, index) => (
+                  <div key={q.id} className="flex flex-col gap-2 border p-3 rounded-md bg-muted/20">
+                    <div className="flex justify-between items-center">
+                      <Label>Question {index + 1}</Label>
+                      <Button variant="ghost" size="sm" onClick={() => removeQuestion(q.id)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={q.questionText}
+                      onChange={(e) => updateQuestion(q.id, 'questionText', e.target.value)}
+                      placeholder="Question text"
+                      rows={2}
+                    />
+                    <Input
+                      type="number"
+                      value={q.maxMarks}
+                      onChange={(e) => updateQuestion(q.id, 'maxMarks', parseInt(e.target.value) || 0)}
+                      placeholder="Max Marks"
+                    />
+                    <Textarea
+                      value={q.correctAnswer}
+                      onChange={(e) => updateQuestion(q.id, 'correctAnswer', e.target.value)}
+                      placeholder="Correct Answer (for AI grading)"
+                      rows={2}
+                    />
+                  </div>
+                ))}
+                <Button type="button" variant="outline" onClick={addQuestion} className="w-full">
+                  Add Question
+                </Button>
+              </div>
+
               <Button
                 onClick={() => createTestMutation.mutate()}
-                disabled={!testName || !testSubject || !totalMarks || createTestMutation.isPending}
+                disabled={!testName || !testSubject || (!totalMarks && questions.length === 0) || createTestMutation.isPending}
                 className="w-full"
               >
                 Create Test
@@ -427,6 +551,11 @@ export default function Tests() {
                     <div className="font-medium">{test.name}</div>
                     <div className="text-sm opacity-80">
                       {test.subject} • {format(new Date(test.date), "PPP")} • {test.total_marks} marks
+                      {test.questions && (test.questions as Question[]).length > 0 && (
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
+                          {(test.questions as Question[]).length} Questions
+                        </span>
+                      )}
                     </div>
                   </button>
                   <Button
@@ -461,6 +590,7 @@ export default function Tests() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBulkEntry(true)}
+                  disabled={questions.length > 0} // Disable bulk entry if questions are defined
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Bulk Entry
@@ -475,7 +605,6 @@ export default function Tests() {
                     <SelectValue placeholder="Choose student" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* UPDATED: use filteredStudents (exact grade match) */}
                     {filteredStudents.map((student) => (
                       <SelectItem key={student.id} value={student.id}>
                         {student.name} - Grade {student.grade}
@@ -484,16 +613,81 @@ export default function Tests() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Marks Obtained (out of {selectedTestData.total_marks})</Label>
-                <Input
-                  type="number"
-                  value={marksObtained}
-                  onChange={(e) => setMarksObtained(e.target.value)}
-                  max={selectedTestData.total_marks}
-                  placeholder="0"
-                />
-              </div>
+
+              {questions.length > 0 ? (
+                // Question-wise mark entry
+                <div className="space-y-4">
+                  {questions.map((q, index) => {
+                    const currentQuestionMark = questionMarks.find(qm => qm.questionId === q.id);
+                    return (
+                      <div key={q.id} className="border p-4 rounded-lg space-y-2">
+                        <p className="font-semibold">Question {index + 1} (Max: {q.maxMarks} marks)</p>
+                        <p className="text-sm text-muted-foreground">{q.questionText}</p>
+                        {q.correctAnswer && (
+                          <p className="text-xs text-blue-600">Correct Answer: {q.correctAnswer}</p>
+                        )}
+                        <div>
+                          <Label>Student's Answer (Optional)</Label>
+                          <Textarea
+                            value={currentQuestionMark?.studentAnswer || ''}
+                            onChange={(e) => updateQuestionMark(q.id, 'studentAnswer', e.target.value)}
+                            placeholder="Student's answer"
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label>Marks Obtained</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max={q.maxMarks}
+                              value={currentQuestionMark?.marksObtained || ''}
+                              onChange={(e) => updateQuestionMark(q.id, 'marksObtained', parseInt(e.target.value) || 0)}
+                              placeholder="0"
+                            />
+                          </div>
+                          {q.correctAnswer && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => aiGradeAnswerMutation.mutate({
+                                questionText: q.questionText,
+                                correctAnswer: q.correctAnswer!,
+                                studentAnswer: currentQuestionMark?.studentAnswer || '',
+                                maxMarks: q.maxMarks,
+                              })}
+                              disabled={aiGradeAnswerMutation.isPending || !currentQuestionMark?.studentAnswer}
+                            >
+                              <Bot className="h-4 w-4 mr-1" /> AI Grade
+                            </Button>
+                          )}
+                        </div>
+                        {currentQuestionMark?.feedback && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            AI Feedback: {currentQuestionMark.feedback}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Overall mark entry
+                <div>
+                  <Label>Marks Obtained (out of {selectedTestData.total_marks})</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max={selectedTestData.total_marks}
+                    value={marksObtained}
+                    onChange={(e) => setMarksObtained(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              )}
+
               <div>
                 <Label>Test Date</Label>
                 <Input
@@ -513,7 +707,7 @@ export default function Tests() {
               </div>
               <Button
                 onClick={() => addResultMutation.mutate()}
-                disabled={!selectedStudentId || !marksObtained || addResultMutation.isPending}
+                disabled={!selectedStudentId || (!marksObtained && questions.length === 0) || addResultMutation.isPending}
                 className="w-full"
               >
                 Save Marks
@@ -615,7 +809,6 @@ export default function Tests() {
         <BulkMarksEntry
           open={showBulkEntry}
           onOpenChange={setShowBulkEntry}
-          // UPDATED: pass filteredStudents so bulk entry only shows students with exact grade match
           students={filteredStudents}
           testId={selectedTest}
           totalMarks={selectedTestData.total_marks}

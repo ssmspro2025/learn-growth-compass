@@ -75,29 +75,17 @@ export default function LessonTracking() {
     queryFn: async () => {
       let query = supabase
         .from("student_chapters") // Re-using student_chapters for student-lesson-plan linkage
-        .select("*, students(name, grade, center_id), chapters(id, chapter_name, subject)") // chapters is now lesson_plans
+        .select("*, students(name, grade, center_id), lesson_plans(id, chapter, subject, topic, lesson_date, file_url, media_url)") // chapters is now lesson_plans
         .eq("students.center_id", user?.center_id!); // Ensure only center's students are fetched
 
       if (filterStudent !== "all") query = query.eq("student_id", filterStudent);
       if (filterGrade !== "all") query = query.eq("students.grade", filterGrade);
-      if (filterSubject !== "all") query = query.eq("chapters.subject", filterSubject); // Filter by lesson plan subject
+      if (filterSubject !== "all") query = query.eq("lesson_plans.subject", filterSubject); // Filter by lesson plan subject
 
       const { data, error } = await query.order("date_completed", { ascending: false });
       if (error) throw error;
 
-      // Map student_chapters to lesson_plans for display
-      const recordsWithLessonPlans = await Promise.all(data.map(async (record: any) => {
-        const { data: lessonPlanData, error: lpError } = await supabase
-          .from('lesson_plans')
-          .select('id, subject, chapter, topic, lesson_date, file_url, media_url')
-          .eq('id', record.chapter_id) // chapter_id now refers to lesson_plan_id
-          .single();
-
-        if (lpError) console.error("Error fetching lesson plan for student_chapter:", lpError);
-        return { ...record, lesson_plan: lessonPlanData };
-      }));
-
-      return recordsWithLessonPlans.filter(rec => rec.lesson_plan); // Only return if lesson plan found
+      return data;
     },
     enabled: !!user?.center_id,
   });
@@ -356,20 +344,20 @@ export default function LessonTracking() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">{record.lesson_plan.subject}: {record.lesson_plan.chapter} - {record.lesson_plan.topic}</h3>
+                        <h3 className="font-semibold text-lg">{record.lesson_plans?.subject}: {record.lesson_plans?.chapter} - {record.lesson_plans?.topic}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">Taught to: {record.students?.name} (Grade {record.students?.grade}) on {format(new Date(record.date_completed), "PPP")}</p>
                       {record.notes && <p className="text-sm mb-2">Session Notes: {record.notes}</p>}
-                      {record.lesson_plan.file_url && (
+                      {record.lesson_plans?.file_url && (
                         <Button variant="outline" size="sm" asChild className="mr-2">
-                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(record.lesson_plan.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(record.lesson_plans.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <BookOpen className="h-4 w-4 mr-1" /> Lesson File
                           </a>
                         </Button>
                       )}
-                      {record.lesson_plan.media_url && (
+                      {record.lesson_plans?.media_url && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(record.lesson_plan.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(record.lesson_plans.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <BookOpen className="h-4 w-4 mr-1" /> Lesson Media
                           </a>
                         </Button>

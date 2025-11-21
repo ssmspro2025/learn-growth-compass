@@ -230,6 +230,7 @@ export type Database = {
           date_completed: string
           id: string
           student_id: string
+          notes: string | null; // Added notes column
         }
         Insert: {
           chapter_id: string
@@ -238,6 +239,7 @@ export type Database = {
           date_completed?: string
           id?: string
           student_id: string
+          notes?: string | null; // Added notes column
         }
         Update: {
           chapter_id?: string
@@ -246,13 +248,14 @@ export type Database = {
           date_completed?: string
           id?: string
           student_id?: string
+          notes?: string | null; // Added notes column
         }
         Relationships: [
           {
             foreignKeyName: "student_chapters_chapter_id_fkey"
             columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "chapters"
+            referencedRelation: "lesson_plans" // Changed to lesson_plans
             referencedColumns: ["id"]
           },
           {
@@ -316,6 +319,7 @@ export type Database = {
           student_answer: string | null
           student_id: string
           test_id: string
+          question_marks: Json | null; // Added for question-wise marks
         }
         Insert: {
           ai_suggested_marks?: number | null
@@ -327,6 +331,7 @@ export type Database = {
           student_answer?: string | null
           student_id: string
           test_id: string
+          question_marks?: Json | null; // Added for question-wise marks
         }
         Update: {
           ai_suggested_marks?: number | null
@@ -338,6 +343,7 @@ export type Database = {
           student_answer?: string | null
           student_id?: string
           test_id?: string
+          question_marks?: Json | null; // Added for question-wise marks
         }
         Relationships: [
           {
@@ -368,6 +374,7 @@ export type Database = {
           subject: string
           total_marks: number
           uploaded_file_url: string | null
+          questions: Json | null; // Added for question-wise marks
         }
         Insert: {
           center_id?: string | null
@@ -380,6 +387,7 @@ export type Database = {
           subject: string
           total_marks: number
           uploaded_file_url?: string | null
+          questions?: Json | null; // Added for question-wise marks
         }
         Update: {
           center_id?: string | null
@@ -392,6 +400,7 @@ export type Database = {
           subject?: string
           total_marks?: number
           uploaded_file_url?: string | null
+          questions?: Json | null; // Added for question-wise marks
         }
         Relationships: [
           {
@@ -701,6 +710,94 @@ export type Database = {
             columns: ["student_id"];
             isOneToOne: false;
             referencedRelation: "students";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      teachers: { // NEW TABLE
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          contact_number: string | null;
+          email: string | null;
+          hire_date: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          contact_number?: string | null;
+          email?: string | null;
+          hire_date: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          contact_number?: string | null;
+          email?: string | null;
+          hire_date?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teachers_center_id_fkey";
+            columns: ["center_id"];
+            isOneToOne: false;
+            referencedRelation: "centers";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      teacher_attendance: { // NEW TABLE
+        Row: {
+          id: string;
+          teacher_id: string;
+          date: string;
+          status: 'present' | 'absent' | 'leave';
+          time_in: string | null;
+          time_out: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          teacher_id: string;
+          date: string;
+          status: 'present' | 'absent' | 'leave';
+          time_in?: string | null;
+          time_out?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          teacher_id?: string;
+          date?: string;
+          status?: 'present' | 'absent' | 'leave';
+          time_in?: string | null;
+          time_out?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_attendance_teacher_id_fkey";
+            columns: ["teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
             referencedColumns: ["id"];
           }
         ];

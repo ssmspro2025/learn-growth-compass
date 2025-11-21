@@ -171,9 +171,18 @@ export default function StudentReport() {
   const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
   const totalTests = testResults.length;
-  const totalMarksObtained = testResults.reduce((sum, r) => sum + r.marks_obtained, 0);
-  const totalMaxMarks = testResults.reduce((sum, r) => sum + (r.tests?.total_marks || 0), 0);
-  const averagePercentage = totalMaxMarks > 0 ? Math.round((totalMarksObtained / totalMaxMarks) * 100) : 0;
+  const totalMarksObtained = testResults.reduce(
+    (sum, r) => sum + r.marks_obtained,
+    0
+  );
+  const totalMaxMarks = testResults.reduce(
+    (sum, r) => sum + (r.tests?.total_marks || 0),
+    0
+  );
+  const averagePercentage =
+    totalMaxMarks > 0
+      ? Math.round((totalMarksObtained / totalMaxMarks) * 100)
+      : 0;
 
   const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
   const totalPaid = invoices.reduce((sum, inv) => sum + inv.paid_amount, 0);
@@ -227,22 +236,24 @@ export default function StudentReport() {
       ["Outstanding Dues", outstandingDues],
       [""],
       ["Test Results"],
-      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date"],
+      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date", "Question-wise Marks"],
       ...testResults.map(r => [
         r.tests?.name,
         r.tests?.subject,
         r.marks_obtained,
         r.tests?.total_marks,
-        format(new Date(r.date_taken), "PPP")
+        format(new Date(r.date_taken), "PPP"),
+        r.question_marks ? JSON.stringify(r.question_marks) : '',
       ]),
       [""],
       ["Lesson Records"],
-      ["Subject", "Chapter", "Topic", "Date Taught", "File Link", "Media Link"],
+      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "File Link", "Media Link"],
       ...lessonRecords.map((lr: any) => [
         lr.lesson_plans?.subject,
         lr.lesson_plans?.chapter,
         lr.lesson_plans?.topic,
         format(new Date(lr.date_completed), "PPP"),
+        lr.notes || '', // Include session notes
         lr.lesson_plans?.file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl : '',
         lr.lesson_plans?.media_url ? supabase.storage.from("lesson-plan-media").getPublicUrl(lr.lesson_plans.media_url).data.publicUrl : '',
       ]),
@@ -514,6 +525,7 @@ export default function StudentReport() {
                         <th className="border px-2 py-1">Chapter</th>
                         <th className="border px-2 py-1">Topic</th>
                         <th className="border px-2 py-1">Date Taught</th>
+                        <th className="border px-2 py-1">Session Notes</th>
                         <th className="border px-2 py-1">Files</th>
                       </tr>
                     </thead>
@@ -524,6 +536,7 @@ export default function StudentReport() {
                           <td className="border px-2 py-1">{lr.lesson_plans?.chapter}</td>
                           <td className="border px-2 py-1">{lr.lesson_plans?.topic}</td>
                           <td className="border px-2 py-1">{format(new Date(lr.date_completed), "PPP")}</td>
+                          <td className="border px-2 py-1">{lr.notes || "-"}</td>
                           <td className="border px-2 py-1">
                             {lr.lesson_plans?.file_url && (
                               <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">File</a>
@@ -565,6 +578,7 @@ export default function StudentReport() {
                       <th className="border px-2 py-1">Total Marks</th>
                       <th className="border px-2 py-1">Percentage</th>
                       <th className="border px-2 py-1">Date</th>
+                      <th className="border px-2 py-1">Question Marks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -576,6 +590,12 @@ export default function StudentReport() {
                         <td className="border px-2 py-1">{t.tests?.total_marks}</td>
                         <td className="border px-2 py-1">{Math.round((t.marks_obtained / (t.tests?.total_marks || 1)) * 100)}%</td>
                         <td className="border px-2 py-1">{format(new Date(t.date_taken), "PPP")}</td>
+                        <td className="border px-2 py-1 text-xs">
+                          {t.question_marks && (t.question_marks as any[]).map((qm: any, idx: number) => (
+                            <div key={idx}>Q{idx + 1}: {qm.marksObtained}/{t.tests?.questions?.[idx]?.maxMarks || '?'}</div>
+                          ))}
+                          {!t.question_marks && "-"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -603,7 +623,7 @@ export default function StudentReport() {
                         <th className="border px-2 py-1">Subject</th>
                         <th className="border px-2 py-1">Due Date</th>
                         <th className="border px-2 py-1">Status</th>
-                        <th className="border px-2 py-1">Remarks</th>
+                        <th className="border px-2 py-1">Teacher Remarks</th>
                       </tr>
                     </thead>
                     <tbody>
