@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign, Users, AlertTriangle, Book, FileQuestion } from "lucide-react";
+import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,14 +16,6 @@ const navItems = [
   { to: "/records", label: "View Records", icon: FileText },
   { to: "/summary", label: "Summary", icon: BarChart3 },
   { to: "/finance", label: "Finance", icon: DollarSign },
-  // New navigation items
-  { to: "/activities", label: "Activities", icon: Users },
-  { to: "/activity-types", label: "Activity Types", icon: Book },
-  { to: "/discipline", label: "Discipline", icon: AlertTriangle },
-  { to: "/discipline-categories", label: "Discipline Categories", icon: AlertTriangle },
-  { to: "/homework", label: "Homework", icon: FileQuestion },
-  { to: "/lesson-plans", label: "Lesson Plans", icon: BookOpen },
-  { to: "/student-lesson-records", label: "Student Lesson Records", icon: User },
 ];
 
 export default function CenterLayout({ children }: { children: React.ReactNode }) {
