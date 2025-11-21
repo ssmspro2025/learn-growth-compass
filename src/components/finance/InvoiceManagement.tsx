@@ -47,25 +47,39 @@ const InvoiceManagement = () => {
   // Generate monthly invoices mutation
   const generateInvoicesMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('generate-monthly-invoices', {
-        body: {
-          centerId: user?.center_id,
-          month: generateForm.month,
-          year: generateForm.year,
-          academicYear: generateForm.academic_year,
-          dueInDays: generateForm.due_in_days,
-          lateFeePerDay: generateForm.late_fee_per_day // Pass late fee rule
-        }
+      if (!user?.center_id) throw new Error('Center ID not found');
+
+      // Call the new SQL database function
+      const { data, error } = await supabase.rpc('generate_monthly_invoices_sql', {
+        p_center_id: user.center_id,
+        p_month: generateForm.month,
+        p_year: generateForm.year,
+        p_academic_year: generateForm.academic_year,
+        p_due_in_days: generateForm.due_in_days,
+        p_late_fee_per_day: generateForm.late_fee_per_day
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.message);
-      return data;
+      if (error) {
+        // Check for the specific notice message from the SQL function
+        if (error.message.includes('Invoices already exist')) {
+          toast.info(`Invoices for ${generateForm.month}/${generateForm.year} already exist. No new invoices generated.`);
+          return { invoicesGenerated: 0 };
+        }
+        throw error;
+      }
+      
+      // The RPC function returns a table, so data will be an array of objects
+      const invoicesGeneratedCount = data ? data.length : 0;
+
+      return { invoicesGenerated: invoicesGeneratedCount };
     },
     onSuccess: (data: any) => {
-      toast.success(`${data.invoicesGenerated} invoices generated successfully`);
+      if (data.invoicesGenerated > 0) {
+        toast.success(`${data.invoicesGenerated} invoices generated successfully`);
+      }
       setShowGenerateDialog(false);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-summary'] }); // Invalidate summary
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to generate invoices');
@@ -127,7 +141,7 @@ const InvoiceManagement = () => {
     const today = new Date();
     if (isPast(dueDate) && invoice.total_amount > invoice.paid_amount) {
       const daysOverdue = differenceInDays(today, dueDate);
-      return daysOverdue * generateForm.late_fee_per_day;
+      return daysOverdue * (invoice.late_fee_per_day || 0); // Use invoice's stored late fee
     }
     return 0;
   };
