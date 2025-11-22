@@ -792,7 +792,7 @@ export default function Tests() {
                       </td>
                     </tr>
                   ))}
-                </TableBody>
+                </tbody>
               </table>
             </div>
           </CardContent>
