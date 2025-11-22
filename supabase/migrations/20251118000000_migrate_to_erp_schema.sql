@@ -30,11 +30,21 @@ DROP TABLE IF EXISTS public.center_feature_permissions CASCADE;
 DROP TABLE IF EXISTS public.teacher_feature_permissions CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE; -- Drop users last as it's referenced by many
 
+-- Drop existing ENUM types if they exist
 DROP TYPE IF EXISTS public.app_role CASCADE;
 DROP TYPE IF EXISTS public.invoice_status CASCADE;
 DROP TYPE IF EXISTS public.payment_method CASCADE;
 DROP TYPE IF EXISTS public.transaction_type CASCADE;
 DROP TYPE IF EXISTS public.expense_category CASCADE;
+DROP TYPE IF EXISTS public.submission_status CASCADE;
+DROP TYPE IF EXISTS public.attendance_status CASCADE;
+DROP TYPE IF EXISTS public.assignment_status CASCADE;
+DROP TYPE IF EXISTS public.message_priority CASCADE;
+DROP TYPE IF EXISTS public.plan_tier CASCADE;
+DROP TYPE IF EXISTS public.school_status CASCADE;
+DROP TYPE IF EXISTS public.user_status CASCADE;
+DROP TYPE IF EXISTS public.payment_status CASCADE;
+DROP TYPE IF EXISTS public.role CASCADE;
 
 
 -- Create new ENUM types first
