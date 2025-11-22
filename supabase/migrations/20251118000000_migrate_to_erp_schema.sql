@@ -1,24 +1,21 @@
 -- Drop existing tables and enums that conflict with the new schema
 -- WARNING: This will delete all data in these tables. Back up your data first!
 
+-- Drop tables that might exist from the old schema
 DROP TABLE IF EXISTS public.ai_summaries CASCADE;
-DROP TABLE IF EXISTS public.attendance CASCADE;
 DROP TABLE IF EXISTS public.centers CASCADE;
 DROP TABLE IF EXISTS public.chapter_teachings CASCADE;
 DROP TABLE IF EXISTS public.chapters CASCADE;
 DROP TABLE IF EXISTS public.student_chapters CASCADE;
-DROP TABLE IF EXISTS public.students CASCADE;
 DROP TABLE IF EXISTS public.test_results CASCADE;
 DROP TABLE IF EXISTS public.tests CASCADE;
 DROP TABLE IF EXISTS public.homework CASCADE;
 DROP TABLE IF EXISTS public.student_homework_status CASCADE;
 DROP TABLE IF EXISTS public.preschool_activities CASCADE;
 DROP TABLE IF EXISTS public.discipline_issues CASCADE;
-DROP TABLE IF EXISTS public.teachers CASCADE;
 DROP TABLE IF EXISTS public.teacher_attendance CASCADE;
 DROP TABLE IF EXISTS public.lesson_plans CASCADE;
 DROP TABLE IF EXISTS public.fee_headings CASCADE;
-DROP TABLE IF EXISTS public.fee_structures CASCADE;
 DROP TABLE IF EXISTS public.invoices CASCADE;
 DROP TABLE IF EXISTS public.invoice_items CASCADE;
 DROP TABLE IF EXISTS public.payments CASCADE;
@@ -28,7 +25,31 @@ DROP TABLE IF EXISTS public.financial_summaries CASCADE;
 DROP TABLE IF EXISTS public.payment_allocations CASCADE;
 DROP TABLE IF EXISTS public.center_feature_permissions CASCADE;
 DROP TABLE IF EXISTS public.teacher_feature_permissions CASCADE;
+
+-- Drop tables that might exist from the new schema (in reverse dependency order where possible)
+DROP TABLE IF EXISTS public.exam_results CASCADE;
+DROP TABLE IF EXISTS public.assignment_submissions CASCADE;
+DROP TABLE IF EXISTS public.attendance CASCADE;
+DROP TABLE IF EXISTS public.messages CASCADE;
+DROP TABLE IF EXISTS public.message_participants CASCADE;
+DROP TABLE IF EXISTS public.student_parents CASCADE;
+DROP TABLE IF EXISTS public.user_permissions CASCADE;
+DROP TABLE IF EXISTS public.payment_transactions CASCADE;
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.assignments CASCADE;
+DROP TABLE IF EXISTS public.exams CASCADE;
+DROP TABLE IF EXISTS public.classes CASCADE;
+DROP TABLE IF EXISTS public.parents CASCADE;
+DROP TABLE IF EXISTS public.students CASCADE;
+DROP TABLE IF EXISTS public.teachers CASCADE;
+DROP TABLE IF EXISTS public.fee_structures CASCADE;
+DROP TABLE IF EXISTS public.fee_categories CASCADE;
+DROP TABLE IF EXISTS public.academic_years CASCADE;
+DROP TABLE IF EXISTS public.grade_levels CASCADE;
+DROP TABLE IF EXISTS public.subjects CASCADE;
+DROP TABLE IF EXISTS public.schools CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE; -- Drop users last as it's referenced by many
+DROP TABLE IF EXISTS public.tenants CASCADE; -- Drop tenants last as it's foundational
 
 -- Drop existing ENUM types if they exist
 DROP TYPE IF EXISTS public.app_role CASCADE;
@@ -85,7 +106,7 @@ CREATE TABLE public.schools (
   principal_id uuid,
   logo_url character varying,
   established_date date,
-  student_capacity integer,
+  student_capacity integer DEFAULT 0,
   current_enrollment integer DEFAULT 0,
   accreditation character varying,
   school_type character varying DEFAULT 'public'::character varying,
