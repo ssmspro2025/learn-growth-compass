@@ -56,6 +56,7 @@ export type Invoice = {
   status: InvoiceStatus;
   academic_year: string;
   notes?: string;
+  late_fee_per_day?: number; // Added this line
   created_at: string;
   updated_at: string;
 };
