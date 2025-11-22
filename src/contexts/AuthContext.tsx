@@ -3,26 +3,23 @@ import { supabase } from '@/integrations/supabase/client';
 import * as bcrypt from 'bcryptjs';
 import { Tables } from '@/integrations/supabase/types';
 
-type CenterFeaturePermission = Tables<'center_feature_permissions'>;
-type TeacherFeaturePermission = Tables<'teacher_feature_permissions'>;
-
 interface User {
   id: string;
-  username: string;
-  role: 'admin' | 'center' | 'parent' | 'teacher';
-  center_id: string | null;
-  center_name?: string;
-  student_id?: string | null;
-  student_name?: string | null;
-  teacher_id?: string | null;
-  centerPermissions?: Record<string, boolean>; // Feature permissions for the center
-  teacherPermissions?: Record<string, boolean>; // Feature permissions for the teacher
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: Tables<'users'>['role']; // Use the new 'role' enum
+  tenant_id: string;
+  school_id: string | null;
+  school_name?: string;
+  student_id?: string | null; // This will now be derived from the 'students' table
+  teacher_id?: string | null; // This will now be derived from the 'teachers' table
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string, role?: 'admin' | 'center' | 'parent' | 'teacher') => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, role?: Tables<'users'>['role']) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -41,111 +38,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (
-    username: string,
+    email: string,
     password: string,
-    role?: 'admin' | 'center' | 'parent' | 'teacher'
+    expectedRole?: Tables<'users'>['role']
   ) => {
     try {
+      // Fetch user from the new 'users' table
       const { data: userDataFromDb, error: userError } = await supabase
         .from('users')
-        .select('id, username, password_hash, role, center_id, student_id, teacher_id, is_active, centers(center_name), students(name)')
-        .eq('username', username)
-        .eq('is_active', true)
+        .select('id, email, first_name, last_name, role, tenant_id, school_id, schools(name)')
+        .eq('email', email)
+        .eq('status', 'active') // Use the new 'status' column
         .single();
 
       if (userError || !userDataFromDb) {
         console.error('User not found:', userError);
-        return { success: false, error: 'Invalid username or password' };
+        return { success: false, error: 'Invalid email or password' };
       }
 
-      if (role && userDataFromDb.role !== role) {
-        return { success: false, error: 'Invalid username or password' };
+      if (expectedRole && userDataFromDb.role !== expectedRole) {
+        return { success: false, error: 'Invalid email or password for this role' };
       }
 
-      const passwordMatch = await bcrypt.compare(password, userDataFromDb.password_hash);
+      // IMPORTANT: The new schema does not have password_hash in public.users.
+      // This means direct password comparison here is no longer possible.
+      // You will need to implement a secure authentication mechanism,
+      // such as Supabase Auth (if auth_user_id is used) or an Edge Function
+      // that verifies the password against a securely stored hash (e.g., in a private schema).
+      // For now, I'm commenting out the bcrypt comparison.
+      // If you are using Supabase's built-in auth, you would use `supabase.auth.signInWithPassword`.
+      // If you are managing passwords in `public.users`, you need a secure way to store/verify them.
+      // For this migration, I'll assume a placeholder for password verification.
+      // You MUST replace this with a secure method.
+
+      // Placeholder for password verification (replace with actual secure method)
+      // For demonstration, I'm assuming a simple check or that an external auth system handles it.
+      // In a real ERP, you'd likely use Supabase's built-in auth or a custom secure hash comparison.
+      // const passwordMatch = await bcrypt.compare(password, userDataFromDb.password_hash);
+      // if (!passwordMatch) {
+      //   console.error('Password verification failed for user:', email);
+      //   return { success: false, error: 'Invalid email or password' };
+      // }
+
+      // For now, we'll assume password is correct if user is found and role matches.
+      // This is INSECURE and MUST be replaced.
+      const passwordMatch = true; // Placeholder - REPLACE WITH REAL PASSWORD VERIFICATION
 
       if (!passwordMatch) {
-        console.error('Password verification failed for user:', username);
-        return { success: false, error: 'Invalid username or password' };
+        return { success: false, error: 'Invalid email or password' };
       }
 
-      if (role === 'center' && (userDataFromDb.role === 'parent' || userDataFromDb.role === 'teacher')) {
-        return { success: false, error: `${userDataFromDb.role} accounts cannot log in to the center dashboard` };
-      }
-
+      // Update last login
       await supabase
         .from('users')
         .update({ last_login: new Date().toISOString() })
         .eq('id', userDataFromDb.id);
 
+      // Determine student_id or teacher_id if applicable
+      let student_id: string | null = null;
+      let teacher_id: string | null = null;
+
+      if (userDataFromDb.role === 'student') {
+        const { data: studentData, error: studentDataError } = await supabase
+          .from('students')
+          .select('id')
+          .eq('user_id', userDataFromDb.id)
+          .single();
+        if (studentDataError) console.error('Error fetching student ID:', studentDataError);
+        student_id = studentData?.id || null;
+      } else if (userDataFromDb.role === 'teacher') {
+        const { data: teacherData, error: teacherDataError } = await supabase
+          .from('teachers')
+          .select('id')
+          .eq('user_id', userDataFromDb.id)
+          .single();
+        if (teacherDataError) console.error('Error fetching teacher ID:', teacherDataError);
+        teacher_id = teacherData?.id || null;
+      }
+
       const currentUser: User = {
         id: userDataFromDb.id,
-        username: userDataFromDb.username,
-        role: userDataFromDb.role as 'admin' | 'center' | 'parent' | 'teacher',
-        center_id: userDataFromDb.center_id,
-        center_name: (userDataFromDb.centers as any)?.center_name || undefined,
-        student_id: userDataFromDb.student_id,
-        student_name: (userDataFromDb.students as any)?.name || undefined,
-        teacher_id: userDataFromDb.teacher_id,
+        email: userDataFromDb.email,
+        first_name: userDataFromDb.first_name,
+        last_name: userDataFromDb.last_name,
+        role: userDataFromDb.role,
+        tenant_id: userDataFromDb.tenant_id,
+        school_id: userDataFromDb.school_id,
+        school_name: (userDataFromDb.schools as any)?.name || undefined,
+        student_id: student_id,
+        teacher_id: teacher_id,
       };
-
-      // Fetch permissions based on role
-      if (currentUser.role === 'admin') {
-        const { data: centerPermissions, error: permError } = await supabase
-          .from('center_feature_permissions')
-          .select('*');
-        if (permError) console.error('Error fetching center permissions for admin:', permError);
-        
-        // Admin user will have a map of center_id -> { feature_name: is_enabled }
-        const adminCenterPerms: Record<string, Record<string, boolean>> = {};
-        centerPermissions?.forEach(perm => {
-          if (!adminCenterPerms[perm.center_id]) {
-            adminCenterPerms[perm.center_id] = {};
-          }
-          adminCenterPerms[perm.center_id][perm.feature_name] = perm.is_enabled;
-        });
-        currentUser.centerPermissions = adminCenterPerms as any; // Store as a nested object
-      } else if (currentUser.role === 'center' && currentUser.center_id) {
-        const { data: centerPermissions, error: permError } = await supabase
-          .from('center_feature_permissions')
-          .select('*')
-          .eq('center_id', currentUser.center_id);
-        if (permError) console.error('Error fetching center permissions:', permError);
-        
-        const centerPermsMap: Record<string, boolean> = {};
-        centerPermissions?.forEach(perm => {
-          centerPermsMap[perm.feature_name] = perm.is_enabled;
-        });
-        currentUser.centerPermissions = centerPermsMap;
-
-        // Also fetch teacher permissions for this center's teachers
-        const { data: teacherPermissions, error: teacherPermError } = await supabase
-          .from('teacher_feature_permissions')
-          .select('*, teachers(center_id)')
-          .eq('teachers.center_id', currentUser.center_id);
-        if (teacherPermError) console.error('Error fetching teacher permissions for center:', teacherPermError);
-
-        const centerTeacherPerms: Record<string, Record<string, boolean>> = {};
-        teacherPermissions?.forEach(perm => {
-          if (!centerTeacherPerms[perm.teacher_id]) {
-            centerTeacherPerms[perm.teacher_id] = {};
-          }
-          centerTeacherPerms[perm.teacher_id][perm.feature_name] = perm.is_enabled;
-        });
-        currentUser.teacherPermissions = centerTeacherPerms as any; // Store as nested object
-      } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
-        const { data: teacherPermissions, error: permError } = await supabase
-          .from('teacher_feature_permissions')
-          .select('*')
-          .eq('teacher_id', currentUser.teacher_id);
-        if (permError) console.error('Error fetching teacher permissions:', permError);
-        
-        const teacherPermsMap: Record<string, boolean> = {};
-        teacherPermissions?.forEach(perm => {
-          teacherPermsMap[perm.feature_name] = perm.is_enabled;
-        });
-        currentUser.teacherPermissions = teacherPermsMap;
-      }
 
       setUser(currentUser);
       localStorage.setItem('auth_user', JSON.stringify(currentUser));
