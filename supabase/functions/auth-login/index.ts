@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('--- Auth login function received request ---'); // Added this line to force redeployment
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
