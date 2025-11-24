@@ -1,4 +1,13 @@
-export type Json =
+[?25l[?2004h
+                                                                                               
+  >  1. ufybwqmxafdkxdfzynhy [name: ssmspro, org: kgymfifmvxbixtycsynp, region: ap-southeast-1]
+    2. msekkmxlrqnolbxqgznz [name: classms, org: kgymfifmvxbixtycsynp, region: ap-southeast-2] 
+                                                                                               
+                                                                                               
+                                                                                               
+                                                                                               
+    ↑/k up • ↓/j down • / filter • q quit • ? more                                             
+                                                                                               [9A [J[2K[?2004l[?25h[?1002l[?1003l[?1006lexport type Json =
   | string
   | number
   | boolean
@@ -55,83 +64,10 @@ export type Database = {
           },
         ]
       }
-      assignment_submissions: {
-        Row: {
-          assignment_id: string
-          attachments: Json | null
-          created_at: string | null
-          feedback: string | null
-          grade: string | null
-          graded_at: string | null
-          graded_by: string | null
-          id: string
-          points_earned: number | null
-          status: Database["public"]["Enums"]["submission_status"] | null
-          student_id: string
-          submission_text: string | null
-          submitted_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          assignment_id: string
-          attachments?: Json | null
-          created_at?: string | null
-          feedback?: string | null
-          grade?: string | null
-          graded_at?: string | null
-          graded_by?: string | null
-          id?: string
-          points_earned?: number | null
-          status?: Database["public"]["Enums"]["submission_status"] | null
-          student_id: string
-          submission_text?: string | null
-          submitted_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          assignment_id?: string
-          attachments?: Json | null
-          created_at?: string | null
-          feedback?: string | null
-          grade?: string | null
-          graded_at?: string | null
-          graded_by?: string | null
-          id?: string
-          points_earned?: number | null
-          status?: Database["public"]["Enums"]["submission_status"] | null
-          student_id?: string
-          submission_text?: string | null
-          submitted_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assignment_submissions_assignment_id_fkey"
-            columns: ["assignment_id"]
-            isOneToOne: false
-            referencedRelation: "assignments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assignment_submissions_graded_by_fkey"
-            columns: ["graded_by"]
-            isOneToOne: false
-            referencedRelation: "teachers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assignment_submissions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       assignments: {
         Row: {
-          attachments: Json | null
           assignment_type: string | null
+          attachments: Json | null
           class_id: string
           created_at: string | null
           description: string | null
@@ -146,8 +82,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          attachments?: Json | null
           assignment_type?: string | null
+          attachments?: Json | null
           class_id: string
           created_at?: string | null
           description?: string | null
@@ -162,8 +98,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          attachments?: Json | null
           assignment_type?: string | null
+          attachments?: Json | null
           class_id?: string
           created_at?: string | null
           description?: string | null
@@ -257,7 +193,7 @@ export type Database = {
           action: string
           created_at: string | null
           id: string
-          ip_address: string | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           resource_id: string | null
@@ -270,7 +206,7 @@ export type Database = {
           action: string
           created_at?: string | null
           id?: string
-          ip_address?: string | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           resource_id?: string | null
@@ -283,7 +219,7 @@ export type Database = {
           action?: string
           created_at?: string | null
           id?: string
-          ip_address?: string | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           resource_id?: string | null
@@ -340,22 +276,7 @@ export type Database = {
           student_id?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "class_enrollments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       classes: {
         Row: {
@@ -499,12 +420,12 @@ export type Database = {
         Row: {
           class_id: string
           created_at: string | null
-          description: text | null
+          description: string | null
           duration_minutes: number | null
           exam_date: string | null
           exam_type: string | null
           id: string
-          instructions: text | null
+          instructions: string | null
           teacher_id: string
           title: string
           total_points: number | null
@@ -513,12 +434,12 @@ export type Database = {
         Insert: {
           class_id: string
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           duration_minutes?: number | null
           exam_date?: string | null
           exam_type?: string | null
           id?: string
-          instructions?: text | null
+          instructions?: string | null
           teacher_id: string
           title: string
           total_points?: number | null
@@ -527,12 +448,12 @@ export type Database = {
         Update: {
           class_id?: string
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           duration_minutes?: number | null
           exam_date?: string | null
           exam_type?: string | null
           id?: string
-          instructions?: text | null
+          instructions?: string | null
           teacher_id?: string
           title?: string
           total_points?: number | null
@@ -558,7 +479,7 @@ export type Database = {
       fee_categories: {
         Row: {
           created_at: string | null
-          description: text | null
+          description: string | null
           id: string
           is_mandatory: boolean | null
           name: string
@@ -567,7 +488,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           id?: string
           is_mandatory?: boolean | null
           name: string
@@ -576,7 +497,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           id?: string
           is_mandatory?: boolean | null
           name?: string
@@ -667,7 +588,7 @@ export type Database = {
       grade_levels: {
         Row: {
           created_at: string | null
-          description: text | null
+          description: string | null
           grade_number: number
           id: string
           name: string
@@ -676,7 +597,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           grade_number: number
           id?: string
           name: string
@@ -685,7 +606,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          description?: text | null
+          description?: string | null
           grade_number?: number
           id?: string
           name?: string
@@ -704,7 +625,6 @@ export type Database = {
       }
       message_participants: {
         Row: {
-          created_at: string | null
           id: string
           joined_at: string | null
           last_read_at: string | null
@@ -712,7 +632,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          created_at?: string | null
           id?: string
           joined_at?: string | null
           last_read_at?: string | null
@@ -720,7 +639,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          created_at?: string | null
           id?: string
           joined_at?: string | null
           last_read_at?: string | null
@@ -798,7 +716,7 @@ export type Database = {
       messages: {
         Row: {
           attachments: Json | null
-          content: text
+          content: string
           created_at: string | null
           id: string
           is_read: boolean | null
@@ -808,7 +726,7 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
-          content: text
+          content: string
           created_at?: string | null
           id?: string
           is_read?: boolean | null
@@ -818,7 +736,7 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
-          content?: text
+          content?: string
           created_at?: string | null
           id?: string
           is_read?: boolean | null
@@ -849,7 +767,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_read: boolean | null
-          message: text
+          message: string
           metadata: Json | null
           priority: Database["public"]["Enums"]["message_priority"] | null
           read_at: string | null
@@ -862,7 +780,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
-          message: text
+          message: string
           metadata?: Json | null
           priority?: Database["public"]["Enums"]["message_priority"] | null
           read_at?: string | null
@@ -875,7 +793,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
-          message?: text
+          message?: string
           metadata?: Json | null
           priority?: Database["public"]["Enums"]["message_priority"] | null
           read_at?: string | null
@@ -896,9 +814,9 @@ export type Database = {
       parents: {
         Row: {
           created_at: string | null
+          id: string
           is_guardian: boolean | null
           occupation: string | null
-          id: string
           relationship: string | null
           school_id: string
           updated_at: string | null
@@ -908,9 +826,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          id?: string
           is_guardian?: boolean | null
           occupation?: string | null
-          id?: string
           relationship?: string | null
           school_id: string
           updated_at?: string | null
@@ -920,9 +838,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          id?: string
           is_guardian?: boolean | null
           occupation?: string | null
-          id?: string
           relationship?: string | null
           school_id?: string
           updated_at?: string | null
@@ -953,7 +871,7 @@ export type Database = {
           created_at: string | null
           fee_structure_id: string
           id: string
-          notes: text | null
+          notes: string | null
           payment_date: string | null
           payment_method: string | null
           processed_by: string | null
@@ -968,7 +886,7 @@ export type Database = {
           created_at?: string | null
           fee_structure_id: string
           id?: string
-          notes?: text | null
+          notes?: string | null
           payment_date?: string | null
           payment_method?: string | null
           processed_by?: string | null
@@ -983,7 +901,7 @@ export type Database = {
           created_at?: string | null
           fee_structure_id?: string
           id?: string
-          notes?: text | null
+          notes?: string | null
           payment_date?: string | null
           payment_method?: string | null
           processed_by?: string | null
@@ -1020,7 +938,7 @@ export type Database = {
       schools: {
         Row: {
           accreditation: string | null
-          address: text
+          address: string
           created_at: string | null
           current_enrollment: number | null
           email: string
@@ -1033,15 +951,15 @@ export type Database = {
           principal_id: string | null
           school_type: string | null
           settings: Json | null
-          student_capacity: number | null
           status: Database["public"]["Enums"]["school_status"] | null
+          student_capacity: number | null
           tenant_id: string
           updated_at: string | null
           website: string | null
         }
         Insert: {
           accreditation?: string | null
-          address: text
+          address: string
           created_at?: string | null
           current_enrollment?: number | null
           email: string
@@ -1054,15 +972,15 @@ export type Database = {
           principal_id?: string | null
           school_type?: string | null
           settings?: Json | null
-          student_capacity?: number | null
           status?: Database["public"]["Enums"]["school_status"] | null
+          student_capacity?: number | null
           tenant_id: string
           updated_at?: string | null
           website?: string | null
         }
         Update: {
           accreditation?: string | null
-          address?: text
+          address?: string
           created_at?: string | null
           current_enrollment?: number | null
           email?: string
@@ -1075,8 +993,8 @@ export type Database = {
           principal_id?: string | null
           school_type?: string | null
           settings?: Json | null
-          student_capacity?: number | null
           status?: Database["public"]["Enums"]["school_status"] | null
+          student_capacity?: number | null
           tenant_id?: string
           updated_at?: string | null
           website?: string | null
@@ -1222,7 +1140,7 @@ export type Database = {
           created_at: string | null
           credits: number | null
           department: string | null
-          description: text | null
+          description: string | null
           id: string
           name: string
           school_id: string
@@ -1233,7 +1151,7 @@ export type Database = {
           created_at?: string | null
           credits?: number | null
           department?: string | null
-          description?: text | null
+          description?: string | null
           id?: string
           name: string
           school_id: string
@@ -1244,7 +1162,7 @@ export type Database = {
           created_at?: string | null
           credits?: number | null
           department?: string | null
-          description?: text | null
+          description?: string | null
           id?: string
           name?: string
           school_id?: string
@@ -1358,7 +1276,6 @@ export type Database = {
       }
       user_permissions: {
         Row: {
-          created_at: string | null
           granted_at: string | null
           granted_by: string | null
           id: string
@@ -1366,7 +1283,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          created_at?: string | null
           granted_at?: string | null
           granted_by?: string | null
           id?: string
@@ -1374,7 +1290,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          created_at?: string | null
           granted_at?: string | null
           granted_by?: string | null
           id?: string
@@ -1400,7 +1315,7 @@ export type Database = {
       }
       users: {
         Row: {
-          address: text | null
+          address: string | null
           auth_user_id: string | null
           created_at: string | null
           date_of_birth: string | null
@@ -1421,7 +1336,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          address?: text | null
+          address?: string | null
           auth_user_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -1442,7 +1357,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          address?: text | null
+          address?: string | null
           auth_user_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -1484,17 +1399,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_demo_schools_and_users: { Args: never; Returns: undefined }
+      get_user_role: {
+        Args: { user_uuid?: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_user_school: { Args: { user_uuid?: string }; Returns: string }
+      grant_super_admin_permissions: { Args: never; Returns: undefined }
+      is_super_admin: { Args: { user_uuid?: string }; Returns: boolean }
+      setup_real_super_admin: {
+        Args: { auth_user_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       assignment_status: "draft" | "published" | "archived"
       attendance_status: "present" | "absent" | "late" | "excused"
       message_priority: "low" | "normal" | "high" | "urgent"
-      payment_status: "pending" | "paid" | "partially_paid" | "overdue" | "refunded" | "cancelled"
+      payment_status:
+        | "pending"
+        | "paid"
+        | "partially_paid"
+        | "overdue"
+        | "refunded"
+        | "cancelled"
       plan_tier: "free" | "basic" | "premium"
       role: "admin" | "school_admin" | "teacher" | "student" | "parent"
       school_status: "active" | "inactive" | "pending"
       submission_status: "not_submitted" | "submitted" | "graded"
+      user_role:
+        | "admin"
+        | "principal"
+        | "teacher"
+        | "student"
+        | "parent"
+        | "vendor"
+        | "developer"
+        | "super_admin"
       user_status: "active" | "inactive" | "suspended"
     }
     CompositeTypes: {
@@ -1503,27 +1444,33 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1531,20 +1478,24 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1552,20 +1503,24 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1573,14 +1528,68 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      assignment_status: ["draft", "published", "archived"],
+      attendance_status: ["present", "absent", "late", "excused"],
+      message_priority: ["low", "normal", "high", "urgent"],
+      payment_status: [
+        "pending",
+        "paid",
+        "partially_paid",
+        "overdue",
+        "refunded",
+        "cancelled",
+      ],
+      plan_tier: ["free", "basic", "premium"],
+      role: ["admin", "school_admin", "teacher", "student", "parent"],
+      school_status: ["active", "inactive", "pending"],
+      submission_status: ["not_submitted", "submitted", "graded"],
+      user_role: [
+        "admin",
+        "principal",
+        "teacher",
+        "student",
+        "parent",
+        "vendor",
+        "developer",
+        "super_admin",
+      ],
+      user_status: ["active", "inactive", "suspended"],
+    },
+  },
+} as const
