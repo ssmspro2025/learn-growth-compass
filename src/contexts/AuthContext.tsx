@@ -66,6 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (invokeError) {
         console.error('AuthContext: Edge Function invocation error:', invokeError);
+        // Log the full error object for more details
+        console.error('AuthContext: Full invokeError object:', JSON.stringify(invokeError, null, 2));
         return { success: false, error: invokeError.message || 'Login failed' };
       }
 
@@ -89,6 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       console.error('AuthContext: Login error caught in client-side:', error);
+      // Log the full error object for more details
+      console.error('AuthContext: Full client-side error object:', JSON.stringify(error, null, 2));
       return { success: false, error: error.message || 'Login failed' };
     }
   };
