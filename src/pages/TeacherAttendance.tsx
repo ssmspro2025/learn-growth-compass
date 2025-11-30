@@ -12,11 +12,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, addMonths } from 'date-fns';
-import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer, User, X } from 'lucide-react';
+import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer, User, X, TrendingUp, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tables, Database } from '@/integrations/supabase/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Added Dialog imports
-import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
 type Teacher = Tables<'teachers'>;
 type TeacherAttendance = Tables<'teacher_attendance'>;
