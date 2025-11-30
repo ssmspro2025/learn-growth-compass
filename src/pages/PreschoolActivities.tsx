@@ -345,6 +345,7 @@ export default function PreschoolActivities() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>

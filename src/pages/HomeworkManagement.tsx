@@ -346,6 +346,7 @@ export default function HomeworkManagement() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
