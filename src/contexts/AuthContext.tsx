@@ -21,7 +21,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string, role?: Tables<'users'>['role']) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -50,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (
     username: string,
     password: string,
-    expectedRole?: Tables<'users'>['role']
   ) => {
     console.log('AuthContext: login function called');
     try {
@@ -75,11 +74,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const loggedInUser: User = data.user;
       console.log('AuthContext: User logged in successfully:', loggedInUser.username);
 
-      // 2. Role-based access control (now done client-side after Edge Function returns user)
-      if (expectedRole && loggedInUser.role !== expectedRole) {
-        console.log(`AuthContext: Role mismatch for user: ${username}. Expected ${expectedRole}, but got ${loggedInUser.role}`);
-        return { success: false, error: 'Access denied. Incorrect role.' };
-      }
+      // The role check is now handled by ProtectedRoute after successful authentication
+      // This allows any valid user to log in via the main login page and then be redirected
+      // to their specific dashboard by the router.
 
       setUser(loggedInUser);
       localStorage.setItem('auth_user', JSON.stringify(loggedInUser));

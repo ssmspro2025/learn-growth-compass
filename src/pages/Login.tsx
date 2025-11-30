@@ -19,29 +19,24 @@ const CenterLogin = () => {
     e.preventDefault();
     setLoading(true);
 
-    const result = await login(username, password, 'center');
+    // Removed the 'center' role parameter to allow any role to log in here.
+    // The ProtectedRoute will handle redirection based on the actual user role.
+    const result = await login(username, password);
 
     if (result.success) {
       toast({
         title: 'Login successful',
         description: 'Welcome back!',
       });
-      navigate('/');
+      // ProtectedRoute will handle the specific dashboard redirection
+      // We can navigate to a generic protected route or the root, and ProtectedRoute will take over.
+      navigate('/'); 
     } else {
-      // Check for parent restriction
-      if (result.error === 'Parent accounts cannot log in to the center dashboard') {
-        toast({
-          title: 'Login restricted',
-          description: 'Parent accounts must log in via the parent dashboard.',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Login failed',
-          description: result.error || 'Invalid username or password',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Login failed',
+        description: result.error || 'Invalid username or password',
+        variant: 'destructive',
+      });
     }
 
     setLoading(false);
