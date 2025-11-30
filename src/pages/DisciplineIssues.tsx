@@ -38,6 +38,7 @@ export default function DisciplineIssues() {
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<DisciplineIssue['severity']>("medium");
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [modalGradeFilter, setModalGradeFilter] = useState<string>("all"); // New state for grade filter inside modal
 
   // Fetch students
   const { data: students = [] } = useQuery({
@@ -54,6 +55,9 @@ export default function DisciplineIssues() {
     },
     enabled: !!user?.center_id,
   });
+
+  // Filtered students for the modal's student select dropdown
+  const filteredStudentsForModal = students.filter(s => modalGradeFilter === "all" || s.grade === modalGradeFilter);
 
   // Fetch discipline categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -101,6 +105,7 @@ export default function DisciplineIssues() {
     setSeverity("medium");
     setIssueDate(format(new Date(), "yyyy-MM-dd"));
     setEditingIssue(null);
+    setModalGradeFilter("all"); // Reset modal grade filter
   };
 
   const createIssueMutation = useMutation({
@@ -174,6 +179,8 @@ export default function DisciplineIssues() {
     setDescription(issue.description);
     setSeverity(issue.severity);
     setIssueDate(issue.issue_date);
+    const student = students.find(s => s.id === issue.student_id);
+    setModalGradeFilter(student?.grade || "all"); // Set modal grade filter to current student's grade
     setIsDialogOpen(true);
   };
 
@@ -236,13 +243,27 @@ export default function DisciplineIssues() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
+                <Label htmlFor="modalGradeFilter">Filter Students by Grade</Label>
+                <Select value={modalGradeFilter} onValueChange={setModalGradeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Grades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {uniqueGrades.map((g) => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="student">Student *</Label>
                 <Select value={studentId} onValueChange={setStudentId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Student" />
                   </SelectTrigger>
                   <SelectContent>
-                    {students.map((s) => (
+                    {filteredStudentsForModal.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} - {s.grade}
                       </SelectItem>
