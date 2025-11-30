@@ -132,15 +132,6 @@ export default function ActivityTypeManagement() {
     }
   };
 
-  const getSeverityColor = (severity: DisciplineCategory['default_severity']) => {
-    switch (severity) {
-      case "low": return "text-green-600";
-      case "medium": return "text-orange-600";
-      case "high": return "text-red-600";
-      default: return "text-gray-600";
-    }
-  };
-
   return (
     <Card>
       <CardHeader>
