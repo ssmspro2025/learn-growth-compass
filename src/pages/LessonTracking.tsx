@@ -338,7 +338,7 @@ export default function LessonTracking() {
         <CardContent>
           <div className="space-y-4">
             {studentLessonRecords.map((record: any) => {
-              const isShown = showStudentsMap[record.lesson_plan.id];
+              const isShown = showStudentsMap[record.lesson_plans?.id];
               return (
                 <div key={record.id} className="border rounded-lg p-4">
                   <div className="flex items-start justify-between">
