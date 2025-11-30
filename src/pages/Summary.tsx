@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
+import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
 
 interface StudentSummary {
   id: string;
@@ -202,7 +203,7 @@ export default function Summary() {
                       <TableCell className="text-sm max-w-xs overflow-x-auto">
                         <div className="whitespace-nowrap">
                           {student.absentDates.length > 0
-                            ? student.absentDates.map((d) => format(new Date(d), "MMM d")).join(", ")
+                            ? student.absentDates.map((d) => safeFormatDate(d, "MMM d")).join(", ")
                             : "None"}
                         </div>
                       </TableCell>

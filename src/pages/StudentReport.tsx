@@ -12,6 +12,7 @@ import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
 import { Invoice, Payment } from "@/integrations/supabase/finance-types";
+import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
 
 type LessonPlan = Tables<'lesson_plans'>;
 type StudentHomeworkRecord = Tables<'student_homework_records'>;
@@ -53,8 +54,8 @@ export default function StudentReport() {
         .from("attendance")
         .select("*")
         .eq("student_id", selectedStudentId)
-        .gte("date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("date", format(dateRange.to, "yyyy-MM-dd"))
+        .gte("date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("date", safeFormatDate(dateRange.to, "yyyy-MM-dd"))
         .order("date");
       if (error) throw error;
       return data;
@@ -68,8 +69,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)").eq("student_id", selectedStudentId)
-        .gte("date_completed", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("date_completed", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("date_completed", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("date_completed", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("lesson_plans.subject", subjectFilter);
       const { data, error } = await query.order("date_completed", { ascending: false });
       if (error) throw error;
@@ -84,8 +85,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       let query = supabase.from("test_results").select("*, tests(*)").eq("student_id", selectedStudentId)
-        .gte("date_taken", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("date_taken", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("date_taken", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("date_taken", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("tests.subject", subjectFilter);
       const { data, error } = await query.order("date_taken", { ascending: false });
       if (error) throw error;
@@ -101,8 +102,8 @@ export default function StudentReport() {
       if (!selectedStudentId) return [];
       let query = supabase.from("student_homework_records").select("*, homework(*)")
         .eq("student_id", selectedStudentId)
-        .gte("homework.due_date", format(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
-        .lte("homework.due_date", format(dateRange.to, "yyyy-MM-dd")); // Filter by homework due_date
+        .gte("homework.due_date", safeFormatDate(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
+        .lte("homework.due_date", safeFormatDate(dateRange.to, "yyyy-MM-dd")); // Filter by homework due_date
       if (subjectFilter !== "all") query = query.eq("homework.subject", subjectFilter);
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
@@ -117,8 +118,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       const { data, error } = await supabase.from("student_activities").select("*, activities(title, description, activity_date, photo_url, video_url, activity_type_id, activity_types(name))").eq("student_id", selectedStudentId)
-        .gte("created_at", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("created_at", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("created_at", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
@@ -131,8 +132,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       const { data, error } = await supabase.from("discipline_issues").select("*, discipline_categories(name)").eq("student_id", selectedStudentId)
-        .gte("issue_date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("issue_date", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("issue_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("issue_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
@@ -145,8 +146,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
-        .gte("invoice_date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("invoice_date", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data as Invoice[];
     },
@@ -158,8 +159,8 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId) return [];
       const { data, error } = await supabase.from("payments").select("*").eq("student_id", selectedStudentId)
-        .gte("payment_date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("payment_date", format(dateRange.to, "yyyy-MM-dd"));
+        .gte("payment_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("payment_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data as Payment[];
     },
@@ -243,7 +244,7 @@ export default function StudentReport() {
         r.tests?.subject,
         r.marks_obtained,
         r.tests?.total_marks,
-        format(new Date(r.date_taken), "PPP"),
+        safeFormatDate(r.date_taken, "PPP"),
         r.question_marks ? JSON.stringify(r.question_marks) : '',
       ]),
       [""],
@@ -253,7 +254,7 @@ export default function StudentReport() {
         lr.lesson_plans?.subject,
         lr.lesson_plans?.chapter,
         lr.lesson_plans?.topic,
-        format(new Date(lr.date_completed), "PPP"),
+        safeFormatDate(lr.date_completed, "PPP"),
         lr.notes || '', // Include session notes
         lr.lesson_plans?.lesson_file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl : '',
       ]),
@@ -263,7 +264,7 @@ export default function StudentReport() {
       ...homeworkStatus.map((hs: any) => [
         hs.homework?.title,
         hs.homework?.subject,
-        format(new Date(hs.homework?.due_date), "PPP"),
+        safeFormatDate(hs.homework?.due_date, "PPP"),
         hs.status,
         hs.teacher_remarks,
       ]),
@@ -274,7 +275,7 @@ export default function StudentReport() {
         pa.activities?.activity_types?.name || 'N/A',
         pa.activities?.title || 'N/A',
         pa.activities?.description || 'N/A',
-        pa.activities?.activity_date ? format(new Date(pa.activities.activity_date), "PPP") : 'N/A',
+        pa.activities?.activity_date ? safeFormatDate(pa.activities.activity_date, "PPP") : 'N/A',
         pa.involvement_score || 'N/A',
         pa.activities?.photo_url ? supabase.storage.from("activity-photos").getPublicUrl(pa.activities.photo_url).data.publicUrl : '',
         pa.activities?.video_url ? supabase.storage.from("activity-videos").getPublicUrl(pa.activities.video_url).data.publicUrl : '',
@@ -286,7 +287,7 @@ export default function StudentReport() {
         di.discipline_categories?.name || 'N/A',
         di.description,
         di.severity,
-        format(new Date(di.issue_date), "PPP"),
+        safeFormatDate(di.issue_date, "PPP"),
       ]),
     ].map(row => row.join(",")).join("\n");
 
@@ -389,12 +390,12 @@ export default function StudentReport() {
 
         <Input
           type="date"
-          value={format(dateRange.from, "yyyy-MM-dd")}
+          value={safeFormatDate(dateRange.from, "yyyy-MM-dd")}
           onChange={(e) => setDateRange(prev => ({ ...prev, from: new Date(e.target.value) }))}
         />
         <Input
           type="date"
-          value={format(dateRange.to, "yyyy-MM-dd")}
+          value={safeFormatDate(dateRange.to, "yyyy-MM-dd")}
           onChange={(e) => setDateRange(prev => ({ ...prev, to: new Date(e.target.value) }))}
         />
 
@@ -456,7 +457,7 @@ export default function StudentReport() {
                     <tbody>
                       {payments.map((p) => (
                         <tr key={p.id}>
-                          <td className="border px-2 py-1">{format(new Date(p.payment_date), "PPP")}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(p.payment_date, "PPP")}</td>
                           <td className="border px-2 py-1">{formatCurrency(p.amount_paid)}</td>
                           <td className="border px-2 py-1">{p.payment_method}</td>
                           <td className="border px-2 py-1">{p.reference_number || "-"}</td>
@@ -494,7 +495,7 @@ export default function StudentReport() {
                   <tbody>
                     {attendanceData.map((record) => (
                       <tr key={record.id}>
-                        <td className="border px-2 py-1">{format(new Date(record.date), "PPP")}</td>
+                        <td className="border px-2 py-1">{safeFormatDate(record.date, "PPP")}</td>
                         <td className="border px-2 py-1">{record.status}</td>
                         <td className="border px-2 py-1">{record.time_in || "-"}</td>
                         <td className="border px-2 py-1">{record.time_out || "-"}</td>
@@ -535,7 +536,7 @@ export default function StudentReport() {
                           <td className="border px-2 py-1">{lr.lesson_plans?.subject}</td>
                           <td className="border px-2 py-1">{lr.lesson_plans?.chapter}</td>
                           <td className="border px-2 py-1">{lr.lesson_plans?.topic}</td>
-                          <td className="border px-2 py-1">{format(new Date(lr.date_completed), "PPP")}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(lr.date_completed, "PPP")}</td>
                           <td className="border px-2 py-1">{lr.notes || "-"}</td>
                           <td className="border px-2 py-1">
                             {lr.lesson_plans?.lesson_file_url && (
@@ -586,7 +587,7 @@ export default function StudentReport() {
                         <td className="border px-2 py-1">{t.marks_obtained}</td>
                         <td className="border px-2 py-1">{t.tests?.total_marks}</td>
                         <td className="border px-2 py-1">{Math.round((t.marks_obtained / (t.tests?.total_marks || 1)) * 100)}%</td>
-                        <td className="border px-2 py-1">{format(new Date(t.date_taken), "PPP")}</td>
+                        <td className="border px-2 py-1">{safeFormatDate(t.date_taken, "PPP")}</td>
                         <td className="border px-2 py-1 text-xs">
                           {t.question_marks && (t.question_marks as any[]).map((qm: any, idx: number) => (
                             <div key={idx}>Q{idx + 1}: {qm.marksObtained}/{t.tests?.questions?.[idx]?.maxMarks || '?'}</div>
@@ -628,7 +629,7 @@ export default function StudentReport() {
                         <tr key={hs.id}>
                           <td className="border px-2 py-1">{hs.homework?.title}</td>
                           <td className="border px-2 py-1">{hs.homework?.subject}</td>
-                          <td className="border px-2 py-1">{format(new Date(hs.homework?.due_date), "PPP")}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(hs.homework?.due_date, "PPP")}</td>
                           <td className="border px-2 py-1 flex items-center gap-1">
                             {getHomeworkStatusIcon(hs.status)} {hs.status.replace('_', ' ').toUpperCase()}
                           </td>
@@ -671,7 +672,7 @@ export default function StudentReport() {
                           <td className="border px-2 py-1">{pa.activities?.activity_types?.name || 'N/A'}</td>
                           <td className="border px-2 py-1">{pa.activities?.title || 'N/A'}</td>
                           <td className="border px-2 py-1">{pa.activities?.description || 'N/A'}</td>
-                          <td className="border px-2 py-1">{pa.activities?.activity_date ? format(new Date(pa.activities.activity_date), "PPP") : 'N/A'}</td>
+                          <td className="border px-2 py-1">{pa.activities?.activity_date ? safeFormatDate(pa.activities.activity_date, "PPP") : 'N/A'}</td>
                           <td className="border px-2 py-1">{pa.involvement_score || "N/A"}</td>
                           <td className="border px-2 py-1">
                             {pa.activities?.photo_url && (
@@ -722,7 +723,7 @@ export default function StudentReport() {
                               {di.severity.toUpperCase()}
                             </span>
                           </td>
-                          <td className="border px-2 py-1">{format(new Date(di.issue_date), "PPP")}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(di.issue_date, "PPP")}</td>
                         </tr>
                       ))}
                     </tbody>

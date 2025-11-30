@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
 
 interface AttendanceStats {
   studentId: string;
@@ -121,7 +122,7 @@ export default function AttendanceSummary() {
 
   const getAttendanceStatus = (date: string, studentId: string) => {
     const record = attendanceData.find(
-      (a: any) => format(new Date(a.date), 'yyyy-MM-dd') === date && a.student_id === studentId
+      (a: any) => safeFormatDate(a.date, 'yyyy-MM-dd') === date && a.student_id === studentId
     );
     if (!record) return 'none';
     return record.status === 'Present' ? 'present' : 'absent';
@@ -207,10 +208,10 @@ export default function AttendanceSummary() {
                 </div>
               ))}
               {daysInMonth.map((date) => {
-                const status = getAttendanceStatus(format(date, 'yyyy-MM-dd'), selectedStudent);
+                const status = getAttendanceStatus(safeFormatDate(date, 'yyyy-MM-dd'), selectedStudent);
                 return (
                   <div
-                    key={format(date, 'yyyy-MM-dd')}
+                    key={safeFormatDate(date, 'yyyy-MM-dd')}
                     className="aspect-square rounded-lg flex items-center justify-center text-sm font-medium cursor-pointer"
                     style={{
                       backgroundColor:
@@ -219,7 +220,7 @@ export default function AttendanceSummary() {
                         colors.none,
                       color: status !== 'none' ? 'white' : 'inherit',
                     }}
-                    title={`${format(date, 'MMM d')} - ${status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : 'No record'}`}
+                    title={`${safeFormatDate(date, 'MMM d')} - ${status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : 'No record'}`}
                   >
                     {format(date, 'd')}
                   </div>

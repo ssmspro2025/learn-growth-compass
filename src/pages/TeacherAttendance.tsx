@@ -11,9 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, addMonths, isValid } from 'date-fns';
 import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer, User, X, TrendingUp, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
 import { Tables, Database } from '@/integrations/supabase/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -259,13 +259,20 @@ export default function TeacherAttendancePage() {
 
   const formatTimeValue = (timeVal: string | null) => {
     if (!timeVal) return '-';
-    try {
-      // Create a dummy date to parse the time correctly
-      const dummyDate = `2000-01-01T${timeVal}`;
-      return format(new Date(dummyDate), 'HH:mm');
-    } catch (e) {
-      return timeVal; // Fallback if parsing fails
+
+    // Attempt to create a Date object from the time string.
+    // Prepend a dummy date to ensure it's parsed as a full datetime.
+    const dummyDateString = `2000-01-01T${timeVal}`;
+    const dateObj = new Date(dummyDateString);
+
+    // Check if the resulting Date object is valid
+    if (isNaN(dateObj.getTime())) {
+      // If it's an invalid date, return the original value or a placeholder
+      return timeVal; // Or '-' if you prefer to hide malformed data
     }
+
+    // Format the valid date object
+    return format(dateObj, 'HH:mm');
   };
 
   // Prepare data for the report section
@@ -435,7 +442,7 @@ export default function TeacherAttendancePage() {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                {selectedDate ? safeFormatDate(selectedDate, "PPP") : "Pick a date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -456,7 +463,7 @@ export default function TeacherAttendancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Attendance for {format(selectedDate, "PPP")}</CardTitle>
+          <CardTitle>Attendance for {safeFormatDate(selectedDate, "PPP")}</CardTitle>
         </CardHeader>
         <CardContent>
           {teachersLoading || attendanceLoading ? (
@@ -700,7 +707,7 @@ export default function TeacherAttendancePage() {
                   <div className="flex flex-wrap gap-2">
                     {absentDays.map((date, index) => (
                       <Badge key={index} variant="destructive">
-                        {format(new Date(date), "MMM d")}
+                        {safeFormatDate(date, "MMM d")}
                       </Badge>
                     ))}
                   </div>
@@ -725,13 +732,12 @@ export default function TeacherAttendancePage() {
                           <TableHead>Status</TableHead>
                           <TableHead>Time In</TableHead>
                           <TableHead>Time Out</TableHead>
-                          <TableHead>Notes</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {teacherDetailAttendance.map(record => (
                           <TableRow key={record.id}>
-                            <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
+                            <TableCell>{safeFormatDate(record.date, "PPP")}</TableCell>
                             <TableCell>
                               <Badge
                                 variant={record.status === "present" ? "default" : record.status === "absent" ? "destructive" : "secondary"}
@@ -742,7 +748,6 @@ export default function TeacherAttendancePage() {
                             </TableCell>
                             <TableCell>{record.time_in || "-"}</TableCell>
                             <TableCell>{record.time_out || "-"}</TableCell>
-                            <TableCell>{record.notes || "-"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

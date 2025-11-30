@@ -9,6 +9,7 @@ import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isPast } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
+import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
 
 // Initialize QueryClient (v4 syntax)
 const queryClient = new QueryClient({
@@ -27,14 +28,14 @@ const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSele
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
 
   const getAttendanceStatus = (date: string) => {
-    const record = attendance.find((a: any) => format(new Date(a.date), 'yyyy-MM-dd') === date);
+    const record = attendance.find((a: any) => safeFormatDate(a.date, 'yyyy-MM-dd') === date);
     if (!record) return 'none';
     return record.status === 'Present' ? 'present' : 'absent';
   };
 
   const getTooltipData = (date: string) => {
-    const dayLessons = lessonRecords.filter((lr: any) => format(new Date(lr.date_completed), 'yyyy-MM-dd') === date);
-    const dayTests = tests.filter(t => format(new Date(t.date_taken), 'yyyy-MM-dd') === date);
+    const dayLessons = lessonRecords.filter((lr: any) => safeFormatDate(lr.date_completed, 'yyyy-MM-dd') === date);
+    const dayTests = tests.filter(t => safeFormatDate(t.date_taken, 'yyyy-MM-dd') === date);
     return { dayLessons, dayTests };
   };
 
@@ -57,7 +58,7 @@ const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSele
       {/* Calendar Days */}
       <div className="grid grid-cols-7 gap-1">
         {daysInMonth.map(day => {
-          const dateStr = format(day, 'yyyy-MM-dd');
+          const dateStr = safeFormatDate(day, 'yyyy-MM-dd');
           const status = getAttendanceStatus(dateStr);
           const tooltipData = getTooltipData(dateStr);
 
@@ -205,50 +206,35 @@ const ParentDashboardContent = () => {
   // --------------------------
   // Helper: robust time formatter
   // --------------------------
-  const formatTimeValue = (timeVal, dateVal) => {
-    if (!timeVal && timeVal !== 0) return '-';
+  const formatTimeValue = (timeVal: string | null, dateVal: string | null) => {
+    if (!timeVal) return '-';
 
-    // If already a Date object
-    if (timeVal instanceof Date) {
-      if (isNaN(timeVal.getTime())) return '-';
-      return timeVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    // Try parsing directly
+    // Try parsing directly as a Date object (e.g., if it's an ISO string)
     let d = new Date(timeVal);
     if (!isNaN(d.getTime())) {
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // timeVal might be "HH:mm" or "HH:mm:ss" — combine with dateVal (a.date)
+    // If timeVal is just "HH:mm" or "HH:mm:ss", combine with dateVal
     if (typeof timeVal === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(timeVal)) {
       let datePart = null;
 
       if (dateVal) {
-        try {
-          // dateVal might be a Date object or ISO string; normalize to YYYY-MM-DD
-          const dtemp = new Date(dateVal);
-          if (!isNaN(dtemp.getTime())) {
-            datePart = dtemp.toISOString().split('T')[0];
-          } else if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
-            datePart = dateVal.split('T')[0];
-          }
-        } catch (e) {
-          datePart = null;
+        const dtemp = new Date(dateVal);
+        if (!isNaN(dtemp.getTime())) {
+          datePart = dtemp.toISOString().split('T')[0];
+        } else if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
+          datePart = dateVal.split('T')[0];
         }
       }
 
-      // fallback to today's date if datePart not available
+      // Fallback to today's date if datePart not available
       if (!datePart) {
         datePart = new Date().toISOString().split('T')[0];
       }
 
-      // Try ISO combined form first
+      // Try combining date and time
       d = new Date(`${datePart}T${timeVal}`);
-      if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      // Try space-separated (some engines parse this)
-      d = new Date(`${datePart} ${timeVal}`);
       if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
@@ -286,7 +272,7 @@ const ParentDashboardContent = () => {
   const today = format(new Date(), "yyyy-MM-dd");
   const upcomingHomework = homeworkStatus.filter((hs: any) => hs.status !== 'completed' && hs.status !== 'checked' && !isPast(new Date(hs.homework?.due_date)));
   const completedHomework = homeworkStatus.filter((hs: any) => hs.status === 'completed' || hs.status === 'checked');
-  const todaysHomework = homeworkStatus.filter((hs: any) => format(new Date(hs.homework?.due_date), "yyyy-MM-dd") === today && hs.status !== 'completed' && hs.status !== 'checked');
+  const todaysHomework = homeworkStatus.filter((hs: any) => safeFormatDate(hs.homework?.due_date, "yyyy-MM-dd") === today && hs.status !== 'completed' && hs.status !== 'checked');
 
 
   return (
@@ -496,7 +482,7 @@ const ParentDashboardContent = () => {
                 <TableBody>
                   {filteredAttendance.map(a => (
                     <TableRow key={a.id}>
-                      <TableCell>{new Date(a.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{safeFormatDate(a.date, "PPP")}</TableCell>
                       <TableCell className={a.status === 'Present' ? 'text-green-600' : 'text-red-600'}>
                         {a.status}
                       </TableCell>
@@ -548,7 +534,7 @@ const ParentDashboardContent = () => {
                         <TableRow key={result.id}>
                           <TableCell>{result.tests?.name || '-'}</TableCell>
                           <TableCell>{result.tests?.subject || '-'}</TableCell>
-                          <TableCell>{new Date(result.date_taken).toLocaleDateString()}</TableCell>
+                          <TableCell>{safeFormatDate(result.date_taken, "PPP")}</TableCell>
                           <TableCell>{result.marks_obtained}/{result.tests?.total_marks || 0}</TableCell>
                           <TableCell className={
                             percentage >= 75 ? 'text-green-600 font-semibold' :
@@ -592,7 +578,7 @@ const ParentDashboardContent = () => {
                         <TableCell>{lr.lesson_plans?.subject || '-'}</TableCell>
                         <TableCell>{lr.lesson_plans?.chapter || '-'}</TableCell>
                         <TableCell>{lr.lesson_plans?.topic || '-'}</TableCell>
-                        <TableCell>{lr.date_completed ? new Date(lr.date_completed).toLocaleDateString() : '-'}</TableCell>
+                        <TableCell>{safeFormatDate(lr.date_completed, "PPP")}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
