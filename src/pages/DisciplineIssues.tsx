@@ -293,6 +293,7 @@ export default function DisciplineIssues() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>

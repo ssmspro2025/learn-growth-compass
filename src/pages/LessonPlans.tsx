@@ -251,6 +251,7 @@ export default function LessonPlans() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
