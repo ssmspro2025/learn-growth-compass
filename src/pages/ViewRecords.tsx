@@ -156,8 +156,8 @@ export default function ViewRecords() {
     window.print();
   };
 
-  const handleStudentClick = (student: StudentDetail) => {
-    setSelectedStudentDetail(student);
+  const handleStudentClick = (studentId: string, studentName: string, studentGrade: string) => {
+    setSelectedStudentDetail({ id: studentId, name: studentName, grade: studentGrade });
     setDetailMonthFilter(new Date()); // Reset month filter for new student
     setShowStudentDetailDialog(true);
   };
@@ -316,7 +316,7 @@ export default function ViewRecords() {
                       <TableCell>{r.time_in || "-"}</TableCell>
                       <TableCell>{r.time_out || "-"}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => handleStudentClick(r.students)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleStudentClick(r.student_id, r.students.name, r.students.grade)}>
                           <User className="h-4 w-4" />
                         </Button>
                       </TableCell>

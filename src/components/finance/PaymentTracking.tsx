@@ -194,7 +194,8 @@ const PaymentTracking = () => {
       upi: '📱',
       card: '💳',
       wallet: '👛',
-      other: '📄'
+      other: '📄',
+      manual_adjustment: '📝' // Added missing entry
     };
     return icons[method] || '📄';
   };
@@ -279,6 +280,7 @@ const PaymentTracking = () => {
                         <SelectItem value="card">Card</SelectItem>
                         <SelectItem value="wallet">Wallet</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="manual_adjustment">Manual Adjustment</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
