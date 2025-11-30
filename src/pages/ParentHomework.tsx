@@ -10,7 +10,7 @@ import { Book, CheckCircle, XCircle, Clock, FileUp, Image } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 
-type StudentHomeworkStatus = Tables<'student_homework_status'>;
+type StudentHomeworkRecord = Tables<'student_homework_records'>;
 
 export default function ParentHomework() {
   const { user } = useAuth();
@@ -19,22 +19,22 @@ export default function ParentHomework() {
     return <div className="p-6 text-center text-muted-foreground">Please log in as a parent to view homework.</div>;
   }
 
-  // Fetch student's homework status
+  // Fetch student's homework records
   const { data: homeworkStatus = [], isLoading } = useQuery({
-    queryKey: ['parent-homework-status', user.student_id],
+    queryKey: ['parent-homework-records', user.student_id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('student_homework_status')
+        .from('student_homework_records')
         .select('*, homework(*)')
         .eq('student_id', user.student_id!)
-        .order('homework.due_date', { ascending: true }); // Order by due date
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!user.student_id,
   });
 
-  const getHomeworkStatusIcon = (status: StudentHomeworkStatus['status']) => {
+  const getHomeworkStatusIcon = (status: StudentHomeworkRecord['status']) => {
     switch (status) {
       case 'completed':
       case 'checked':
@@ -48,10 +48,10 @@ export default function ParentHomework() {
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
-  const todaysHomework = homeworkStatus.filter((hs: any) => format(new Date(hs.homework?.due_date), "yyyy-MM-dd") === today && hs.status !== 'completed' && hs.status !== 'checked');
-  const upcomingHomework = homeworkStatus.filter((hs: any) => !isPast(new Date(hs.homework?.due_date)) && format(new Date(hs.homework?.due_date), "yyyy-MM-dd") !== today && hs.status !== 'completed' && hs.status !== 'checked');
-  const completedHomework = homeworkStatus.filter((hs: any) => hs.status === 'completed' || hs.status === 'checked');
-  const overdueHomework = homeworkStatus.filter((hs: any) => isPast(new Date(hs.homework?.due_date)) && hs.status !== 'completed' && hs.status !== 'checked');
+  const todaysHomework = homeworkStatus.filter((hs: any) => hs.homework?.due_date && format(new Date(hs.homework.due_date), "yyyy-MM-dd") === today && hs.status !== 'completed');
+  const upcomingHomework = homeworkStatus.filter((hs: any) => hs.homework?.due_date && !isPast(new Date(hs.homework.due_date)) && format(new Date(hs.homework.due_date), "yyyy-MM-dd") !== today && hs.status !== 'completed');
+  const completedHomework = homeworkStatus.filter((hs: any) => hs.status === 'completed');
+  const overdueHomework = homeworkStatus.filter((hs: any) => hs.homework?.due_date && isPast(new Date(hs.homework.due_date)) && hs.status !== 'completed');
 
   return (
     <div className="space-y-6">
@@ -100,17 +100,10 @@ export default function ParentHomework() {
                         </TableCell>
                         <TableCell>{hs.teacher_remarks || "-"}</TableCell>
                         <TableCell>
-                          {hs.homework?.file_url && (
+                          {hs.homework?.attachment_url && (
                             <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-files").getPublicUrl(hs.homework.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={supabase.storage.from("homework-attachments").getPublicUrl(hs.homework.attachment_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                                 <FileUp className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
-                          {hs.homework?.image_url && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-images").getPublicUrl(hs.homework.image_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                                <Image className="h-4 w-4" />
                               </a>
                             </Button>
                           )}
@@ -157,17 +150,10 @@ export default function ParentHomework() {
                         </TableCell>
                         <TableCell>{hs.teacher_remarks || "-"}</TableCell>
                         <TableCell>
-                          {hs.homework?.file_url && (
+                          {hs.homework?.attachment_url && (
                             <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-files").getPublicUrl(hs.homework.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={supabase.storage.from("homework-attachments").getPublicUrl(hs.homework.attachment_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                                 <FileUp className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
-                          {hs.homework?.image_url && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-images").getPublicUrl(hs.homework.image_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                                <Image className="h-4 w-4" />
                               </a>
                             </Button>
                           )}
@@ -214,17 +200,10 @@ export default function ParentHomework() {
                         </TableCell>
                         <TableCell>{hs.teacher_remarks || "-"}</TableCell>
                         <TableCell>
-                          {hs.homework?.file_url && (
+                          {hs.homework?.attachment_url && (
                             <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-files").getPublicUrl(hs.homework.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={supabase.storage.from("homework-attachments").getPublicUrl(hs.homework.attachment_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                                 <FileUp className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
-                          {hs.homework?.image_url && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-images").getPublicUrl(hs.homework.image_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                                <Image className="h-4 w-4" />
                               </a>
                             </Button>
                           )}
@@ -271,17 +250,10 @@ export default function ParentHomework() {
                         </TableCell>
                         <TableCell>{hs.teacher_remarks || "-"}</TableCell>
                         <TableCell>
-                          {hs.homework?.file_url && (
+                          {hs.homework?.attachment_url && (
                             <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-files").getPublicUrl(hs.homework.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={supabase.storage.from("homework-attachments").getPublicUrl(hs.homework.attachment_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                                 <FileUp className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
-                          {hs.homework?.image_url && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={supabase.storage.from("homework-images").getPublicUrl(hs.homework.image_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                                <Image className="h-4 w-4" />
                               </a>
                             </Button>
                           )}

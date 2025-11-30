@@ -20,8 +20,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type StudentHomeworkStatus = Tables<'student_homework_status'>;
-type PreschoolActivity = Tables<'preschool_activities'>;
+type StudentHomeworkRecord = Tables<'student_homework_records'>;
 type DisciplineIssue = Tables<'discipline_issues'>;
 
 const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSelectedMonth }) => {
@@ -155,21 +154,21 @@ const ParentDashboardContent = () => {
     },
   });
 
-  // Homework Status
+  // Homework Records
   const { data: homeworkStatus = [] } = useQuery({
-    queryKey: ['student-homework-status', user.student_id],
+    queryKey: ['student-homework-records', user.student_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('student_homework_status').select('*, homework(*)').eq('student_id', user.student_id).order('homework.due_date', { ascending: false });
+      const { data, error } = await supabase.from('student_homework_records').select('*, homework(*)').eq('student_id', user.student_id).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
-  // Preschool Activities
-  const { data: preschoolActivities = [] } = useQuery({
-    queryKey: ['student-preschool-activities', user.student_id],
+  // Student Activities
+  const { data: studentActivities = [] } = useQuery({
+    queryKey: ['student-activities', user.student_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('preschool_activities').select('*').eq('student_id', user.student_id).order('activity_date', { ascending: false });
+      const { data, error } = await supabase.from('student_activities').select('*, activities(*)').eq('student_id', user.student_id).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -211,13 +210,13 @@ const ParentDashboardContent = () => {
 
     // If already a Date object
     if (timeVal instanceof Date) {
-      if (isNaN(timeVal)) return '-';
+      if (isNaN(timeVal.getTime())) return '-';
       return timeVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     // Try parsing directly
     let d = new Date(timeVal);
-    if (!isNaN(d)) {
+    if (!isNaN(d.getTime())) {
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
@@ -229,7 +228,7 @@ const ParentDashboardContent = () => {
         try {
           // dateVal might be a Date object or ISO string; normalize to YYYY-MM-DD
           const dtemp = new Date(dateVal);
-          if (!isNaN(dtemp)) {
+          if (!isNaN(dtemp.getTime())) {
             datePart = dtemp.toISOString().split('T')[0];
           } else if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
             datePart = dateVal.split('T')[0];
@@ -246,18 +245,18 @@ const ParentDashboardContent = () => {
 
       // Try ISO combined form first
       d = new Date(`${datePart}T${timeVal}`);
-      if (!isNaN(d)) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       // Try space-separated (some engines parse this)
       d = new Date(`${datePart} ${timeVal}`);
-      if (!isNaN(d)) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     // If all parsing fails, return placeholder
     return '-';
   };
 
-  const getHomeworkStatusIcon = (status: StudentHomeworkStatus['status']) => {
+  const getHomeworkStatusIcon = (status: StudentHomeworkRecord['status']) => {
     switch (status) {
       case 'completed':
       case 'checked':

@@ -23,7 +23,7 @@ export default function ParentDiscipline() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('discipline_issues')
-        .select('*')
+        .select('*, discipline_categories(name)')
         .eq('student_id', user.student_id!)
         .order('issue_date', { ascending: false });
       if (error) throw error;
@@ -66,21 +66,21 @@ export default function ParentDiscipline() {
                   <TableHead>Category</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Severity</TableHead>
-                  <TableHead>Action Taken</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {issues.map((issue: DisciplineIssue) => (
+                {issues.map((issue: any) => (
                   <TableRow key={issue.id}>
                     <TableCell>{format(new Date(issue.issue_date), "PPP")}</TableCell>
-                    <TableCell>{issue.category.replace('_', ' ').toUpperCase()}</TableCell>
+                    <TableCell>{issue.discipline_categories?.name || 'N/A'}</TableCell>
                     <TableCell>{issue.description}</TableCell>
                     <TableCell>
                       <span className={`font-semibold ${getSeverityColor(issue.severity)}`}>
                         {issue.severity.toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell>{issue.action_taken || "-"}</TableCell>
+                    <TableCell>{issue.resolved ? 'Resolved' : 'Pending'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
