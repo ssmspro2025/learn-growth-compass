@@ -37,6 +37,7 @@ export default function DisciplineIssues() {
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<DisciplineIssue | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
 
   const [studentId, setStudentId] = useState("");
   const [disciplineCategoryId, setDisciplineCategoryId] = useState("");
@@ -192,17 +193,35 @@ export default function DisciplineIssues() {
     }
   };
 
+  const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
+  const filteredIssues = gradeFilter === "all" ? issues : issues.filter((issue: any) => {
+    const studentGrade = students.find(s => s.id === issue.student_id)?.grade;
+    return studentGrade === gradeFilter;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Discipline Issues</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Log Issue</Button>
-          </DialogTrigger>
+        <div className="flex gap-2 items-center">
+          <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {uniqueGrades.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Log Issue</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingIssue ? "Edit Discipline Issue" : "Log New Discipline Issue"}</DialogTitle>
@@ -283,11 +302,11 @@ export default function DisciplineIssues() {
         <CardContent>
           {isLoading ? (
             <p>Loading issues...</p>
-          ) : issues.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No discipline issues logged yet.</p>
+          ) : filteredIssues.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No discipline issues found for the selected grade.</p>
           ) : (
             <div className="space-y-4">
-              {issues.map((issue: any) => (
+              {filteredIssues.map((issue: any) => (
                 <div key={issue.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{issue.students?.name} - {issue.discipline_categories?.name}</h3>

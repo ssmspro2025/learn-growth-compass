@@ -21,6 +21,7 @@ export default function LessonPlans() {
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLessonPlan, setEditingLessonPlan] = useState<LessonPlan | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
 
   const [subject, setSubject] = useState("");
   const [chapter, setChapter] = useState("");
@@ -177,17 +178,32 @@ export default function LessonPlans() {
     }
   };
 
+  const uniqueSubjects = Array.from(new Set(lessonPlans.map(lp => lp.subject))).sort();
+  const filteredLessonPlans = subjectFilter === "all" ? lessonPlans : lessonPlans.filter(lp => lp.subject === subjectFilter);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Lesson Plans</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Create Lesson Plan</Button>
-          </DialogTrigger>
+        <div className="flex gap-2 items-center">
+          <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Subjects</SelectItem>
+              {uniqueSubjects.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Create Lesson Plan</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingLessonPlan ? "Edit Lesson Plan" : "Create New Lesson Plan"}</DialogTitle>
@@ -244,11 +260,11 @@ export default function LessonPlans() {
         <CardContent>
           {isLoading ? (
             <p>Loading lesson plans...</p>
-          ) : lessonPlans.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No lesson plans created yet.</p>
+          ) : filteredLessonPlans.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No lesson plans found for the selected subject.</p>
           ) : (
             <div className="space-y-4">
-              {lessonPlans.map((lp) => (
+              {filteredLessonPlans.map((lp) => (
                 <div key={lp.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{lp.subject}: {lp.chapter} - {lp.topic}</h3>

@@ -85,6 +85,8 @@ export default function RegisterStudent() {
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [parsing, setParsing] = useState(false);
 
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
+
   // Fetch students
   const { data: students, isLoading } = useQuery({
     queryKey: ["students", user?.center_id],
@@ -102,6 +104,9 @@ export default function RegisterStudent() {
       return data as Student[];
     },
   });
+
+  const filteredStudents = gradeFilter === "all" ? students : students?.filter(s => s.grade === gradeFilter);
+  const uniqueGrades = Array.from(new Set(students?.map(s => s.grade) || [])).sort();
 
   // Single student create
   const createMutation = useMutation({

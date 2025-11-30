@@ -24,6 +24,7 @@ export default function HomeworkManagement() {
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
 
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
@@ -257,18 +258,31 @@ export default function HomeworkManagement() {
   };
 
   const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
+  const filteredHomework = gradeFilter === "all" ? homeworkList : homeworkList.filter(hw => hw.grade === gradeFilter);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Homework Management</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Create Homework</Button>
-          </DialogTrigger>
+        <div className="flex gap-2 items-center">
+          <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {uniqueGrades.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Create Homework</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingHomework ? "Edit Homework" : "Create New Homework"}</DialogTitle>
@@ -341,11 +355,11 @@ export default function HomeworkManagement() {
         <CardContent>
           {isLoading ? (
             <p>Loading homework...</p>
-          ) : homeworkList.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No homework assignments created yet.</p>
+          ) : filteredHomework.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No homework assignments found for the selected grade.</p>
           ) : (
             <div className="space-y-4">
-              {homeworkList.map((hw) => (
+              {filteredHomework.map((hw) => (
                 <div key={hw.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{hw.title} ({hw.subject} - Grade {hw.grade})</h3>
