@@ -262,7 +262,7 @@ const InvoiceManagement = () => {
                   return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                      <TableCell>{invoice.students?.name || 'N/A'}</TableCell>
+                      <TableCell>{(invoice as any).students?.name || 'N/A'}</TableCell>
                       <TableCell>{invoice.invoice_month}/{invoice.invoice_year}</TableCell>
                       <TableCell>{formatCurrency(invoice.total_amount)}</TableCell>
                       <TableCell>{formatCurrency(invoice.paid_amount)}</TableCell>
@@ -312,7 +312,7 @@ const InvoiceManagement = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Student Name</p>
-                  <p className="font-semibold">{selectedInvoice.students?.name || 'N/A'}</p>
+                  <p className="font-semibold">{(selectedInvoice as any).students?.name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>

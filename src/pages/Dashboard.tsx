@@ -151,7 +151,7 @@ export default function Dashboard() {
       if (!studentId) return [];
       const { data, error } = await supabase
         .from("student_chapters")
-        .select("*, chapters(*)")
+        .select("*, lesson_plans(*)")
         .eq("student_id", studentId)
         .order("date_completed", { ascending: false });
       if (error) throw error;
@@ -381,7 +381,7 @@ export default function Dashboard() {
                         <TableRow key={record.id}>
                           <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
                           <TableCell>
-                            <Badge variant={record.status === "Present" ? "success" : "destructive"}>
+                            <Badge variant={record.status === "Present" ? "default" : "destructive"}>
                               {record.status}
                             </Badge>
                           </TableCell>
@@ -417,12 +417,12 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-2">
-                  {chapterProgress.map((cp) => (
+                  {chapterProgress.map((cp: any) => (
                     <Card key={cp.id} className="p-2">
                       <CardContent>
-                        <p className="font-medium">{cp.chapters?.chapter_name}</p>
-                        <p className="text-sm text-muted-foreground">{cp.chapters?.subject}</p>
-                        <Badge variant={cp.completed ? "success" : "secondary"}>
+                        <p className="font-medium">{cp.lesson_plans?.chapter}</p>
+                        <p className="text-sm text-muted-foreground">{cp.lesson_plans?.subject}</p>
+                        <Badge variant={cp.completed ? "default" : "secondary"}>
                           {cp.completed ? "Completed" : "In Progress"}
                         </Badge>
                       </CardContent>

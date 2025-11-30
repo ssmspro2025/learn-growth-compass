@@ -13,10 +13,11 @@ import { toast } from "sonner";
 import { Plus, Edit, Trash2, FileUp, Image, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Homework = Tables<'homework'>;
 type Student = Tables<'students'>;
-type StudentHomeworkStatus = Tables<'student_homework_status'>;
+type StudentHomeworkRecord = Tables<'student_homework_records'>;
 
 export default function HomeworkManagement() {
   const queryClient = useQueryClient();
@@ -67,13 +68,13 @@ export default function HomeworkManagement() {
     enabled: !!user?.center_id,
   });
 
-  // Fetch student homework statuses for a specific homework
+  // Fetch student homework records for a specific homework
   const { data: studentStatuses = [], refetch: refetchStudentStatuses } = useQuery({
-    queryKey: ["student-homework-statuses", selectedHomeworkForStatus?.id],
+    queryKey: ["student-homework-records", selectedHomeworkForStatus?.id],
     queryFn: async () => {
       if (!selectedHomeworkForStatus?.id) return [];
       const { data, error } = await supabase
-        .from("student_homework_status")
+        .from("student_homework_records")
         .select("*, students(name, grade)")
         .eq("homework_id", selectedHomeworkForStatus.id);
       if (error) throw error;
@@ -132,8 +133,9 @@ export default function HomeworkManagement() {
         grade,
         description: description || null,
         due_date: dueDate,
-        file_url: fileUrl,
-        image_url: imageUrl,
+        attachment_url: fileUrl || imageUrl,
+        attachment_name: file?.name || image?.name || null,
+        created_by: user.id,
       }).select().single();
       if (error) throw error;
 
@@ -145,7 +147,7 @@ export default function HomeworkManagement() {
           homework_id: newHomework.id,
           status: 'assigned' as const,
         }));
-        const { error: assignError } = await supabase.from("student_homework_status").insert(studentHomeworkRecords);
+        const { error: assignError } = await supabase.from("student_homework_records").insert(studentHomeworkRecords);
         if (assignError) throw assignError;
       }
     },
@@ -164,11 +166,16 @@ export default function HomeworkManagement() {
     mutationFn: async () => {
       if (!editingHomework || !user?.center_id) throw new Error("Homework or Center ID not found");
 
-      let fileUrl: string | null = editingHomework.file_url;
-      let imageUrl: string | null = editingHomework.image_url;
+      let attachmentUrl: string | null = editingHomework.attachment_url;
+      let attachmentName: string | null = editingHomework.attachment_name;
 
-      if (file) fileUrl = await uploadFile(file, "homework-files");
-      if (image) imageUrl = await uploadFile(image, "homework-images");
+      if (file) {
+        attachmentUrl = await uploadFile(file, "homework-files");
+        attachmentName = file.name;
+      } else if (image) {
+        attachmentUrl = await uploadFile(image, "homework-images");
+        attachmentName = image.name;
+      }
 
       const { error } = await supabase.from("homework").update({
         title,
@@ -176,8 +183,8 @@ export default function HomeworkManagement() {
         grade,
         description: description || null,
         due_date: dueDate,
-        file_url: fileUrl,
-        image_url: imageUrl,
+        attachment_url: attachmentUrl,
+        attachment_name: attachmentName,
       }).eq("id", editingHomework.id);
       if (error) throw error;
     },
@@ -206,9 +213,9 @@ export default function HomeworkManagement() {
     },
   });
 
-  const updateStudentHomeworkStatusMutation = useMutation({
-    mutationFn: async ({ id, status, teacher_remarks }: { id: string; status: StudentHomeworkStatus['status']; teacher_remarks: string }) => {
-      const { error } = await supabase.from("student_homework_status").update({
+  const updateStudentHomeworkRecordMutation = useMutation({
+    mutationFn: async ({ id, status, teacher_remarks }: { id: string; status: StudentHomeworkRecord['status']; teacher_remarks: string }) => {
+      const { error } = await supabase.from("student_homework_records").update({
         status,
         teacher_remarks: teacher_remarks || null,
         submission_date: status === 'completed' || status === 'checked' ? format(new Date(), "yyyy-MM-dd") : null,
@@ -304,15 +311,15 @@ export default function HomeworkManagement() {
               <div className="space-y-2">
                 <Label htmlFor="file">Attach File (PDF, DOCX - Optional)</Label>
                 <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-                {editingHomework?.file_url && !file && (
-                  <p className="text-sm text-muted-foreground">Current file: {editingHomework.file_url.split('-').pop()}</p>
+                {editingHomework?.attachment_url && !file && editingHomework.attachment_name && (editingHomework.attachment_name.endsWith('.pdf') || editingHomework.attachment_name.endsWith('.doc') || editingHomework.attachment_name.endsWith('.docx')) && (
+                  <p className="text-sm text-muted-foreground">Current file: {editingHomework.attachment_name}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="image">Attach Image (Optional)</Label>
                 <Input id="image" type="file" accept="image/*" onChange={handleImageChange} />
-                {editingHomework?.image_url && !image && (
-                  <p className="text-sm text-muted-foreground">Current image: {editingHomework.image_url.split('-').pop()}</p>
+                {editingHomework?.attachment_url && !image && editingHomework.attachment_name && !editingHomework.attachment_name.endsWith('.pdf') && !editingHomework.attachment_name.endsWith('.doc') && !editingHomework.attachment_name.endsWith('.docx') && (
+                  <p className="text-sm text-muted-foreground">Current image: {editingHomework.attachment_name}</p>
                 )}
               </div>
               <Button
@@ -345,17 +352,10 @@ export default function HomeworkManagement() {
                     <p className="text-sm text-muted-foreground">Due: {format(new Date(hw.due_date), "PPP")}</p>
                     {hw.description && <p className="text-sm">{hw.description}</p>}
                     <div className="flex gap-2 mt-2">
-                      {hw.file_url && (
+                      {hw.attachment_url && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("homework-files").getPublicUrl(hw.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <FileUp className="h-4 w-4 mr-1" /> File
-                          </a>
-                        </Button>
-                      )}
-                      {hw.image_url && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("homework-images").getPublicUrl(hw.image_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <Image className="h-4 w-4 mr-1" /> Image
+                          <a href={supabase.storage.from(hw.attachment_name?.endsWith('.pdf') || hw.attachment_name?.endsWith('.doc') || hw.attachment_name?.endsWith('.docx') ? "homework-files" : "homework-images").getPublicUrl(hw.attachment_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                            <FileUp className="h-4 w-4 mr-1" /> {hw.attachment_name || 'Attachment'}
                           </a>
                         </Button>
                       )}
@@ -411,8 +411,8 @@ export default function HomeworkManagement() {
                         <TableCell>
                           <Select
                             value={statusEntry.status}
-                            onValueChange={(newStatus: StudentHomeworkStatus['status']) =>
-                              updateStudentHomeworkStatusMutation.mutate({
+                            onValueChange={(newStatus: StudentHomeworkRecord['status']) =>
+                              updateStudentHomeworkRecordMutation.mutate({
                                 id: statusEntry.id,
                                 status: newStatus,
                                 teacher_remarks: statusEntry.teacher_remarks,
@@ -435,7 +435,7 @@ export default function HomeworkManagement() {
                             type="text"
                             defaultValue={statusEntry.teacher_remarks || ""}
                             onBlur={(e) =>
-                              updateStudentHomeworkStatusMutation.mutate({
+                              updateStudentHomeworkRecordMutation.mutate({
                                 id: statusEntry.id,
                                 status: statusEntry.status,
                                 teacher_remarks: e.target.value,

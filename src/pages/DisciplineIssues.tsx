@@ -39,10 +39,9 @@ export default function DisciplineIssues() {
   const [editingIssue, setEditingIssue] = useState<DisciplineIssue | null>(null);
 
   const [studentId, setStudentId] = useState("");
-  const [category, setCategory] = useState<DisciplineIssue['category']>("behavior");
+  const [disciplineCategoryId, setDisciplineCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<DisciplineIssue['severity']>("medium");
-  const [actionTaken, setActionTaken] = useState("");
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   // Fetch students
@@ -61,6 +60,22 @@ export default function DisciplineIssues() {
     enabled: !!user?.center_id,
   });
 
+  // Fetch discipline categories
+  const { data: categories = [] } = useQuery({
+    queryKey: ["discipline-categories", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("discipline_categories")
+        .select("*")
+        .eq("center_id", user.center_id)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
   // Fetch discipline issues
   const { data: issues = [], isLoading } = useQuery({
     queryKey: ["discipline-issues", user?.center_id],
@@ -68,7 +83,7 @@ export default function DisciplineIssues() {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("discipline_issues")
-        .select("*, students(name, grade)")
+        .select("*, students(name, grade), discipline_categories(name)")
         .eq("center_id", user.center_id)
         .order("issue_date", { ascending: false });
       if (error) throw error;
@@ -79,25 +94,24 @@ export default function DisciplineIssues() {
 
   const resetForm = () => {
     setStudentId("");
-    setCategory("behavior");
+    setDisciplineCategoryId("");
     setDescription("");
     setSeverity("medium");
-    setActionTaken("");
     setIssueDate(format(new Date(), "yyyy-MM-dd"));
     setEditingIssue(null);
   };
 
   const createIssueMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !studentId) throw new Error("Center ID or Student not found");
+      if (!user?.center_id || !studentId || !disciplineCategoryId) throw new Error("Center ID, Student or Category not found");
 
       const { error } = await supabase.from("discipline_issues").insert({
         center_id: user.center_id,
         student_id: studentId,
-        category,
+        discipline_category_id: disciplineCategoryId,
         description,
         severity,
-        action_taken: actionTaken || null,
+        reported_by: user.id,
         issue_date: issueDate,
       });
       if (error) throw error;
@@ -115,14 +129,13 @@ export default function DisciplineIssues() {
 
   const updateIssueMutation = useMutation({
     mutationFn: async () => {
-      if (!editingIssue || !user?.center_id || !studentId) throw new Error("Issue, Center ID or Student not found");
+      if (!editingIssue || !user?.center_id || !studentId || !disciplineCategoryId) throw new Error("Issue, Center ID, Student or Category not found");
 
       const { error } = await supabase.from("discipline_issues").update({
         student_id: studentId,
-        category,
+        discipline_category_id: disciplineCategoryId,
         description,
         severity,
-        action_taken: actionTaken || null,
         issue_date: issueDate,
       }).eq("id", editingIssue.id);
       if (error) throw error;
@@ -155,10 +168,9 @@ export default function DisciplineIssues() {
   const handleEditClick = (issue: DisciplineIssue) => {
     setEditingIssue(issue);
     setStudentId(issue.student_id);
-    setCategory(issue.category);
+    setDisciplineCategoryId(issue.discipline_category_id);
     setDescription(issue.description);
     setSeverity(issue.severity);
-    setActionTaken(issue.action_taken || "");
     setIssueDate(issue.issue_date);
     setIsDialogOpen(true);
   };
@@ -216,14 +228,14 @@ export default function DisciplineIssues() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
-                <Select value={category} onValueChange={(value: DisciplineIssue['category']) => setCategory(value)}>
+                <Select value={disciplineCategoryId} onValueChange={setDisciplineCategoryId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {issueCategories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -249,16 +261,12 @@ export default function DisciplineIssues() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="actionTaken">Action Taken (Optional)</Label>
-                <Textarea id="actionTaken" value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} rows={2} placeholder="e.g., Spoke to student, contacted parents" />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="issueDate">Date *</Label>
                 <Input id="issueDate" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
               </div>
               <Button
                 onClick={handleSubmit}
-                disabled={!studentId || !category || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
+                disabled={!studentId || !disciplineCategoryId || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
                 className="w-full"
               >
                 {editingIssue ? (updateIssueMutation.isPending ? "Updating..." : "Update Issue") : (createIssueMutation.isPending ? "Logging..." : "Log Issue")}
@@ -282,10 +290,10 @@ export default function DisciplineIssues() {
               {issues.map((issue: any) => (
                 <div key={issue.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
-                    <h3 className="font-semibold text-lg">{issue.students?.name} - {issueCategories.find(c => c.value === issue.category)?.label}</h3>
+                    <h3 className="font-semibold text-lg">{issue.students?.name} - {issue.discipline_categories?.name}</h3>
                     <p className="text-sm text-muted-foreground">Date: {format(new Date(issue.issue_date), "PPP")}</p>
                     <p className="text-sm">{issue.description}</p>
-                    {issue.action_taken && <p className="text-sm font-medium">Action: {issue.action_taken}</p>}
+                    {issue.resolution_notes && <p className="text-sm font-medium">Resolution: {issue.resolution_notes}</p>}
                     <p className={`text-sm font-semibold ${getSeverityColor(issue.severity)}`}>Severity: {issue.severity.toUpperCase()}</p>
                   </div>
                   <div className="flex gap-2">
