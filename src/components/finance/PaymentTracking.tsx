@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Plus, Check } from 'lucide-react';
 import { Payment, PaymentMethod, Invoice, LedgerEntry, ACCOUNT_CODES, getInvoiceStatus } from '@/integrations/supabase/finance-types';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, Database } from '@/integrations/supabase/types';
 
 type Student = Tables<'students'>;
 
@@ -125,7 +125,7 @@ const PaymentTracking = () => {
           if (invoiceUpdateError) throw invoiceUpdateError;
 
           // 3. Create ledger entries for payment and invoice update
-          const ledgerEntries: Tables<'ledger_entries'>[] = [
+          const ledgerEntries: Database['public']['Tables']['ledger_entries']['Insert'][] = [
             // Debit: Cash/Bank Account
             {
               center_id: user.center_id,
