@@ -5,25 +5,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar"; // Import the new Sidebar component
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: Home, role: 'center' },
-  { to: "/register", label: "Register Student", icon: UserPlus, role: 'center', featureName: 'register_student' },
-  { to: "/attendance", label: "Take Attendance", icon: CheckSquare, role: 'center', featureName: 'take_attendance' },
-  { to: "/attendance-summary", label: "Attendance Summary", icon: Calendar, role: 'center', featureName: 'attendance_summary' },
-  { to: "/lesson-plans", label: "Lesson Plans", icon: LayoutList, role: 'center', featureName: 'lesson_plans' },
-  { to: "/lesson-tracking", label: "Lesson Tracking", icon: BookOpen, role: 'center', featureName: 'lesson_tracking' },
-  { to: "/homework", label: "Homework", icon: Book, role: 'center', featureName: 'homework' },
-  { to: "/activities", label: "Activities", icon: Paintbrush, role: 'center', featureName: 'activities' },
-  { to: "/discipline", label: "Discipline", icon: AlertTriangle, role: 'center', featureName: 'discipline' },
-  { to: "/teachers", label: "Teachers", icon: Users, role: 'center', featureName: 'teachers' },
-  { to: "/teacher-attendance", label: "Teacher Attendance", icon: UserCheck, role: 'center', featureName: 'teacher_attendance' },
-  { to: "/tests", label: "Tests", icon: ClipboardCheck, role: 'center', featureName: 'tests' },
-  { to: "/student-report", label: "Student Report", icon: User, role: 'center', featureName: 'student_report' },
-  { to: "/ai-insights", label: "AI Insights", icon: Brain, role: 'center', featureName: 'ai_insights' },
-  { to: "/records", label: "View Records", icon: FileText, role: 'center', featureName: 'view_records' },
-  { to: "/summary", label: "Summary", icon: BarChart3, role: 'center', featureName: 'summary' },
-  { to: "/finance", label: "Finance", icon: DollarSign, role: 'center', featureName: 'finance' },
-  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'center' },
+const navItems: Array<{
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  role?: 'admin' | 'center' | 'parent' | 'teacher';
+  featureName?: string;
+}> = [
+  { to: "/", label: "Dashboard", icon: Home, role: 'center' as const },
+  { to: "/register", label: "Register Student", icon: UserPlus, role: 'center' as const, featureName: 'register_student' },
+  { to: "/attendance", label: "Take Attendance", icon: CheckSquare, role: 'center' as const, featureName: 'take_attendance' },
+  { to: "/attendance-summary", label: "Attendance Summary", icon: Calendar, role: 'center' as const, featureName: 'attendance_summary' },
+  { to: "/lesson-plans", label: "Lesson Plans", icon: LayoutList, role: 'center' as const, featureName: 'lesson_plans' },
+  { to: "/lesson-tracking", label: "Lesson Tracking", icon: BookOpen, role: 'center' as const, featureName: 'lesson_tracking' },
+  { to: "/homework", label: "Homework", icon: Book, role: 'center' as const, featureName: 'homework' },
+  { to: "/activities", label: "Activities", icon: Paintbrush, role: 'center' as const, featureName: 'activities' },
+  { to: "/discipline", label: "Discipline", icon: AlertTriangle, role: 'center' as const, featureName: 'discipline' },
+  { to: "/teachers", label: "Teachers", icon: Users, role: 'center' as const, featureName: 'teachers' },
+  { to: "/teacher-attendance", label: "Teacher Attendance", icon: UserCheck, role: 'center' as const, featureName: 'teacher_attendance' },
+  { to: "/tests", label: "Tests", icon: ClipboardCheck, role: 'center' as const, featureName: 'tests' },
+  { to: "/student-report", label: "Student Report", icon: User, role: 'center' as const, featureName: 'student_report' },
+  { to: "/ai-insights", label: "AI Insights", icon: Brain, role: 'center' as const, featureName: 'ai_insights' },
+  { to: "/records", label: "View Records", icon: FileText, role: 'center' as const, featureName: 'view_records' },
+  { to: "/summary", label: "Summary", icon: BarChart3, role: 'center' as const, featureName: 'summary' },
+  { to: "/finance", label: "Finance", icon: DollarSign, role: 'center' as const, featureName: 'finance' },
+  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'center' as const },
 ];
 
 export default function CenterLayout({ children }: { children: React.ReactNode }) {

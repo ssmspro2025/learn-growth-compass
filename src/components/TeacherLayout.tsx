@@ -5,16 +5,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar";
 
-const navItems = [
-  { to: "/teacher-dashboard", label: "Dashboard", icon: Home, role: 'teacher' },
-  { to: "/teacher/take-attendance", label: "Take Attendance", icon: CheckSquare, role: 'teacher', featureName: 'take_attendance' },
-  { to: "/teacher/lesson-tracking", label: "Lesson Tracking", icon: BookOpen, role: 'teacher', featureName: 'lesson_tracking' },
-  { to: "/teacher/homework-management", label: "Homework Management", icon: Book, role: 'teacher', featureName: 'homework_management' },
-  { to: "/teacher/preschool-activities", label: "Preschool Activities", icon: Paintbrush, role: 'teacher', featureName: 'preschool_activities' },
-  { to: "/teacher/discipline-issues", label: "Discipline Issues", icon: AlertTriangle, role: 'teacher', featureName: 'discipline_issues' },
-  { to: "/teacher/test-management", label: "Test Management", icon: ClipboardCheck, role: 'teacher', featureName: 'test_management' },
-  { to: "/teacher/student-report", label: "Student Report", icon: User, role: 'teacher', featureName: 'student_report_access' },
-  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'teacher' },
+const navItems: Array<{
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  role?: 'admin' | 'center' | 'parent' | 'teacher';
+  featureName?: string;
+}> = [
+  { to: "/teacher-dashboard", label: "Dashboard", icon: Home, role: 'teacher' as const },
+  { to: "/teacher/take-attendance", label: "Take Attendance", icon: CheckSquare, role: 'teacher' as const, featureName: 'take_attendance' },
+  { to: "/teacher/lesson-tracking", label: "Lesson Tracking", icon: BookOpen, role: 'teacher' as const, featureName: 'lesson_tracking' },
+  { to: "/teacher/homework-management", label: "Homework Management", icon: Book, role: 'teacher' as const, featureName: 'homework_management' },
+  { to: "/teacher/preschool-activities", label: "Preschool Activities", icon: Paintbrush, role: 'teacher' as const, featureName: 'preschool_activities' },
+  { to: "/teacher/discipline-issues", label: "Discipline Issues", icon: AlertTriangle, role: 'teacher' as const, featureName: 'discipline_issues' },
+  { to: "/teacher/test-management", label: "Test Management", icon: ClipboardCheck, role: 'teacher' as const, featureName: 'test_management' },
+  { to: "/teacher/student-report", label: "Student Report", icon: User, role: 'teacher' as const, featureName: 'student_report_access' },
+  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'teacher' as const },
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {

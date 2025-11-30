@@ -5,13 +5,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar"; // Import the new Sidebar component
 
-const navItems = [
-  { to: "/parent-dashboard", label: "Dashboard", icon: Home, role: 'parent' },
-  { to: "/parent-finance", label: "Finance", icon: DollarSign, role: 'parent' },
-  { to: "/parent-homework", label: "Homework", icon: Book, role: 'parent' },
-  { to: "/parent-activities", label: "Activities", icon: Paintbrush, role: 'parent' },
-  { to: "/parent-discipline", label: "Discipline", icon: AlertTriangle, role: 'parent' },
-  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'parent' }, // Added Change Password
+const navItems: Array<{
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  role?: 'admin' | 'center' | 'parent' | 'teacher';
+}> = [
+  { to: "/parent-dashboard", label: "Dashboard", icon: Home, role: 'parent' as const },
+  { to: "/parent-finance", label: "Finance", icon: DollarSign, role: 'parent' as const },
+  { to: "/parent-homework", label: "Homework", icon: Book, role: 'parent' as const },
+  { to: "/parent-activities", label: "Activities", icon: Paintbrush, role: 'parent' as const },
+  { to: "/parent-discipline", label: "Discipline", icon: AlertTriangle, role: 'parent' as const },
+  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'parent' as const },
 ];
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
@@ -46,7 +51,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     <div className="flex min-h-screen bg-background">
       <Sidebar
         navItems={navItems}
-        currentRole={user?.role || 'parent'}
         headerContent={headerContent}
         footerContent={footerContent}
       />
