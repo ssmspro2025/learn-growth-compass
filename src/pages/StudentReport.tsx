@@ -99,9 +99,10 @@ export default function StudentReport() {
     queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      let query = supabase.from("student_homework_records").select("*, homework(*)").eq("student_id", selectedStudentId)
-        .gte("created_at", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
+      let query = supabase.from("student_homework_records").select("*, homework(*)")
+        .eq("student_id", selectedStudentId)
+        .gte("homework.due_date", format(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
+        .lte("homework.due_date", format(dateRange.to, "yyyy-MM-dd")); // Filter by homework due_date
       if (subjectFilter !== "all") query = query.eq("homework.subject", subjectFilter);
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
