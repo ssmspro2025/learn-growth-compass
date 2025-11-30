@@ -32,6 +32,7 @@ export default function PreschoolActivities() {
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<StudentActivity | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
 
   const [studentId, setStudentId] = useState("");
   const [activityType, setActivityType] = useState<string>("play");
@@ -51,6 +52,22 @@ export default function PreschoolActivities() {
         .select("id, name, grade")
         .eq("center_id", user.center_id)
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Fetch activity types for the center
+  const { data: activityTypesFromDb = [] } = useQuery({
+    queryKey: ["activity-types", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("activity_types")
+        .select("*")
+        .eq("center_id", user.center_id)
+        .eq("is_active", true);
       if (error) throw error;
       return data;
     },
@@ -108,13 +125,22 @@ export default function PreschoolActivities() {
 
   const createActivityMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !studentId) throw new Error("Center ID or Student not found");
+      if (!user?.center_id || !studentId || !activityType) throw new Error("Center ID, Student, or Activity Type not found");
 
       let photoUrl: string | null = null;
       let videoUrl: string | null = null;
 
       if (photo) photoUrl = await uploadFile(photo, "activity-photos");
       if (video) videoUrl = await uploadFile(video, "activity-videos");
+
+      // Get the activity type from DB or use the first one
+      let selectedActivityTypeId = activityType;
+      
+      // If activityTypesFromDb exists, find matching type or use first one
+      if (activityTypesFromDb.length > 0) {
+        const matchingType = activityTypesFromDb.find(at => at.name.toLowerCase() === activityType.toLowerCase());
+        selectedActivityTypeId = matchingType?.id || activityTypesFromDb[0].id;
+      }
 
       // First create the activity
       const { data: activity, error: activityError } = await supabase.from("activities").insert({
@@ -124,7 +150,7 @@ export default function PreschoolActivities() {
         activity_date: activityDate,
         photo_url: photoUrl,
         video_url: videoUrl,
-        activity_type_id: activityType, // Using activity type as ID for simplicity
+        activity_type_id: selectedActivityTypeId,
         created_by: user.id,
       }).select().single();
       if (activityError) throw activityError;
@@ -208,17 +234,35 @@ export default function PreschoolActivities() {
     return Array(rating).fill("⭐").join("");
   };
 
+  const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
+  const filteredActivities = gradeFilter === "all" ? activities : activities.filter((act: any) => {
+    const studentGrade = students.find(s => s.id === act.student_id)?.grade;
+    return studentGrade === gradeFilter;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Preschool Activities</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Log Activity</Button>
-          </DialogTrigger>
+        <div className="flex gap-2 items-center">
+          <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {uniqueGrades.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Log Activity</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingActivity ? "Edit Activity" : "Log New Activity"}</DialogTitle>
@@ -310,11 +354,11 @@ export default function PreschoolActivities() {
         <CardContent>
           {isLoading ? (
             <p>Loading activities...</p>
-          ) : activities.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No preschool activities logged yet.</p>
+          ) : filteredActivities.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No preschool activities found for the selected grade.</p>
           ) : (
             <div className="space-y-4">
-              {activities.map((activity: any) => (
+              {filteredActivities.map((activity: any) => (
                 <div key={activity.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{activity.students?.name} - {activity.activities?.title || 'Activity'}</h3>
