@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
-import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, addMonths } from 'date-fns';
+import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tables, Database } from '@/integrations/supabase/types';
 
@@ -29,12 +29,24 @@ interface TeacherAttendanceSummary {
   attendancePercentage: number;
 }
 
+interface TeacherDetailAttendance {
+  id: string;
+  date: string;
+  status: string;
+  time_in: string | null;
+  time_out: string | null;
+  notes: string | null;
+}
+
 export default function TeacherAttendancePage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, TeacherAttendance>>({});
   const [reportMonthFilter, setReportMonthFilter] = useState<string>(format(new Date(), "yyyy-MM"));
+  const [showTeacherDetailDialog, setShowTeacherDetailDialog] = useState(false);
+  const [selectedTeacherDetail, setSelectedTeacherDetail] = useState<Teacher | null>(null);
+  const [detailMonthFilter, setDetailMonthFilter] = useState<Date>(new Date());
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
   // Fetch active teachers for the center
@@ -85,6 +97,33 @@ export default function TeacherAttendancePage() {
     },
     enabled: !!user?.center_id,
   });
+
+  // Fetch all attendance for a specific teacher for the detail dialog
+  const { data: teacherDetailAttendance = [], refetch: refetchTeacherDetailAttendance } = useQuery({
+    queryKey: ["teacher-detail-attendance", selectedTeacherDetail?.id, detailMonthFilter],
+    queryFn: async () => {
+      if (!selectedTeacherDetail?.id) return [];
+      const start = startOfMonth(detailMonthFilter);
+      const end = endOfMonth(detailMonthFilter);
+      const { data, error } = await supabase
+        .from("teacher_attendance")
+        .select("id, date, status, time_in, time_out, notes")
+        .eq("teacher_id", selectedTeacherDetail.id)
+        .gte("date", format(start, "yyyy-MM-dd"))
+        .lte("date", format(end, "yyyy-MM-dd"))
+        .order("date");
+      if (error) throw error;
+      return data as TeacherDetailAttendance[];
+    },
+    enabled: false, // We'll manually trigger this when needed
+  });
+
+  // Refetch teacher detail attendance when dialog opens or month changes
+  useEffect(() => {
+    if (showTeacherDetailDialog && selectedTeacherDetail?.id) {
+      refetchTeacherDetailAttendance();
+    }
+  }, [showTeacherDetailDialog, selectedTeacherDetail?.id, detailMonthFilter, refetchTeacherDetailAttendance]);
 
   // Initialize attendance state when teachers or existing attendance changes
   useEffect(() => {
@@ -322,6 +361,57 @@ export default function TeacherAttendancePage() {
     }
   };
 
+  const handleTeacherClick = (teacher: Teacher) => {
+    setSelectedTeacherDetail(teacher);
+    setDetailMonthFilter(new Date()); // Reset month filter for new teacher
+    setShowTeacherDetailDialog(true);
+  };
+
+  // Calculate punctuality and average time in for teacher detail dialog
+  const { punctualityPercentage, avgTimeIn, absentDays } = useMemo(() => {
+    let punctualCount = 0;
+    let totalPresentDays = 0;
+    let totalMinutesIn = 0;
+    let absentDaysList: string[] = [];
+
+    teacherDetailAttendance.forEach(record => {
+      if (record.status === 'present' && record.time_in) {
+        totalPresentDays++;
+        try {
+          const [hours, minutes] = record.time_in.split(':').map(Number);
+          const timeInDate = new Date();
+          timeInDate.setHours(hours, minutes, 0, 0);
+          
+          // Assuming "on time" is before 9:15 AM for example
+          const onTimeCutoff = new Date();
+          onTimeCutoff.setHours(9, 15, 0, 0);
+          
+          if (timeInDate <= onTimeCutoff) {
+            punctualCount++;
+          }
+          
+          totalMinutesIn += (hours * 60) + minutes;
+        } catch (e) {
+          console.error("Error parsing time_in:", record.time_in, e);
+        }
+      } else if (record.status === 'absent') {
+        absentDaysList.push(record.date);
+      }
+    });
+
+    const punctuality = totalPresentDays > 0 ? Math.round((punctualCount / totalPresentDays) * 100) : 0;
+    const averageMinutesIn = totalPresentDays > 0 ? totalMinutesIn / totalPresentDays : 0;
+    const avgHours = Math.floor(averageMinutesIn / 60);
+    const avgMins = Math.round(averageMinutesIn % 60);
+    const formattedAvgTimeIn = totalPresentDays > 0 ? `${String(avgHours).padStart(2, '0')}:${String(avgMins).padStart(2, '0')}` : '-';
+
+    return {
+      punctualityPercentage: punctuality,
+      avgTimeIn: formattedAvgTimeIn,
+      absentDays: absentDaysList
+    };
+  }, [teacherDetailAttendance]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -490,6 +580,7 @@ export default function TeacherAttendancePage() {
                     <TableHead className="text-center">On Leave</TableHead>
                     <TableHead className="text-center">Total Days</TableHead>
                     <TableHead className="text-center">Attendance %</TableHead>
+                    <TableHead className="text-center">Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -501,6 +592,11 @@ export default function TeacherAttendancePage() {
                       <TableCell className="text-center text-orange-600">{summary.leave}</TableCell>
                       <TableCell className="text-center">{summary.totalDays}</TableCell>
                       <TableCell className="text-center font-semibold">{summary.attendancePercentage}%</TableCell>
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="sm" onClick={() => handleTeacherClick({ id: summary.id, name: summary.name } as Teacher)}>
+                          <User className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -509,6 +605,153 @@ export default function TeacherAttendancePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Teacher Detail Dialog */}
+      <Dialog open={showTeacherDetailDialog} onOpenChange={(open) => {
+        setShowTeacherDetailDialog(open);
+        if (!open) {
+          setSelectedTeacherDetail(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  {selectedTeacherDetail?.name}
+                </DialogTitle>
+                <DialogDescription>
+                  Detailed attendance report for {selectedTeacherDetail?.name}.
+                </DialogDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowTeacherDetailDialog(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Month Filter for Details */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailMonthFilter(subMonths(detailMonthFilter, 1))}
+              >
+                Previous Month
+              </Button>
+              <Input
+                type="month"
+                value={format(detailMonthFilter, "yyyy-MM")}
+                onChange={(e) => {
+                  const [year, month] = e.target.value.split('-');
+                  setDetailMonthFilter(new Date(parseInt(year), parseInt(month) - 1));
+                }}
+                className="w-[150px]"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailMonthFilter(addMonths(detailMonthFilter, 1))}
+              >
+                Next Month
+              </Button>
+            </div>
+
+            {/* Punctuality & Avg Time In */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Attendance Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Punctuality %</p>
+                    <p className="text-xl font-bold">{punctualityPercentage}%</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg. Time In</p>
+                    <p className="text-xl font-bold">{avgTimeIn}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <X className="h-5 w-5 text-red-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Absent Days</p>
+                    <p className="text-xl font-bold">{absentDays.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Absent Days List */}
+            {absentDays.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Absent Days</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {absentDays.map((date, index) => (
+                      <Badge key={index} variant="destructive">
+                        {format(new Date(date), "MMM d")}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Date-wise Attendance Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance for {format(detailMonthFilter, "MMMM yyyy")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {teacherDetailAttendance.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No attendance records for this month.</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-64 border rounded">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Time In</TableHead>
+                          <TableHead>Time Out</TableHead>
+                          <TableHead>Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teacherDetailAttendance.map(record => (
+                          <TableRow key={record.id}>
+                            <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={record.status === "present" ? "default" : record.status === "absent" ? "destructive" : "secondary"}
+                                className={record.status === "present" ? "bg-secondary hover:bg-secondary/80" : ""}
+                              >
+                                {record.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{record.time_in || "-"}</TableCell>
+                            <TableCell>{record.time_out || "-"}</TableCell>
+                            <TableCell>{record.notes || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

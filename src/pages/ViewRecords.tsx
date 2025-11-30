@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, isWithinInterval, differenceInMinutes, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
-import { CalendarIcon, Download, Printer, User, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { CalendarIcon, Download, Printer, User, Clock, TrendingUp, TrendingDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StudentAttendanceRecord {
@@ -163,10 +163,11 @@ export default function ViewRecords() {
   };
 
   // Calculate punctuality and average time in for student detail dialog
-  const { punctualityPercentage, avgTimeIn } = useMemo(() => {
+  const { punctualityPercentage, avgTimeIn, absentDays } = useMemo(() => {
     let punctualCount = 0;
     let totalPresentDays = 0;
     let totalMinutesIn = 0;
+    let absentDaysList: string[] = [];
 
     studentDetailAttendance.forEach(record => {
       if (record.status === 'Present' && record.time_in) {
@@ -188,6 +189,8 @@ export default function ViewRecords() {
         } catch (e) {
           console.error("Error parsing time_in:", record.time_in, e);
         }
+      } else if (record.status === 'Absent') {
+        absentDaysList.push(record.date);
       }
     });
 
@@ -199,7 +202,8 @@ export default function ViewRecords() {
 
     return {
       punctualityPercentage: punctuality,
-      avgTimeIn: formattedAvgTimeIn
+      avgTimeIn: formattedAvgTimeIn,
+      absentDays: absentDaysList
     };
   }, [studentDetailAttendance]);
 
@@ -335,13 +339,20 @@ export default function ViewRecords() {
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              {selectedStudentDetail?.name} - Grade {selectedStudentDetail?.grade}
-            </DialogTitle>
-            <DialogDescription>
-              Detailed attendance report for {selectedStudentDetail?.name}.
-            </DialogDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  {selectedStudentDetail?.name} - Grade {selectedStudentDetail?.grade}
+                </DialogTitle>
+                <DialogDescription>
+                  Detailed attendance report for {selectedStudentDetail?.name}.
+                </DialogDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowStudentDetailDialog(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Month Filter for Details */}
@@ -374,9 +385,9 @@ export default function ViewRecords() {
             {/* Punctuality & Avg Time In */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Punctuality & Average Time</CardTitle>
+                <CardTitle className="text-sm font-medium">Attendance Summary</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
+              <CardContent className="grid grid-cols-3 gap-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-600" />
                   <div>
@@ -391,8 +402,33 @@ export default function ViewRecords() {
                     <p className="text-xl font-bold">{avgTimeIn}</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <X className="h-5 w-5 text-red-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Absent Days</p>
+                    <p className="text-xl font-bold">{absentDays.length}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+
+            {/* Absent Days List */}
+            {absentDays.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Absent Days</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {absentDays.map((date, index) => (
+                      <Badge key={index} variant="destructive">
+                        {format(new Date(date), "MMM d")}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Date-wise Attendance Table */}
             <Card>

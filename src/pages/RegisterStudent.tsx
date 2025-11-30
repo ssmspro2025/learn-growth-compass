@@ -6,38 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  Pencil,
-  Trash2,
-  Save,
-  X,
-  UserPlus,
-  Upload,
-  Download,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 
 interface Student {
   id: string;
@@ -61,7 +35,6 @@ type StudentInput = {
 export default function RegisterStudent() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-
   const [formData, setFormData] = useState({
     name: "",
     grade: "",
@@ -69,43 +42,43 @@ export default function RegisterStudent() {
     parent_name: "",
     contact_number: "",
   });
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Student | null>(null);
-
   const [isCreatingParent, setIsCreatingParent] = useState(false);
-  const [selectedStudentForParent, setSelectedStudentForParent] =
-    useState<Student | null>(null);
+  const [selectedStudentForParent, setSelectedStudentForParent] = useState<Student | null>(null);
   const [parentUsername, setParentUsername] = useState("");
   const [parentPassword, setParentPassword] = useState("");
-
   const [csvPreviewRows, setCsvPreviewRows] = useState<StudentInput[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
   const [multilineText, setMultilineText] = useState("");
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [parsing, setParsing] = useState(false);
-
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [searchFilter, setSearchFilter] = useState<string>("");
 
   // Fetch students
   const { data: students, isLoading } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      let query = supabase.from("students").select("*").order("created_at", {
-        ascending: false,
-      });
-
+      let query = supabase.from("students").select("*").order("created_at", { ascending: false, });
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return data as Student[];
     },
   });
 
-  const filteredStudents = gradeFilter === "all" ? students : students?.filter(s => s.grade === gradeFilter);
+  // Filter students based on grade and search
+  const filteredStudents = students?.filter(s => 
+    (gradeFilter === "all" || s.grade === gradeFilter) &&
+    (searchFilter === "" || 
+      s.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      s.parent_name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      s.contact_number.includes(searchFilter))
+  );
+
   const uniqueGrades = Array.from(new Set(students?.map(s => s.grade) || [])).sort();
 
   // Single student create
@@ -182,7 +155,6 @@ export default function RegisterStudent() {
       if (!selectedStudentForParent || !user?.center_id) {
         throw new Error("Student or Center ID not found.");
       }
-
       const { data, error } = await supabase.functions.invoke('create-parent-account', {
         body: {
           username: parentUsername,
@@ -191,10 +163,8 @@ export default function RegisterStudent() {
           centerId: user.center_id,
         },
       });
-
       if (error) throw error;
       if (!data.success) throw new Error(data.error || 'Failed to create parent account via Edge Function');
-
       return data;
     },
     onSuccess: () => {
@@ -288,7 +258,6 @@ export default function RegisterStudent() {
       hasHeader = true;
       startIndex = 1;
     }
-
     const output: StudentInput[] = [];
     for (let i = startIndex; i < rows.length; i++) {
       const cols = rows[i];
@@ -308,8 +277,7 @@ export default function RegisterStudent() {
           contact_number: (rowObj["contact_number"] || rowObj["contact"] || "").trim(),
         };
       } else {
-        const [name = "", grade = "", school_name = "", parent_name = "", contact_number = ""] =
-          cols;
+        const [name = "", grade = "", school_name = "", parent_name = "", contact_number = ""] = cols;
         student = {
           name: name.trim(),
           grade: grade.trim(),
@@ -326,7 +294,6 @@ export default function RegisterStudent() {
       if (rowErrors.length) errors.push(...rowErrors);
       else output.push(student);
     }
-
     // Deduplicate
     const unique: StudentInput[] = [];
     const seenContacts = new Set<string>();
@@ -339,7 +306,6 @@ export default function RegisterStudent() {
         errors.push(`Duplicate in batch: ${key}`);
       }
     }
-
     return { rows: unique, errors };
   };
 
@@ -446,9 +412,7 @@ export default function RegisterStudent() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
@@ -457,9 +421,7 @@ export default function RegisterStudent() {
                 <Input
                   id="grade"
                   value={formData.grade}
-                  onChange={(e) =>
-                    setFormData({ ...formData, grade: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
                   required
                 />
               </div>
@@ -468,9 +430,7 @@ export default function RegisterStudent() {
                 <Input
                   id="school_name"
                   value={formData.school_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, school_name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
                   required
                 />
               </div>
@@ -479,9 +439,7 @@ export default function RegisterStudent() {
                 <Input
                   id="parent_name"
                   value={formData.parent_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, parent_name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
                   required
                 />
               </div>
@@ -490,9 +448,7 @@ export default function RegisterStudent() {
                 <Input
                   id="contact_number"
                   value={formData.contact_number}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_number: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
                   required
                 />
               </div>
@@ -501,7 +457,6 @@ export default function RegisterStudent() {
             {/* Actions */}
             <div className="flex flex-wrap gap-2 items-center mt-4">
               <Button type="submit">Register Student</Button>
-
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -512,25 +467,19 @@ export default function RegisterStudent() {
               <label htmlFor="csv-upload">
                 <Button variant="outline" size="sm" asChild>
                   <span>
-                    <Upload className="inline-block mr-2 h-4 w-4" />
-                    Upload CSV
+                    <Upload className="inline-block mr-2 h-4 w-4" /> Upload CSV
                   </span>
                 </Button>
               </label>
-
               <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                <Download className="inline-block mr-2 h-4 w-4" />
-                CSV Template
+                <Download className="inline-block mr-2 h-4 w-4" /> CSV Template
               </Button>
-
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   const el = document.getElementById("multiline-area");
-                  if (el)
-                    el.style.display =
-                      el.style.display === "none" ? "block" : "none";
+                  if (el) el.style.display = el.style.display === "none" ? "block" : "none";
                 }}
               >
                 Paste Rows
@@ -550,10 +499,7 @@ export default function RegisterStudent() {
                 <Button onClick={handleParseMultiline} disabled={parsing}>
                   Parse & Preview
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setMultilineText("")}
-                >
+                <Button variant="outline" onClick={() => setMultilineText("")}>
                   Clear
                 </Button>
               </div>
@@ -564,14 +510,13 @@ export default function RegisterStudent() {
 
       {/* CSV Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto"> {/* Added max-h and overflow-y-auto */}
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Preview Parsed Rows</DialogTitle>
             <DialogDescription>
               Review parsed rows before inserting. Errors (if any) are below.
             </DialogDescription>
           </DialogHeader>
-
           {csvErrors.length > 0 && (
             <div className="p-3 bg-red-50 rounded border border-red-100 text-red-700 mb-4">
               {csvErrors.map((err, idx) => (
@@ -579,7 +524,6 @@ export default function RegisterStudent() {
               ))}
             </div>
           )}
-
           <Table>
             <TableHeader>
               <TableRow>
@@ -602,12 +546,8 @@ export default function RegisterStudent() {
               ))}
             </TableBody>
           </Table>
-
           <div className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowPreviewDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Cancel
             </Button>
             <Button onClick={handleBulkInsertConfirm}>Insert All</Button>
@@ -618,7 +558,28 @@ export default function RegisterStudent() {
       {/* Students Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Registered Students</CardTitle>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardTitle>Registered Students</CardTitle>
+            <div className="flex gap-2">
+              <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by Grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Grades</SelectItem>
+                  {uniqueGrades.map((g) => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Search by name, parent, or contact"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="w-[250px]"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
@@ -639,8 +600,8 @@ export default function RegisterStudent() {
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : students && students.length > 0 ? (
-                students.map((student) => (
+              ) : filteredStudents && filteredStudents.length > 0 ? (
+                filteredStudents.map((student) => (
                   <TableRow key={student.id}>
                     <TableCell>
                       {editingId === student.id ? (
@@ -784,15 +745,10 @@ export default function RegisterStudent() {
               />
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreatingParent(false)}
-              >
+              <Button variant="outline" onClick={() => setIsCreatingParent(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => createParentMutation.mutate()}>
-                Create Account
-              </Button>
+              <Button onClick={() => createParentMutation.mutate()}>Create Account</Button>
             </div>
           </div>
         </DialogContent>
