@@ -564,7 +564,7 @@ export default function RegisterStudent() {
 
       {/* CSV Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto"> {/* Added max-h and overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Preview Parsed Rows</DialogTitle>
             <DialogDescription>

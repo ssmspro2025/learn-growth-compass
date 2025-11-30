@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
 
 type LessonPlan = Tables<'lesson_plans'>;
+type Student = Tables<'students'>; // Import Student type to get grades
 
 export default function LessonPlans() {
   const queryClient = useQueryClient();
@@ -22,6 +23,7 @@ export default function LessonPlans() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLessonPlan, setEditingLessonPlan] = useState<LessonPlan | null>(null);
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [gradeFilter, setGradeFilter] = useState<string>("all"); // New grade filter state
 
   const [subject, setSubject] = useState("");
   const [chapter, setChapter] = useState("");
@@ -31,16 +33,41 @@ export default function LessonPlans() {
   const [file, setFile] = useState<File | null>(null);
   const [media, setMedia] = useState<File | null>(null);
 
-  // Fetch lesson plans
-  const { data: lessonPlans = [], isLoading } = useQuery({
-    queryKey: ["lesson-plans", user?.center_id],
+  // Fetch students to get unique grades
+  const { data: students = [] } = useQuery({
+    queryKey: ["students-for-grades", user?.center_id],
     queryFn: async () => {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
+        .from("students")
+        .select("grade")
+        .eq("center_id", user.center_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+  const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
+
+  // Fetch lesson plans
+  const { data: lessonPlans = [], isLoading } = useQuery({
+    queryKey: ["lesson-plans", user?.center_id, subjectFilter, gradeFilter], // Add gradeFilter to query key
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      let query = supabase
         .from("lesson_plans")
         .select("*")
         .eq("center_id", user.center_id)
         .order("lesson_date", { ascending: false });
+
+      if (subjectFilter !== "all") {
+        query = query.eq("subject", subjectFilter);
+      }
+      if (gradeFilter !== "all") { // Apply grade filter
+        query = query.eq("grade", gradeFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -96,7 +123,7 @@ export default function LessonPlans() {
         subject,
         chapter,
         topic,
-        grade: 'N/A', // Default grade
+        grade: gradeFilter === "all" ? null : gradeFilter, // Save selected grade or null
         lesson_date: lessonDate,
         notes: notes || null,
         lesson_file_url: fileUrl,
@@ -130,6 +157,7 @@ export default function LessonPlans() {
         lesson_date: lessonDate,
         notes: notes || null,
         lesson_file_url: fileUrl,
+        grade: gradeFilter === "all" ? null : gradeFilter, // Update grade
       }).eq("id", editingLessonPlan.id);
       if (error) throw error;
     },
@@ -167,6 +195,7 @@ export default function LessonPlans() {
     setNotes(lessonPlan.notes || "");
     setFile(null); // Clear file input for edit
     setMedia(null); // Clear media input for edit
+    setGradeFilter(lessonPlan.grade || "all"); // Set grade filter to current lesson plan's grade
     setIsDialogOpen(true);
   };
 
@@ -179,7 +208,8 @@ export default function LessonPlans() {
   };
 
   const uniqueSubjects = Array.from(new Set(lessonPlans.map(lp => lp.subject))).sort();
-  const filteredLessonPlans = subjectFilter === "all" ? lessonPlans : lessonPlans.filter(lp => lp.subject === subjectFilter);
+  // const filteredLessonPlans = subjectFilter === "all" ? lessonPlans : lessonPlans.filter(lp => lp.subject === subjectFilter);
+  // The filtering is now handled by the useQuery hook
 
   return (
     <div className="space-y-6">
@@ -194,6 +224,17 @@ export default function LessonPlans() {
               <SelectItem value="all">All Subjects</SelectItem>
               {uniqueSubjects.map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={gradeFilter} onValueChange={setGradeFilter}> {/* New Grade Filter */}
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {uniqueGrades.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -225,6 +266,20 @@ export default function LessonPlans() {
               <div className="space-y-2">
                 <Label htmlFor="topic">Topic *</Label>
                 <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g., Linear Equations" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="grade">Grade (Optional)</Label> {/* Input for grade */}
+                <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {uniqueGrades.map((g) => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lessonDate">Date *</Label>
@@ -261,15 +316,15 @@ export default function LessonPlans() {
         <CardContent>
           {isLoading ? (
             <p>Loading lesson plans...</p>
-          ) : filteredLessonPlans.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No lesson plans found for the selected subject.</p>
+          ) : lessonPlans.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No lesson plans found for the selected subject/grade.</p>
           ) : (
             <div className="space-y-4">
-              {filteredLessonPlans.map((lp) => (
+              {lessonPlans.map((lp) => (
                 <div key={lp.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{lp.subject}: {lp.chapter} - {lp.topic}</h3>
-                    <p className="text-sm text-muted-foreground">Date: {format(new Date(lp.lesson_date), "PPP")}</p>
+                    <p className="text-sm text-muted-foreground">Date: {format(new Date(lp.lesson_date), "PPP")} {lp.grade && `(Grade: ${lp.grade})`}</p>
                     {lp.notes && <p className="text-sm">{lp.notes}</p>}
                     <div className="flex gap-2 mt-2">
                       {lp.lesson_file_url && (

@@ -67,7 +67,7 @@ export default function StudentReport() {
     queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url)").eq("student_id", selectedStudentId)
+      let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)").eq("student_id", selectedStudentId)
         .gte("date_completed", format(dateRange.from, "yyyy-MM-dd"))
         .lte("date_completed", format(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("lesson_plans.subject", subjectFilter);
@@ -115,7 +115,7 @@ export default function StudentReport() {
     queryKey: ["student-preschool-activities-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      const { data, error } = await supabase.from("student_activities").select("*, activities(*)").eq("student_id", selectedStudentId)
+      const { data, error } = await supabase.from("student_activities").select("*, activities(title, description, activity_date, photo_url, video_url, activity_type_id, activity_types(name))").eq("student_id", selectedStudentId)
         .gte("created_at", format(dateRange.from, "yyyy-MM-dd"))
         .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
@@ -129,7 +129,7 @@ export default function StudentReport() {
     queryKey: ["student-discipline-issues-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      const { data, error } = await supabase.from("discipline_issues").select("*").eq("student_id", selectedStudentId)
+      const { data, error } = await supabase.from("discipline_issues").select("*, discipline_categories(name)").eq("student_id", selectedStudentId)
         .gte("issue_date", format(dateRange.from, "yyyy-MM-dd"))
         .lte("issue_date", format(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
@@ -247,15 +247,14 @@ export default function StudentReport() {
       ]),
       [""],
       ["Lesson Records"],
-      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "File Link", "Media Link"],
+      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "File Link"],
       ...lessonRecords.map((lr: any) => [
         lr.lesson_plans?.subject,
         lr.lesson_plans?.chapter,
         lr.lesson_plans?.topic,
         format(new Date(lr.date_completed), "PPP"),
         lr.notes || '', // Include session notes
-        lr.lesson_plans?.file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl : '',
-        lr.lesson_plans?.media_url ? supabase.storage.from("lesson-plan-media").getPublicUrl(lr.lesson_plans.media_url).data.publicUrl : '',
+        lr.lesson_plans?.lesson_file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl : '',
       ]),
       [""],
       ["Homework Status"],
@@ -269,8 +268,9 @@ export default function StudentReport() {
       ]),
       [""],
       ["Preschool Activities"],
-      ["Type", "Description", "Date", "Involvement", "Photo Link", "Video Link"],
+      ["Type", "Title", "Description", "Date", "Involvement", "Photo Link", "Video Link"],
       ...preschoolActivities.map((pa: any) => [
+        pa.activities?.activity_types?.name || 'N/A',
         pa.activities?.title || 'N/A',
         pa.activities?.description || 'N/A',
         pa.activities?.activity_date ? format(new Date(pa.activities.activity_date), "PPP") : 'N/A',
@@ -280,12 +280,11 @@ export default function StudentReport() {
       ]),
       [""],
       ["Discipline Issues"],
-      ["Category", "Description", "Severity", "Action Taken", "Date"],
+      ["Category", "Description", "Severity", "Date"],
       ...disciplineIssues.map((di: any) => [
-        di.category,
+        di.discipline_categories?.name || 'N/A',
         di.description,
         di.severity,
-        di.action_taken || 'N/A',
         format(new Date(di.issue_date), "PPP"),
       ]),
     ].map(row => row.join(",")).join("\n");
@@ -538,13 +537,10 @@ export default function StudentReport() {
                           <td className="border px-2 py-1">{format(new Date(lr.date_completed), "PPP")}</td>
                           <td className="border px-2 py-1">{lr.notes || "-"}</td>
                           <td className="border px-2 py-1">
-                            {lr.lesson_plans?.file_url && (
-                              <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">File</a>
+                            {lr.lesson_plans?.lesson_file_url && (
+                              <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">File</a>
                             )}
-                            {lr.lesson_plans?.media_url && (
-                              <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(lr.lesson_plans.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Media</a>
-                            )}
-                            {!lr.lesson_plans?.file_url && !lr.lesson_plans?.media_url && "-"}
+                            {!lr.lesson_plans?.lesson_file_url && "-"}
                           </td>
                         </tr>
                       ))}
@@ -661,6 +657,7 @@ export default function StudentReport() {
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="border px-2 py-1">Type</th>
+                        <th className="border px-2 py-1">Title</th>
                         <th className="border px-2 py-1">Description</th>
                         <th className="border px-2 py-1">Date</th>
                         <th className="border px-2 py-1">Involvement</th>
@@ -670,18 +667,19 @@ export default function StudentReport() {
                     <tbody>
                       {preschoolActivities.map((pa: any) => (
                         <tr key={pa.id}>
-                          <td className="border px-2 py-1">{pa.activity_type.replace('_', ' ').toUpperCase()}</td>
-                          <td className="border px-2 py-1">{pa.description}</td>
-                          <td className="border px-2 py-1">{format(new Date(pa.activity_date), "PPP")}</td>
-                          <td className="border px-2 py-1">{pa.involvement_rating || "N/A"}</td>
+                          <td className="border px-2 py-1">{pa.activities?.activity_types?.name || 'N/A'}</td>
+                          <td className="border px-2 py-1">{pa.activities?.title || 'N/A'}</td>
+                          <td className="border px-2 py-1">{pa.activities?.description || 'N/A'}</td>
+                          <td className="border px-2 py-1">{pa.activities?.activity_date ? format(new Date(pa.activities.activity_date), "PPP") : 'N/A'}</td>
+                          <td className="border px-2 py-1">{pa.involvement_score || "N/A"}</td>
                           <td className="border px-2 py-1">
-                            {pa.photo_url && (
-                              <a href={supabase.storage.from("activity-photos").getPublicUrl(pa.photo_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">Photo</a>
+                            {pa.activities?.photo_url && (
+                              <a href={supabase.storage.from("activity-photos").getPublicUrl(pa.activities.photo_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">Photo</a>
                             )}
-                            {pa.video_url && (
-                              <a href={supabase.storage.from("activity-videos").getPublicUrl(pa.video_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Video</a>
+                            {pa.activities?.video_url && (
+                              <a href={supabase.storage.from("activity-videos").getPublicUrl(pa.activities.video_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Video</a>
                             )}
-                            {!pa.photo_url && !pa.video_url && "-"}
+                            {!pa.activities?.photo_url && !pa.activities?.video_url && "-"}
                           </td>
                         </tr>
                       ))}
@@ -710,21 +708,19 @@ export default function StudentReport() {
                         <th className="border px-2 py-1">Category</th>
                         <th className="border px-2 py-1">Description</th>
                         <th className="border px-2 py-1">Severity</th>
-                        <th className="border px-2 py-1">Action Taken</th>
                         <th className="border px-2 py-1">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {disciplineIssues.map((di: any) => (
                         <tr key={di.id}>
-                          <td className="border px-2 py-1">{di.category.replace('_', ' ').toUpperCase()}</td>
+                          <td className="border px-2 py-1">{di.discipline_categories?.name || 'N/A'}</td>
                           <td className="border px-2 py-1">{di.description}</td>
                           <td className="border px-2 py-1">
                             <span className={`font-semibold ${getSeverityColor(di.severity)}`}>
                               {di.severity.toUpperCase()}
                             </span>
                           </td>
-                          <td className="border px-2 py-1">{di.action_taken || "-"}</td>
                           <td className="border px-2 py-1">{format(new Date(di.issue_date), "PPP")}</td>
                         </tr>
                       ))}

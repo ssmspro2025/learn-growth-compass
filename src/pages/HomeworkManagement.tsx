@@ -25,6 +25,7 @@ export default function HomeworkManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all"); // New subject filter state
 
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
@@ -39,14 +40,23 @@ export default function HomeworkManagement() {
 
   // Fetch homework
   const { data: homeworkList = [], isLoading } = useQuery({
-    queryKey: ["homework", user?.center_id],
+    queryKey: ["homework", user?.center_id, gradeFilter, subjectFilter], // Add subjectFilter to query key
     queryFn: async () => {
       if (!user?.center_id) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("homework")
         .select("*")
         .eq("center_id", user.center_id)
         .order("due_date", { ascending: false });
+      
+      if (gradeFilter !== "all") {
+        query = query.eq("grade", gradeFilter);
+      }
+      if (subjectFilter !== "all") { // Apply subject filter
+        query = query.eq("subject", subjectFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -258,7 +268,9 @@ export default function HomeworkManagement() {
   };
 
   const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
-  const filteredHomework = gradeFilter === "all" ? homeworkList : homeworkList.filter(hw => hw.grade === gradeFilter);
+  const uniqueSubjects = Array.from(new Set(homeworkList.map(hw => hw.subject))).sort();
+  // const filteredHomework = gradeFilter === "all" ? homeworkList : homeworkList.filter(hw => hw.grade === gradeFilter);
+  // Filtering is now handled by the useQuery hook
 
   return (
     <div className="space-y-6">
@@ -273,6 +285,17 @@ export default function HomeworkManagement() {
               <SelectItem value="all">All Grades</SelectItem>
               {uniqueGrades.map((g) => (
                 <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={subjectFilter} onValueChange={setSubjectFilter}> {/* New Subject Filter */}
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Subjects</SelectItem>
+              {uniqueSubjects.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -356,11 +379,11 @@ export default function HomeworkManagement() {
         <CardContent>
           {isLoading ? (
             <p>Loading homework...</p>
-          ) : filteredHomework.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No homework assignments found for the selected grade.</p>
+          ) : homeworkList.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No homework assignments found for the selected grade/subject.</p>
           ) : (
             <div className="space-y-4">
-              {filteredHomework.map((hw) => (
+              {homeworkList.map((hw) => (
                 <div key={hw.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{hw.title} ({hw.subject} - Grade {hw.grade})</h3>

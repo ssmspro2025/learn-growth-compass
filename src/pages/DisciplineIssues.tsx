@@ -10,21 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, AlertTriangle, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
+import DisciplineCategoryManagement from "@/components/center/DisciplineCategoryManagement"; // Import the new component
 
 type DisciplineIssue = Tables<'discipline_issues'>;
 type Student = Tables<'students'>;
-
-const issueCategories = [
-  { value: "behavior", label: "Behavior" },
-  { value: "homework", label: "Homework" },
-  { value: "respect", label: "Disrespect" },
-  { value: "disruption", label: "Disruption" },
-  { value: "uniform", label: "Uniform" },
-  { value: "other", label: "Other" },
-];
+type DisciplineCategory = Tables<'discipline_categories'>;
 
 const severityLevels = [
   { value: "low", label: "Low" },
@@ -38,6 +31,7 @@ export default function DisciplineIssues() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<DisciplineIssue | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [showCategoryManagement, setShowCategoryManagement] = useState(false);
 
   const [studentId, setStudentId] = useState("");
   const [disciplineCategoryId, setDisciplineCategoryId] = useState("");
@@ -62,7 +56,7 @@ export default function DisciplineIssues() {
   });
 
   // Fetch discipline categories
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["discipline-categories", user?.center_id],
     queryFn: async () => {
       if (!user?.center_id) return [];
@@ -70,6 +64,7 @@ export default function DisciplineIssues() {
         .from("discipline_categories")
         .select("*")
         .eq("center_id", user.center_id)
+        .eq("is_active", true) // Only active categories
         .order("name");
       if (error) throw error;
       return data;
@@ -79,14 +74,20 @@ export default function DisciplineIssues() {
 
   // Fetch discipline issues
   const { data: issues = [], isLoading } = useQuery({
-    queryKey: ["discipline-issues", user?.center_id],
+    queryKey: ["discipline-issues", user?.center_id, gradeFilter],
     queryFn: async () => {
       if (!user?.center_id) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("discipline_issues")
         .select("*, students(name, grade), discipline_categories(name)")
         .eq("center_id", user.center_id)
         .order("issue_date", { ascending: false });
+      
+      if (gradeFilter !== "all") {
+        query = query.eq("students.grade", gradeFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -194,10 +195,11 @@ export default function DisciplineIssues() {
   };
 
   const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
-  const filteredIssues = gradeFilter === "all" ? issues : issues.filter((issue: any) => {
-    const studentGrade = students.find(s => s.id === issue.student_id)?.grade;
-    return studentGrade === gradeFilter;
-  });
+  // const filteredIssues = gradeFilter === "all" ? issues : issues.filter((issue: any) => {
+  //   const studentGrade = students.find(s => s.id === issue.student_id)?.grade;
+  //   return studentGrade === gradeFilter;
+  // });
+  // Filtering is now handled by the useQuery hook
 
   return (
     <div className="space-y-6">
@@ -215,6 +217,9 @@ export default function DisciplineIssues() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => setShowCategoryManagement(true)}>
+            <Settings className="h-4 w-4 mr-2" /> Manage Categories
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
@@ -252,11 +257,17 @@ export default function DisciplineIssues() {
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
+                    {categoriesLoading ? (
+                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                    ) : categories.length === 0 ? (
+                      <SelectItem value="no-categories" disabled>No categories available. Add some!</SelectItem>
+                    ) : (
+                      categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -303,11 +314,11 @@ export default function DisciplineIssues() {
         <CardContent>
           {isLoading ? (
             <p>Loading issues...</p>
-          ) : filteredIssues.length === 0 ? (
+          ) : issues.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No discipline issues found for the selected grade.</p>
           ) : (
             <div className="space-y-4">
-              {filteredIssues.map((issue: any) => (
+              {issues.map((issue: any) => (
                 <div key={issue.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{issue.students?.name} - {issue.discipline_categories?.name}</h3>
@@ -330,6 +341,19 @@ export default function DisciplineIssues() {
           )}
         </CardContent>
       </Card>
+
+      {/* Discipline Category Management Dialog */}
+      <Dialog open={showCategoryManagement} onOpenChange={setShowCategoryManagement}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Discipline Categories</DialogTitle>
+            <DialogDescription>
+              Add, edit, or deactivate categories for discipline issues.
+            </DialogDescription>
+          </DialogHeader>
+          <DisciplineCategoryManagement />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

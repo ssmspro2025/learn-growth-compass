@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,25 +9,39 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
-import { CalendarIcon, Download, Printer } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { format, parseISO, isWithinInterval, differenceInMinutes, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { CalendarIcon, Download, Printer, User, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface AttendanceRecord {
+interface StudentAttendanceRecord {
   id: string;
   student_id: string;
   status: string;
+  date: string;
+  time_in: string | null;
+  time_out: string | null;
   students: {
     name: string;
     grade: string;
   };
 }
 
+interface StudentDetail {
+  id: string;
+  name: string;
+  grade: string;
+}
+
 export default function ViewRecords() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [gradeFilter, setGradeFilter] = useState<string>("all"); // Grade filter
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
   const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+  const [showStudentDetailDialog, setShowStudentDetailDialog] = useState(false);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState<StudentDetail | null>(null);
+  const [detailMonthFilter, setDetailMonthFilter] = useState<Date>(new Date());
 
   // Fetch students for this center
   const { data: students = [] } = useQuery({
@@ -36,16 +50,13 @@ export default function ViewRecords() {
       let query = supabase
         .from('students')
         .select('id, name, grade')
+        .eq('center_id', user?.center_id!)
         .order('name');
-
-      if (user?.role !== 'admin' && user?.center_id) {
-        query = query.eq('center_id', user.center_id);
-      }
-
       const { data, error } = await query;
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.center_id,
   });
 
   const filteredStudents = students.filter(s => gradeFilter === "all" || s.grade === gradeFilter);
@@ -63,6 +74,9 @@ export default function ViewRecords() {
           id,
           student_id,
           status,
+          date,
+          time_in,
+          time_out,
           students (
             name,
             grade
@@ -72,9 +86,30 @@ export default function ViewRecords() {
         .eq("date", dateStr)
         .order("students(name)");
       if (error) throw error;
-      return data as AttendanceRecord[];
+      return data as StudentAttendanceRecord[];
     },
     enabled: filteredStudents.length > 0,
+  });
+
+  // Fetch all attendance for a specific student for the detail dialog
+  const { data: studentDetailAttendance = [] } = useQuery({
+    queryKey: ["student-detail-attendance", selectedStudentDetail?.id, detailMonthFilter],
+    queryFn: async () => {
+      if (!selectedStudentDetail?.id) return [];
+      const start = startOfMonth(detailMonthFilter);
+      const end = endOfMonth(detailMonthFilter);
+
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("id, date, status, time_in, time_out")
+        .eq("student_id", selectedStudentDetail.id)
+        .gte("date", format(start, "yyyy-MM-dd"))
+        .lte("date", format(end, "yyyy-MM-dd"))
+        .order("date");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedStudentDetail?.id,
   });
 
   const presentCount = records?.filter(r => r.status === "Present").length || 0;
@@ -83,8 +118,15 @@ export default function ViewRecords() {
   const exportToCSV = () => {
     if (!records || records.length === 0) return;
 
-    const headers = ["Name", "Grade", "Status"];
-    const rows = records.map(r => [r.students.name, r.students.grade, r.status]);
+    const headers = ["Name", "Grade", "Status", "Date", "Time In", "Time Out"];
+    const rows = records.map(r => [
+      r.students.name,
+      r.students.grade,
+      r.status,
+      format(new Date(r.date), "yyyy-MM-dd"),
+      r.time_in || "-",
+      r.time_out || "-",
+    ]);
 
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -99,6 +141,49 @@ export default function ViewRecords() {
   const handlePrint = () => {
     window.print();
   };
+
+  const handleStudentClick = (student: StudentDetail) => {
+    setSelectedStudentDetail(student);
+    setDetailMonthFilter(new Date()); // Reset month filter for new student
+    setShowStudentDetailDialog(true);
+  };
+
+  // Calculate punctuality and average time in for student detail dialog
+  const { punctualityPercentage, avgTimeIn } = useMemo(() => {
+    let punctualCount = 0;
+    let totalPresentDays = 0;
+    let totalMinutesIn = 0;
+
+    studentDetailAttendance.forEach(record => {
+      if (record.status === 'Present' && record.time_in) {
+        totalPresentDays++;
+        try {
+          const [hours, minutes] = record.time_in.split(':').map(Number);
+          const timeInDate = new Date();
+          timeInDate.setHours(hours, minutes, 0, 0);
+
+          // Assuming "on time" is before 9:15 AM for example
+          const onTimeCutoff = new Date();
+          onTimeCutoff.setHours(9, 15, 0, 0);
+
+          if (timeInDate <= onTimeCutoff) {
+            punctualCount++;
+          }
+          totalMinutesIn += (hours * 60) + minutes;
+        } catch (e) {
+          console.error("Error parsing time_in:", record.time_in, e);
+        }
+      }
+    });
+
+    const punctuality = totalPresentDays > 0 ? Math.round((punctualCount / totalPresentDays) * 100) : 0;
+    const averageMinutesIn = totalPresentDays > 0 ? totalMinutesIn / totalPresentDays : 0;
+    const avgHours = Math.floor(averageMinutesIn / 60);
+    const avgMins = Math.round(averageMinutesIn % 60);
+    const formattedAvgTimeIn = totalPresentDays > 0 ? `${String(avgHours).padStart(2, '0')}:${String(avgMins).padStart(2, '0')}` : '-';
+
+    return { punctualityPercentage: punctuality, avgTimeIn: formattedAvgTimeIn };
+  }, [studentDetailAttendance]);
 
   return (
     <div className="space-y-6">
@@ -187,6 +272,9 @@ export default function ViewRecords() {
                     <TableHead>Student Name</TableHead>
                     <TableHead>Grade</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Time In</TableHead>
+                    <TableHead>Time Out</TableHead>
+                    <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -202,6 +290,13 @@ export default function ViewRecords() {
                           {r.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>{r.time_in || "-"}</TableCell>
+                      <TableCell>{r.time_out || "-"}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => handleStudentClick(r.students)}>
+                          <User className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -214,6 +309,107 @@ export default function ViewRecords() {
           )}
         </CardContent>
       </Card>
+
+      {/* Student Detail Dialog */}
+      <Dialog open={showStudentDetailDialog} onOpenChange={setShowStudentDetailDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              {selectedStudentDetail?.name} - Grade {selectedStudentDetail?.grade}
+            </DialogTitle>
+            <DialogDescription>
+              Detailed attendance report for {selectedStudentDetail?.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Month Filter for Details */}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDetailMonthFilter(subMonths(detailMonthFilter, 1))}>
+                Previous Month
+              </Button>
+              <Input
+                type="month"
+                value={format(detailMonthFilter, "yyyy-MM")}
+                onChange={(e) => {
+                  const [year, month] = e.target.value.split('-');
+                  setDetailMonthFilter(new Date(parseInt(year), parseInt(month) - 1));
+                }}
+                className="w-[150px]"
+              />
+              <Button variant="outline" size="sm" onClick={() => setDetailMonthFilter(addMonths(detailMonthFilter, 1))}>
+                Next Month
+              </Button>
+            </div>
+
+            {/* Punctuality & Avg Time In */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Punctuality & Average Time</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Punctuality %</p>
+                    <p className="text-xl font-bold">{punctualityPercentage}%</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg. Time In</p>
+                    <p className="text-xl font-bold">{avgTimeIn}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Date-wise Attendance Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance for {format(detailMonthFilter, "MMMM yyyy")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {studentDetailAttendance.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No attendance records for this month.</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-64 border rounded">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Time In</TableHead>
+                          <TableHead>Time Out</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentDetailAttendance.map(record => (
+                          <TableRow key={record.id}>
+                            <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={record.status === "Present" ? "default" : "destructive"}
+                                className={record.status === "Present" ? "bg-secondary hover:bg-secondary/80" : ""}
+                              >
+                                {record.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{record.time_in || "-"}</TableCell>
+                            <TableCell>{record.time_out || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

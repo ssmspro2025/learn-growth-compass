@@ -19,6 +19,11 @@ type LessonPlan = Tables<'lesson_plans'>;
 type Student = Tables<'students'>;
 type StudentChapter = Tables<'student_chapters'>;
 
+interface GroupedLessonRecord {
+  lessonPlan: LessonPlan;
+  students: (StudentChapter & { students: Student })[];
+}
+
 export default function LessonTracking() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -56,7 +61,7 @@ export default function LessonTracking() {
     queryFn: async () => {
       let query = supabase
         .from("lesson_plans")
-        .select("id, subject, chapter, topic, lesson_date, notes, lesson_file_url")
+        .select("id, subject, chapter, topic, grade, lesson_date, notes, lesson_file_url")
         .eq("center_id", user?.center_id!)
         .order("lesson_date", { ascending: false });
 
@@ -70,12 +75,12 @@ export default function LessonTracking() {
   });
 
   // Fetch student_chapters (now linked to lesson_plans)
-  const { data: studentLessonRecords = [] } = useQuery({
+  const { data: studentLessonRecordsRaw = [] } = useQuery({
     queryKey: ["student-lesson-records", user?.center_id, filterSubject, filterStudent, filterGrade],
     queryFn: async () => {
       let query = supabase
         .from("student_chapters")
-        .select("*, students(name, grade, center_id), lesson_plans(id, chapter, subject, topic, lesson_date, lesson_file_url)")
+        .select("*, students(id, name, grade, center_id), lesson_plans(id, chapter, subject, topic, grade, lesson_date, lesson_file_url)")
         .eq("students.center_id", user?.center_id!);
 
       if (filterStudent !== "all") query = query.eq("student_id", filterStudent);
@@ -89,6 +94,27 @@ export default function LessonTracking() {
     },
     enabled: !!user?.center_id,
   });
+
+  // Group studentLessonRecords by lesson_plan
+  const groupedLessonRecords: GroupedLessonRecord[] = useMemo(() => {
+    const groups = new Map<string, GroupedLessonRecord>();
+
+    studentLessonRecordsRaw.forEach((record: any) => {
+      const lessonPlan = record.lesson_plans;
+      if (!lessonPlan) return;
+
+      if (!groups.has(lessonPlan.id)) {
+        groups.set(lessonPlan.id, {
+          lessonPlan: lessonPlan,
+          students: [],
+        });
+      }
+      groups.get(lessonPlan.id)?.students.push(record);
+    });
+
+    return Array.from(groups.values());
+  }, [studentLessonRecordsRaw]);
+
 
   // Fetch attendance for auto-selecting present students
   const { data: attendanceForDate = [] } = useQuery({
@@ -337,34 +363,58 @@ export default function LessonTracking() {
 
         <CardContent>
           <div className="space-y-4">
-            {studentLessonRecords.map((record: any) => {
-              const isShown = showStudentsMap[record.lesson_plans?.id];
-              return (
-                <div key={record.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">{record.lesson_plans?.subject}: {record.lesson_plans?.chapter} - {record.lesson_plans?.topic}</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">Taught to: {record.students?.name} (Grade {record.students?.grade}) on {format(new Date(record.date_completed), "PPP")}</p>
-                      {record.notes && <p className="text-sm mb-2">Session Notes: {record.notes}</p>}
-                      {record.lesson_plans?.lesson_file_url && (
-                        <Button variant="outline" size="sm" asChild className="mr-2">
-                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(record.lesson_plans.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <BookOpen className="h-4 w-4 mr-1" /> Lesson File
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-
-                    <Button variant="destructive" size="sm" onClick={() => deleteStudentLessonRecordMutation.mutate(record.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            {groupedLessonRecords.map((group) => (
+              <div key={group.lessonPlan.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">
+                      {group.lessonPlan.subject}: {group.lessonPlan.chapter} - {group.lessonPlan.topic}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Taught on {format(new Date(group.lessonPlan.lesson_date), "PPP")} {group.lessonPlan.grade && `(Grade: ${group.lessonPlan.grade})`}
+                    </p>
+                    {group.lessonPlan.notes && <p className="text-sm">Lesson Notes: {group.lessonPlan.notes}</p>}
+                    {group.lessonPlan.lesson_file_url && (
+                      <Button variant="outline" size="sm" asChild className="mt-2">
+                        <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(group.lessonPlan.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <BookOpen className="h-4 w-4 mr-1" /> Lesson File
+                        </a>
+                      </Button>
+                    )}
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleShowStudents(group.lessonPlan.id)}
+                  >
+                    {showStudentsMap[group.lessonPlan.id] ? (
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                    )}
+                    {group.students.length} Students
+                  </Button>
                 </div>
-              );
-            })}
-            {studentLessonRecords.length === 0 && <p className="text-sm text-muted-foreground">No lesson records found yet.</p>}
+
+                {showStudentsMap[group.lessonPlan.id] && (
+                  <div className="mt-4 border-t pt-4 space-y-2">
+                    <h4 className="font-semibold text-md">Students Attended:</h4>
+                    {group.students.map((record) => (
+                      <div key={record.id} className="flex items-center justify-between p-2 bg-muted/20 rounded">
+                        <span>{record.students?.name} (Grade {record.students?.grade})</span>
+                        <div className="flex items-center gap-2">
+                          {record.notes && <span className="text-xs text-muted-foreground italic">"{record.notes}"</span>}
+                          <Button variant="destructive" size="sm" onClick={() => deleteStudentLessonRecordMutation.mutate(record.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {groupedLessonRecords.length === 0 && <p className="text-sm text-muted-foreground">No lesson records found yet.</p>}
           </div>
         </CardContent>
       </Card>

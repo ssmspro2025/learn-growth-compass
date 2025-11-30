@@ -11,13 +11,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { CalendarIcon, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
+import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tables, Database } from '@/integrations/supabase/types';
 
 type Teacher = Tables<'teachers'>;
 type TeacherAttendance = Tables<'teacher_attendance'>;
+
+interface TeacherAttendanceSummary {
+  id: string;
+  name: string;
+  present: number;
+  absent: number;
+  leave: number;
+  totalDays: number;
+  attendancePercentage: number;
+}
 
 export default function TeacherAttendancePage() {
   const queryClient = useQueryClient();
@@ -25,6 +35,7 @@ export default function TeacherAttendancePage() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, TeacherAttendance>>({});
+  const [reportMonthFilter, setReportMonthFilter] = useState<string>(format(new Date(), "yyyy-MM"));
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
@@ -60,6 +71,21 @@ export default function TeacherAttendancePage() {
       return data;
     },
     enabled: !!user?.center_id && teachers.length > 0,
+  });
+
+  // Fetch all attendance for report
+  const { data: allTeacherAttendance = [] } = useQuery({
+    queryKey: ["all-teacher-attendance", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("teacher_attendance")
+        .select("*, teachers(name)")
+        .eq("teachers.center_id", user.center_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
   });
 
   // Initialize attendance state when teachers or existing attendance changes
@@ -151,6 +177,7 @@ export default function TeacherAttendancePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teacher-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["all-teacher-attendance"] }); // Invalidate all attendance for report
       toast.success("Teacher attendance saved successfully!");
     },
     onError: (error: any) => {
@@ -197,6 +224,101 @@ export default function TeacherAttendancePage() {
       return format(new Date(dummyDate), 'HH:mm');
     } catch (e) {
       return timeVal; // Fallback if parsing fails
+    }
+  };
+
+  // Prepare data for the report section
+  const reportData: TeacherAttendanceSummary[] = useMemo(() => {
+    const start = startOfMonth(parseISO(reportMonthFilter + "-01"));
+    const end = endOfMonth(parseISO(reportMonthFilter + "-01"));
+
+    const filteredByMonth = allTeacherAttendance.filter((att: any) => {
+      const attDate = parseISO(att.date);
+      return isWithinInterval(attDate, { start, end });
+    });
+
+    const summaryMap = new Map<string, TeacherAttendanceSummary>();
+
+    teachers.forEach(teacher => {
+      summaryMap.set(teacher.id, {
+        id: teacher.id,
+        name: teacher.name,
+        present: 0,
+        absent: 0,
+        leave: 0,
+        totalDays: 0,
+        attendancePercentage: 0,
+      });
+    });
+
+    filteredByMonth.forEach((att: any) => {
+      const teacherSummary = summaryMap.get(att.teacher_id);
+      if (teacherSummary) {
+        teacherSummary.totalDays += 1;
+        if (att.status === 'present') teacherSummary.present += 1;
+        else if (att.status === 'absent') teacherSummary.absent += 1;
+        else if (att.status === 'leave') teacherSummary.leave += 1;
+      }
+    });
+
+    summaryMap.forEach(summary => {
+      summary.attendancePercentage = summary.totalDays > 0
+        ? Math.round((summary.present / summary.totalDays) * 100)
+        : 0;
+    });
+
+    return Array.from(summaryMap.values());
+  }, [allTeacherAttendance, teachers, reportMonthFilter]);
+
+  const exportReportToCSV = () => {
+    if (!reportData || reportData.length === 0) return;
+
+    const headers = ["Teacher Name", "Present", "Absent", "On Leave", "Total Days", "Attendance %"];
+    const rows = reportData.map((teacher) => [
+      teacher.name,
+      teacher.present,
+      teacher.absent,
+      teacher.leave,
+      teacher.totalDays,
+      `${teacher.attendancePercentage}%`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `teacher-attendance-report-${reportMonthFilter}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handlePrintReport = () => {
+    const content = document.getElementById("teacher-attendance-report-printable");
+    if (content) {
+      const newWindow = window.open("", "_blank");
+      newWindow?.document.write(`
+        <html>
+          <head>
+            <title>Teacher Attendance Report - ${reportMonthFilter}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1, h2, h3 { margin: 0 0 10px 0; }
+              table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+            </style>
+          </head>
+          <body>
+            ${content.innerHTML}
+          </body>
+        </html>
+      `);
+      newWindow?.document.close();
+      newWindow?.focus();
+      newWindow?.print();
+      newWindow?.close();
     }
   };
 
@@ -324,28 +446,65 @@ export default function TeacherAttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Attendance Summary Section (Optional, can be expanded) */}
+      {/* Attendance Report Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Attendance Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">This section can be expanded to show monthly/yearly summaries.</p>
-          {/* Example: Display a simple count for the selected day */}
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <span>Present: {Object.values(attendanceRecords).filter(r => r.status === 'present').length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-600" />
-              <span>Absent: {Object.values(attendanceRecords).filter(r => r.status === 'absent').length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MinusCircle className="h-5 w-5 text-orange-600" />
-              <span>On Leave: {Object.values(attendanceRecords).filter(r => r.status === 'leave').length}</span>
+          <div className="flex items-center justify-between">
+            <CardTitle>Monthly Attendance Report</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportReportToCSV}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrintReport}>
+                <Printer className="mr-2 h-4 w-4" /> Print
+              </Button>
             </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <Label htmlFor="report-month-filter">Select Month for Report</Label>
+            <Input
+              id="report-month-filter"
+              type="month"
+              value={reportMonthFilter}
+              onChange={(e) => setReportMonthFilter(e.target.value)}
+              className="w-[180px]"
+            />
+          </div>
+
+          {teachersLoading || allTeacherAttendance.length === 0 ? (
+            <p>Loading report data...</p>
+          ) : reportData.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No attendance data for this month.</p>
+          ) : (
+            <div id="teacher-attendance-report-printable" className="overflow-x-auto max-h-96 border rounded">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Teacher Name</TableHead>
+                    <TableHead className="text-center">Present</TableHead>
+                    <TableHead className="text-center">Absent</TableHead>
+                    <TableHead className="text-center">On Leave</TableHead>
+                    <TableHead className="text-center">Total Days</TableHead>
+                    <TableHead className="text-center">Attendance %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reportData.map(summary => (
+                    <TableRow key={summary.id}>
+                      <TableCell className="font-medium">{summary.name}</TableCell>
+                      <TableCell className="text-center text-green-600">{summary.present}</TableCell>
+                      <TableCell className="text-center text-red-600">{summary.absent}</TableCell>
+                      <TableCell className="text-center text-orange-600">{summary.leave}</TableCell>
+                      <TableCell className="text-center">{summary.totalDays}</TableCell>
+                      <TableCell className="text-center font-semibold">{summary.attendancePercentage}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
