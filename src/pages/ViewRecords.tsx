@@ -109,7 +109,7 @@ export default function ViewRecords() {
         .from("attendance")
         .select("id, date, status, time_in, time_out")
         .eq("student_id", selectedStudentDetail.id)
-        .gte("date", format(start, "yyyy-MM-dd"))
+        .gte("date", format(start, "yyyy-MM-MM"))
         .lte("date", format(end, "yyyy-MM-dd"))
         .order("date");
       if (error) throw error;
@@ -392,21 +392,21 @@ export default function ViewRecords() {
               </CardHeader>
               <CardContent className="grid grid-cols-3 gap-4">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <TrendingUp className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-muted-foreground">Punctuality %</p>
                     <p className="text-xl font-bold">{punctualityPercentage}%</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                  <Clock className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-muted-foreground">Avg. Time In</p>
                     <p className="text-xl font-bold">{avgTimeIn}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <X className="h-5 w-5 text-red-600" />
+                  <X className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-muted-foreground">Absent Days</p>
                     <p className="text-xl font-bold">{absentDays.length}</p>
@@ -439,7 +439,7 @@ export default function ViewRecords() {
                 <CardTitle>Attendance for {format(detailMonthFilter, "MMMM yyyy")}</CardTitle>
               </CardHeader>
               <CardContent>
-                {teacherDetailAttendance.length === 0 ? (
+                {studentDetailAttendance.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No attendance records for this month.</p>
                 ) : (
                   <div className="overflow-x-auto max-h-64 border rounded">
@@ -453,7 +453,7 @@ export default function ViewRecords() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {teacherDetailAttendance.map(record => (
+                        {studentDetailAttendance.map(record => (
                           <TableRow key={record.id}>
                             <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
                             <TableCell>
