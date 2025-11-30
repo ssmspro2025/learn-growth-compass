@@ -237,12 +237,12 @@ const PaymentTracking = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="invoice">Allocate to Invoice (Optional)</Label>
-                    <Select value={paymentForm.invoice_id} onValueChange={(value) => setPaymentForm({ ...paymentForm, invoice_id: value })}>
+                    <Select value={paymentForm.invoice_id || "none"} onValueChange={(value) => setPaymentForm({ ...paymentForm, invoice_id: value === "none" ? null : value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Invoice" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Do not allocate</SelectItem>
+                        <SelectItem value="none">Do not allocate</SelectItem>
                         {studentInvoices.map((inv) => (
                           <SelectItem key={inv.id} value={inv.id}>
                             {inv.invoice_number} (Outstanding: {formatCurrency(inv.total_amount - inv.paid_amount)})
