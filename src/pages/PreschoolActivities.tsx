@@ -14,7 +14,8 @@ import { Plus, Edit, Trash2, Camera, Video, Star } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
 
-type PreschoolActivity = Tables<'preschool_activities'>;
+type Activity = Tables<'activities'>;
+type StudentActivity = Tables<'student_activities'>;
 type Student = Tables<'students'>;
 
 const activityTypes = [
@@ -30,10 +31,10 @@ export default function PreschoolActivities() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<PreschoolActivity | null>(null);
+  const [editingActivity, setEditingActivity] = useState<StudentActivity | null>(null);
 
   const [studentId, setStudentId] = useState("");
-  const [activityType, setActivityType] = useState<PreschoolActivity['activity_type']>("play");
+  const [activityType, setActivityType] = useState<string>("play");
   const [description, setDescription] = useState("");
   const [activityDate, setActivityDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [photo, setPhoto] = useState<File | null>(null);
@@ -62,10 +63,10 @@ export default function PreschoolActivities() {
     queryFn: async () => {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
-        .from("preschool_activities")
-        .select("*, students(name, grade)")
-        .eq("center_id", user.center_id)
-        .order("activity_date", { ascending: false });
+        .from("student_activities")
+        .select("*, students(name, grade), activities(title, description, activity_date, photo_url, video_url, activity_type_id)")
+        .eq("students.center_id", user.center_id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -74,7 +75,7 @@ export default function PreschoolActivities() {
 
   const resetForm = () => {
     setStudentId("");
-    setActivityType("play");
+    setActivityType("");
     setDescription("");
     setActivityDate(format(new Date(), "yyyy-MM-dd"));
     setPhoto(null);
@@ -115,17 +116,26 @@ export default function PreschoolActivities() {
       if (photo) photoUrl = await uploadFile(photo, "activity-photos");
       if (video) videoUrl = await uploadFile(video, "activity-videos");
 
-      const { error } = await supabase.from("preschool_activities").insert({
+      // First create the activity
+      const { data: activity, error: activityError } = await supabase.from("activities").insert({
         center_id: user.center_id,
-        student_id: studentId,
-        activity_type: activityType,
+        title: activityType,
         description,
         activity_date: activityDate,
         photo_url: photoUrl,
         video_url: videoUrl,
-        involvement_rating: involvementRating,
+        activity_type_id: activityType, // Using activity type as ID for simplicity
+        created_by: user.id,
+      }).select().single();
+      if (activityError) throw activityError;
+
+      // Then create student_activity record
+      const { error: saError } = await supabase.from("student_activities").insert({
+        student_id: studentId,
+        activity_id: activity.id,
+        involvement_score: involvementRating,
       });
-      if (error) throw error;
+      if (saError) throw saError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["preschool-activities"] });
@@ -142,20 +152,9 @@ export default function PreschoolActivities() {
     mutationFn: async () => {
       if (!editingActivity || !user?.center_id || !studentId) throw new Error("Activity, Center ID or Student not found");
 
-      let photoUrl: string | null = editingActivity.photo_url;
-      let videoUrl: string | null = editingActivity.video_url;
-
-      if (photo) photoUrl = await uploadFile(photo, "activity-photos");
-      if (video) videoUrl = await uploadFile(video, "activity-videos");
-
-      const { error } = await supabase.from("preschool_activities").update({
+      const { error } = await supabase.from("student_activities").update({
         student_id: studentId,
-        activity_type: activityType,
-        description,
-        activity_date: activityDate,
-        photo_url: photoUrl,
-        video_url: videoUrl,
-        involvement_rating: involvementRating,
+        involvement_score: involvementRating,
       }).eq("id", editingActivity.id);
       if (error) throw error;
     },
@@ -172,7 +171,7 @@ export default function PreschoolActivities() {
 
   const deleteActivityMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("preschool_activities").delete().eq("id", id);
+      const { error } = await supabase.from("student_activities").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -184,15 +183,15 @@ export default function PreschoolActivities() {
     },
   });
 
-  const handleEditClick = (activity: PreschoolActivity) => {
+  const handleEditClick = (activity: any) => {
     setEditingActivity(activity);
     setStudentId(activity.student_id);
-    setActivityType(activity.activity_type);
-    setDescription(activity.description);
-    setActivityDate(activity.activity_date);
+    setActivityType(activity.activities?.title || "");
+    setDescription(activity.activities?.description || "");
+    setActivityDate(activity.activities?.activity_date || format(new Date(), "yyyy-MM-dd"));
     setPhoto(null);
     setVideo(null);
-    setInvolvementRating(activity.involvement_rating);
+    setInvolvementRating(activity.involvement_score);
     setIsDialogOpen(true);
   };
 
@@ -245,7 +244,7 @@ export default function PreschoolActivities() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="activityType">Activity Type *</Label>
-                <Select value={activityType} onValueChange={(value: PreschoolActivity['activity_type']) => setActivityType(value)}>
+                <Select value={activityType} onValueChange={setActivityType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Activity Type" />
                   </SelectTrigger>
@@ -269,15 +268,15 @@ export default function PreschoolActivities() {
               <div className="space-y-2">
                 <Label htmlFor="photo">Upload Photo (Optional)</Label>
                 <Input id="photo" type="file" accept="image/*" onChange={handlePhotoChange} />
-                {editingActivity?.photo_url && !photo && (
-                  <p className="text-sm text-muted-foreground">Current photo: {editingActivity.photo_url.split('-').pop()}</p>
+                {editingActivity && (editingActivity as any).activities?.photo_url && !photo && (
+                  <p className="text-sm text-muted-foreground">Current photo attached</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="video">Upload Video (Optional)</Label>
                 <Input id="video" type="file" accept="video/*" onChange={handleVideoChange} />
-                {editingActivity?.video_url && !video && (
-                  <p className="text-sm text-muted-foreground">Current video: {editingActivity.video_url.split('-').pop()}</p>
+                {editingActivity && (editingActivity as any).activities?.video_url && !video && (
+                  <p className="text-sm text-muted-foreground">Current video attached</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -318,25 +317,25 @@ export default function PreschoolActivities() {
               {activities.map((activity: any) => (
                 <div key={activity.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
-                    <h3 className="font-semibold text-lg">{activity.students?.name} - {activityTypes.find(t => t.value === activity.activity_type)?.label}</h3>
-                    <p className="text-sm text-muted-foreground">Date: {format(new Date(activity.activity_date), "PPP")}</p>
-                    <p className="text-sm">{activity.description}</p>
-                    {activity.involvement_rating && (
+                    <h3 className="font-semibold text-lg">{activity.students?.name} - {activity.activities?.title || 'Activity'}</h3>
+                    <p className="text-sm text-muted-foreground">Date: {activity.activities?.activity_date ? format(new Date(activity.activities.activity_date), "PPP") : 'N/A'}</p>
+                    <p className="text-sm">{activity.activities?.description || 'No description'}</p>
+                    {activity.involvement_score && (
                       <p className="text-sm flex items-center gap-1">
-                        Involvement: {getRatingStars(activity.involvement_rating)}
+                        Involvement: {getRatingStars(activity.involvement_score)}
                       </p>
                     )}
                     <div className="flex gap-2 mt-2">
-                      {activity.photo_url && (
+                      {activity.activities?.photo_url && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("activity-photos").getPublicUrl(activity.photo_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("activity-photos").getPublicUrl(activity.activities.photo_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <Camera className="h-4 w-4 mr-1" /> Photo
                           </a>
                         </Button>
                       )}
-                      {activity.video_url && (
+                      {activity.activities?.video_url && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("activity-videos").getPublicUrl(activity.video_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("activity-videos").getPublicUrl(activity.activities.video_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <Video className="h-4 w-4 mr-1" /> Video
                           </a>
                         </Button>

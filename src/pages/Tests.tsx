@@ -120,7 +120,7 @@ export default function Tests() {
   useEffect(() => {
     const test = tests.find(t => t.id === selectedTest);
     if (test && test.questions) {
-      const parsedQuestions = test.questions as Question[];
+      const parsedQuestions = test.questions as unknown as Question[];
       setQuestions(parsedQuestions);
       setQuestionMarks(parsedQuestions.map(q => ({
         questionId: q.id,
@@ -151,14 +151,14 @@ export default function Tests() {
       }
 
       const { data, error } = await supabase.from("tests").insert({
-        name: testName,
+        name: testName || 'Unnamed Test',
         subject: testSubject,
         date: testDate,
         total_marks: parseInt(totalMarks),
         grade: grade || null,
         uploaded_file_url: uploadedFileUrl,
         center_id: user?.center_id,
-        questions: questions.length > 0 ? questions : null, // Save questions
+        questions: questions.length > 0 ? (questions as any) : null, // Save questions as Json
       }).select().single();
 
       if (error) throw error;
@@ -192,7 +192,7 @@ export default function Tests() {
         marks_obtained: totalMarksObtainedFromQuestions, // Use sum of question marks
         date_taken: resultDate,
         notes: resultNotes || null,
-        question_marks: questionMarks.length > 0 ? questionMarks : null, // Save question-wise marks
+        question_marks: questionMarks.length > 0 ? (questionMarks as any) : null, // Save question-wise marks as Json
       });
       if (error) throw error;
       return data;
@@ -554,9 +554,9 @@ export default function Tests() {
                     <div className="font-medium">{test.name}</div>
                     <div className="text-sm opacity-80">
                       {test.subject} • {format(new Date(test.date), "PPP")} • {test.total_marks} marks
-                      {test.questions && (test.questions as Question[]).length > 0 && (
+                      {test.questions && (test.questions as unknown as Question[]).length > 0 && (
                         <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
-                          {(test.questions as Question[]).length} Questions
+                          {(test.questions as unknown as Question[]).length} Questions
                         </span>
                       )}
                     </div>
