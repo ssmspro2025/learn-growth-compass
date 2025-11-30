@@ -36,6 +36,7 @@ export default function PreschoolActivities() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [video, setVideo] = useState<File | null>(null);
   const [involvementRating, setInvolvementRating] = useState<number | null>(null);
+  const [modalGradeFilter, setModalGradeFilter] = useState<string>("all"); // New state for grade filter inside modal
 
   // Fetch students
   const { data: students = [] } = useQuery({
@@ -52,6 +53,9 @@ export default function PreschoolActivities() {
     },
     enabled: !!user?.center_id,
   });
+
+  // Filtered students for the modal's student select dropdown
+  const filteredStudentsForModal = students.filter(s => modalGradeFilter === "all" || s.grade === modalGradeFilter);
 
   // Fetch activity types for the center
   const { data: activityTypesFromDb = [], isLoading: activityTypesLoading } = useQuery({
@@ -101,6 +105,7 @@ export default function PreschoolActivities() {
     setVideo(null);
     setInvolvementRating(null);
     setEditingActivity(null);
+    setModalGradeFilter("all"); // Reset modal grade filter
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,6 +242,7 @@ export default function PreschoolActivities() {
     setPhoto(null);
     setVideo(null);
     setInvolvementRating(activity.involvement_score);
+    setModalGradeFilter(activity.students?.grade || "all"); // Set modal grade filter to current student's grade
     setIsDialogOpen(true);
   };
 
@@ -295,13 +301,27 @@ export default function PreschoolActivities() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
+                <Label htmlFor="modalGradeFilter">Filter Students by Grade</Label>
+                <Select value={modalGradeFilter} onValueChange={setModalGradeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Grades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {uniqueGrades.map((g) => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="student">Student *</Label>
                 <Select value={studentId} onValueChange={setStudentId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Student" />
                   </SelectTrigger>
                   <SelectContent>
-                    {students.map((s) => (
+                    {filteredStudentsForModal.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} - {s.grade}
                       </SelectItem>
