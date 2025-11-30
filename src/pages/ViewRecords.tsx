@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +32,14 @@ interface StudentDetail {
   id: string;
   name: string;
   grade: string;
+}
+
+interface StudentDetailAttendance {
+  id: string;
+  date: string;
+  status: string;
+  time_in: string | null;
+  time_out: string | null;
 }
 
 export default function ViewRecords() {
@@ -91,7 +99,7 @@ export default function ViewRecords() {
   });
 
   // Fetch all attendance for a specific student for the detail dialog
-  const { data: studentDetailAttendance = [] } = useQuery({
+  const { data: studentDetailAttendance = [], refetch: refetchStudentDetailAttendance } = useQuery({
     queryKey: ["student-detail-attendance", selectedStudentDetail?.id, detailMonthFilter],
     queryFn: async () => {
       if (!selectedStudentDetail?.id) return [];
@@ -105,10 +113,17 @@ export default function ViewRecords() {
         .lte("date", format(end, "yyyy-MM-dd"))
         .order("date");
       if (error) throw error;
-      return data;
+      return data as StudentDetailAttendance[];
     },
-    enabled: !!selectedStudentDetail?.id,
+    enabled: false, // We'll manually trigger this when needed
   });
+
+  // Refetch student detail attendance when dialog opens or month changes
+  useEffect(() => {
+    if (showStudentDetailDialog && selectedStudentDetail?.id) {
+      refetchStudentDetailAttendance();
+    }
+  }, [showStudentDetailDialog, selectedStudentDetail?.id, detailMonthFilter, refetchStudentDetailAttendance]);
 
   const presentCount = records?.filter(r => r.status === "Present").length || 0;
   const absentCount = records?.filter(r => r.status === "Absent").length || 0;
@@ -312,7 +327,12 @@ export default function ViewRecords() {
       </Card>
 
       {/* Student Detail Dialog */}
-      <Dialog open={showStudentDetailDialog} onOpenChange={setShowStudentDetailDialog}>
+      <Dialog open={showStudentDetailDialog} onOpenChange={(open) => {
+        setShowStudentDetailDialog(open);
+        if (!open) {
+          setSelectedStudentDetail(null);
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
