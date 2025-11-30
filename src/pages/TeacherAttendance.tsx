@@ -15,6 +15,8 @@ import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths
 import { CalendarIcon, CheckCircle2, XCircle, MinusCircle, Download, Printer, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tables, Database } from '@/integrations/supabase/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Added Dialog imports
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 type Teacher = Tables<'teachers'>;
 type TeacherAttendance = Tables<'teacher_attendance'>;
