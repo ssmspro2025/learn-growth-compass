@@ -72,7 +72,7 @@ export type InvoiceItem = {
   created_at: string;
 };
 
-export type PaymentMethod = 'cash' | 'cheque' | 'bank_transfer' | 'upi' | 'card' | 'wallet' | 'other';
+export type PaymentMethod = 'cash' | 'cheque' | 'bank_transfer' | 'upi' | 'card' | 'wallet' | 'other' | 'manual_adjustment';
 
 export type Payment = {
   id: string;

@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Eye, MoreHorizontal } from 'lucide-react';
-import { Invoice, InvoiceWithItems } from '@/integrations/supabase/finance-types';
+import { Plus, Eye, MoreHorizontal, DollarSign } from 'lucide-react';
+import { Invoice, InvoiceWithItems, LedgerEntry, ACCOUNT_CODES } from '@/integrations/supabase/finance-types';
 import { differenceInDays, isPast } from 'date-fns';
+import { Database } from '@/integrations/supabase/types';
 
 const InvoiceManagement = () => {
   const { user } = useAuth();
@@ -83,6 +84,85 @@ const InvoiceManagement = () => {
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to generate invoices');
+    }
+  });
+
+  // Mark invoice as paid mutation
+  const markInvoiceAsPaidMutation = useMutation({
+    mutationFn: async (invoice: Invoice) => {
+      if (!user?.center_id) throw new Error('Center ID not found');
+
+      // 1. Update the invoice status to 'paid'
+      const { error: invoiceUpdateError } = await supabase
+        .from('invoices')
+        .update({
+          paid_amount: invoice.total_amount,
+          status: 'paid',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', invoice.id);
+
+      if (invoiceUpdateError) throw invoiceUpdateError;
+
+      // 2. Create a payment record for the full amount
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          center_id: user.center_id,
+          student_id: invoice.student_id,
+          invoice_id: invoice.id,
+          amount_paid: invoice.total_amount,
+          payment_method: 'manual_adjustment', // New payment method
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: 'Invoice marked as paid manually',
+          received_by_user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (paymentError) throw paymentError;
+
+      // 3. Create ledger entries
+      const ledgerEntries: Database['public']['Tables']['ledger_entries']['Insert'][] = [
+        // Debit: Cash/Bank Account
+        {
+          center_id: user.center_id,
+          transaction_date: newPayment.payment_date,
+          transaction_type: 'payment_received',
+          reference_type: 'payment',
+          reference_id: newPayment.id,
+          account_code: ACCOUNT_CODES.ASSETS.CASH,
+          account_name: 'Cash/Bank',
+          debit_amount: invoice.total_amount,
+          credit_amount: 0,
+          description: `Manual payment for invoice ${invoice.invoice_number}`
+        },
+        // Credit: Accounts Receivable
+        {
+          center_id: user.center_id,
+          transaction_date: newPayment.payment_date,
+          transaction_type: 'payment_received',
+          reference_type: 'payment',
+          reference_id: newPayment.id,
+          account_code: ACCOUNT_CODES.ASSETS.RECEIVABLE,
+          account_name: 'Accounts Receivable',
+          debit_amount: 0,
+          credit_amount: invoice.total_amount,
+          description: `Reduction in Accounts Receivable for invoice ${invoice.invoice_number}`
+        }
+      ];
+
+      const { error: ledgerError } = await supabase.from('ledger_entries').insert(ledgerEntries);
+      if (ledgerError) throw ledgerError;
+    },
+    onSuccess: () => {
+      toast.success('Invoice marked as paid successfully!');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to mark invoice as paid');
     }
   });
 
@@ -259,6 +339,7 @@ const InvoiceManagement = () => {
                 {invoices.map((invoice) => {
                   const lateFee = calculateLateFee(invoice);
                   const outstandingWithLateFee = (invoice.total_amount - invoice.paid_amount) + lateFee;
+                  const isPaid = invoice.status === 'paid';
                   return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
@@ -276,7 +357,7 @@ const InvoiceManagement = () => {
                           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="flex gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -284,6 +365,16 @@ const InvoiceManagement = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        {!isPaid && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => markInvoiceAsPaidMutation.mutate(invoice)}
+                            disabled={markInvoiceAsPaidMutation.isPending}
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" /> Paid
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

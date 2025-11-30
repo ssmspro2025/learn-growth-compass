@@ -212,7 +212,10 @@ export default function ViewRecords() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Attendance Records</h2>
-          <p className="text-muted-foreground">View past attendance records</p>
+          <p className="text-muted-foreground">
+            View daily attendance records. For monthly summaries, please visit the{" "}
+            <a href="/attendance-summary" className="text-primary hover:underline">Attendance Summary</a> page.
+          </p>
         </div>
       </div>
 
@@ -436,7 +439,7 @@ export default function ViewRecords() {
                 <CardTitle>Attendance for {format(detailMonthFilter, "MMMM yyyy")}</CardTitle>
               </CardHeader>
               <CardContent>
-                {studentDetailAttendance.length === 0 ? (
+                {teacherDetailAttendance.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No attendance records for this month.</p>
                 ) : (
                   <div className="overflow-x-auto max-h-64 border rounded">
@@ -450,7 +453,7 @@ export default function ViewRecords() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {studentDetailAttendance.map(record => (
+                        {teacherDetailAttendance.map(record => (
                           <TableRow key={record.id}>
                             <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
                             <TableCell>
