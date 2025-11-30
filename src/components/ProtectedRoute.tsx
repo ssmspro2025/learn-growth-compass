@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  role?: 'admin' | 'center' | 'parent';
+  role?: 'admin' | 'center' | 'parent' | 'teacher';
 }
 
 const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
@@ -28,6 +28,7 @@ const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
     let dashboardPath = '/';
     if (user.role === 'admin') dashboardPath = '/admin-dashboard';
     if (user.role === 'parent') dashboardPath = '/parent-dashboard';
+    if (user.role === 'teacher') dashboardPath = '/teacher-dashboard';
     return <Navigate to={dashboardPath} replace />;
   }
 

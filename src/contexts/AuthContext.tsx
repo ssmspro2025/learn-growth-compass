@@ -3,15 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 // Removed bcrypt import as it's now handled in the Edge Function
 
-// Define the User interface based on the new ERP schema
+// Define the User interface based on the database schema
 interface User {
   id: string;
   username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
   role: Tables<'users'>['role'];
-  tenant_id: string;
   center_id: string | null;
   center_name?: string;
   student_id?: string | null;
