@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { format, parseISO, isWithinInterval, differenceInMinutes, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { CalendarIcon, Download, Printer, User, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,6 @@ export default function ViewRecords() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const dateStr = format(selectedDate, "yyyy-MM-dd");
-
   const [showStudentDetailDialog, setShowStudentDetailDialog] = useState(false);
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<StudentDetail | null>(null);
   const [detailMonthFilter, setDetailMonthFilter] = useState<Date>(new Date());
@@ -67,7 +67,6 @@ export default function ViewRecords() {
     queryFn: async () => {
       const studentIds = filteredStudents.map(s => s.id);
       if (studentIds.length === 0) return [];
-
       const { data, error } = await supabase
         .from("attendance")
         .select(`
@@ -98,7 +97,6 @@ export default function ViewRecords() {
       if (!selectedStudentDetail?.id) return [];
       const start = startOfMonth(detailMonthFilter);
       const end = endOfMonth(detailMonthFilter);
-
       const { data, error } = await supabase
         .from("attendance")
         .select("id, date, status, time_in, time_out")
@@ -117,7 +115,6 @@ export default function ViewRecords() {
 
   const exportToCSV = () => {
     if (!records || records.length === 0) return;
-
     const headers = ["Name", "Grade", "Status", "Date", "Time In", "Time Out"];
     const rows = records.map(r => [
       r.students.name,
@@ -127,8 +124,10 @@ export default function ViewRecords() {
       r.time_in || "-",
       r.time_out || "-",
     ]);
-
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.join(","))
+    ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -161,14 +160,15 @@ export default function ViewRecords() {
           const [hours, minutes] = record.time_in.split(':').map(Number);
           const timeInDate = new Date();
           timeInDate.setHours(hours, minutes, 0, 0);
-
+          
           // Assuming "on time" is before 9:15 AM for example
           const onTimeCutoff = new Date();
           onTimeCutoff.setHours(9, 15, 0, 0);
-
+          
           if (timeInDate <= onTimeCutoff) {
             punctualCount++;
           }
+          
           totalMinutesIn += (hours * 60) + minutes;
         } catch (e) {
           console.error("Error parsing time_in:", record.time_in, e);
@@ -182,7 +182,10 @@ export default function ViewRecords() {
     const avgMins = Math.round(averageMinutesIn % 60);
     const formattedAvgTimeIn = totalPresentDays > 0 ? `${String(avgHours).padStart(2, '0')}:${String(avgMins).padStart(2, '0')}` : '-';
 
-    return { punctualityPercentage: punctuality, avgTimeIn: formattedAvgTimeIn };
+    return {
+      punctualityPercentage: punctuality,
+      avgTimeIn: formattedAvgTimeIn
+    };
   }, [studentDetailAttendance]);
 
   return (
@@ -238,12 +241,10 @@ export default function ViewRecords() {
           {/* Export / Print */}
           <div className="flex gap-2 ml-auto">
             <Button variant="outline" size="sm" onClick={exportToCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
             <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
+              <Printer className="mr-2 h-4 w-4" /> Print
             </Button>
           </div>
         </div>
@@ -322,11 +323,14 @@ export default function ViewRecords() {
               Detailed attendance report for {selectedStudentDetail?.name}.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             {/* Month Filter for Details */}
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setDetailMonthFilter(subMonths(detailMonthFilter, 1))}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailMonthFilter(subMonths(detailMonthFilter, 1))}
+              >
                 Previous Month
               </Button>
               <Input
@@ -338,7 +342,11 @@ export default function ViewRecords() {
                 }}
                 className="w-[150px]"
               />
-              <Button variant="outline" size="sm" onClick={() => setDetailMonthFilter(addMonths(detailMonthFilter, 1))}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailMonthFilter(addMonths(detailMonthFilter, 1))}
+              >
                 Next Month
               </Button>
             </div>

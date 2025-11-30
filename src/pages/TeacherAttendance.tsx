@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,11 +32,9 @@ interface TeacherAttendanceSummary {
 export default function TeacherAttendancePage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, TeacherAttendance>>({});
   const [reportMonthFilter, setReportMonthFilter] = useState<string>(format(new Date(), "yyyy-MM"));
-
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
   // Fetch active teachers for the center
@@ -139,12 +137,14 @@ export default function TeacherAttendancePage() {
 
       for (const teacherId in attendanceRecords) {
         const record = attendanceRecords[teacherId];
-        if (record.id) { // Existing record, update
+        if (record.id) {
+          // Existing record, update
           recordsToUpdate.push({
             ...record,
             updated_at: new Date().toISOString(),
           });
-        } else { // New record, insert
+        } else {
+          // New record, insert
           recordsToInsert.push({
             teacher_id: record.teacher_id,
             date: record.date,
@@ -231,14 +231,13 @@ export default function TeacherAttendancePage() {
   const reportData: TeacherAttendanceSummary[] = useMemo(() => {
     const start = startOfMonth(parseISO(reportMonthFilter + "-01"));
     const end = endOfMonth(parseISO(reportMonthFilter + "-01"));
-
+    
     const filteredByMonth = allTeacherAttendance.filter((att: any) => {
       const attDate = parseISO(att.date);
       return isWithinInterval(attDate, { start, end });
     });
 
     const summaryMap = new Map<string, TeacherAttendanceSummary>();
-
     teachers.forEach(teacher => {
       summaryMap.set(teacher.id, {
         id: teacher.id,
@@ -262,9 +261,7 @@ export default function TeacherAttendancePage() {
     });
 
     summaryMap.forEach(summary => {
-      summary.attendancePercentage = summary.totalDays > 0
-        ? Math.round((summary.present / summary.totalDays) * 100)
-        : 0;
+      summary.attendancePercentage = summary.totalDays > 0 ? Math.round((summary.present / summary.totalDays) * 100) : 0;
     });
 
     return Array.from(summaryMap.values());
@@ -272,7 +269,7 @@ export default function TeacherAttendancePage() {
 
   const exportReportToCSV = () => {
     if (!reportData || reportData.length === 0) return;
-
+    
     const headers = ["Teacher Name", "Present", "Absent", "On Leave", "Total Days", "Attendance %"];
     const rows = reportData.map((teacher) => [
       teacher.name,
@@ -283,7 +280,10 @@ export default function TeacherAttendancePage() {
       `${teacher.attendancePercentage}%`,
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(","))
+    ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -300,19 +300,19 @@ export default function TeacherAttendancePage() {
       const newWindow = window.open("", "_blank");
       newWindow?.document.write(`
         <html>
-          <head>
-            <title>Teacher Attendance Report - ${reportMonthFilter}</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              h1, h2, h3 { margin: 0 0 10px 0; }
-              table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-            </style>
-          </head>
-          <body>
-            ${content.innerHTML}
-          </body>
+        <head>
+          <title>Teacher Attendance Report - ${reportMonthFilter}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1, h2, h3 { margin: 0 0 10px 0; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+        </body>
         </html>
       `);
       newWindow?.document.close();
@@ -427,7 +427,10 @@ export default function TeacherAttendancePage() {
                               value={record?.notes || ''}
                               onChange={(e) => setAttendanceRecords(prev => ({
                                 ...prev,
-                                [teacher.id]: { ...prev[teacher.id], notes: e.target.value || null }
+                                [teacher.id]: {
+                                  ...prev[teacher.id],
+                                  notes: e.target.value || null
+                                }
                               }))}
                               placeholder="Notes (optional)"
                             />
@@ -472,7 +475,6 @@ export default function TeacherAttendancePage() {
               className="w-[180px]"
             />
           </div>
-
           {teachersLoading || allTeacherAttendance.length === 0 ? (
             <p>Loading report data...</p>
           ) : reportData.length === 0 ? (
