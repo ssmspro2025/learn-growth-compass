@@ -91,13 +91,14 @@ export default function LessonPlans() {
 
       const { error } = await supabase.from("lesson_plans").insert({
         center_id: user.center_id,
+        created_by: user.id,
         subject,
         chapter,
         topic,
+        grade: 'N/A', // Default grade
         lesson_date: lessonDate,
         notes: notes || null,
-        file_url: fileUrl,
-        media_url: mediaUrl,
+        lesson_file_url: fileUrl,
         is_active: true,
       });
       if (error) throw error;
@@ -117,11 +118,9 @@ export default function LessonPlans() {
     mutationFn: async () => {
       if (!editingLessonPlan || !user?.center_id) throw new Error("Lesson Plan or Center ID not found");
 
-      let fileUrl: string | null = editingLessonPlan.file_url;
-      let mediaUrl: string | null = editingLessonPlan.media_url;
+      let fileUrl: string | null = editingLessonPlan.lesson_file_url;
 
       if (file) fileUrl = await uploadFile(file, "lesson-plan-files");
-      if (media) mediaUrl = await uploadFile(media, "lesson-plan-media");
 
       const { error } = await supabase.from("lesson_plans").update({
         subject,
@@ -129,8 +128,7 @@ export default function LessonPlans() {
         topic,
         lesson_date: lessonDate,
         notes: notes || null,
-        file_url: fileUrl,
-        media_url: mediaUrl,
+        lesson_file_url: fileUrl,
       }).eq("id", editingLessonPlan.id);
       if (error) throw error;
     },
@@ -223,15 +221,8 @@ export default function LessonPlans() {
               <div className="space-y-2">
                 <Label htmlFor="file">Upload Lesson Plan File (PDF, DOCX - Optional)</Label>
                 <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-                {editingLessonPlan?.file_url && !file && (
-                  <p className="text-sm text-muted-foreground">Current file: {editingLessonPlan.file_url.split('-').pop()}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="media">Upload Optional Media (Image, Video - Optional)</Label>
-                <Input id="media" type="file" accept="image/*,video/*" onChange={handleMediaChange} />
-                {editingLessonPlan?.media_url && !media && (
-                  <p className="text-sm text-muted-foreground">Current media: {editingLessonPlan.media_url.split('-').pop()}</p>
+                {editingLessonPlan?.lesson_file_url && !file && (
+                  <p className="text-sm text-muted-foreground">Current file: {editingLessonPlan.lesson_file_url.split('-').pop()}</p>
                 )}
               </div>
               <Button
@@ -264,17 +255,10 @@ export default function LessonPlans() {
                     <p className="text-sm text-muted-foreground">Date: {format(new Date(lp.lesson_date), "PPP")}</p>
                     {lp.notes && <p className="text-sm">{lp.notes}</p>}
                     <div className="flex gap-2 mt-2">
-                      {lp.file_url && (
+                      {lp.lesson_file_url && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lp.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lp.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <FileText className="h-4 w-4 mr-1" /> File
-                          </a>
-                        </Button>
-                      )}
-                      {lp.media_url && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(lp.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <Video className="h-4 w-4 mr-1" /> Media
                           </a>
                         </Button>
                       )}

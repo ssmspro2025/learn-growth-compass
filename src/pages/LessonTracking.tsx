@@ -56,7 +56,7 @@ export default function LessonTracking() {
     queryFn: async () => {
       let query = supabase
         .from("lesson_plans")
-        .select("id, subject, chapter, topic, lesson_date, notes, file_url, media_url")
+        .select("id, subject, chapter, topic, lesson_date, notes, lesson_file_url")
         .eq("center_id", user?.center_id!)
         .order("lesson_date", { ascending: false });
 
@@ -74,9 +74,9 @@ export default function LessonTracking() {
     queryKey: ["student-lesson-records", user?.center_id, filterSubject, filterStudent, filterGrade],
     queryFn: async () => {
       let query = supabase
-        .from("student_chapters") // Re-using student_chapters for student-lesson-plan linkage
-        .select("*, students(name, grade, center_id), lesson_plans(id, chapter, subject, topic, lesson_date, file_url, media_url)") // chapters is now lesson_plans
-        .eq("students.center_id", user?.center_id!); // Ensure only center's students are fetched
+        .from("student_chapters")
+        .select("*, students(name, grade, center_id), lesson_plans(id, chapter, subject, topic, lesson_date, lesson_file_url)")
+        .eq("students.center_id", user?.center_id!);
 
       if (filterStudent !== "all") query = query.eq("student_id", filterStudent);
       if (filterGrade !== "all") query = query.eq("students.grade", filterGrade);
@@ -117,10 +117,10 @@ export default function LessonTracking() {
       // Link lesson plan to selected students via student_chapters table
       const studentLessonRecordsToInsert = selectedStudentIds.map((studentId) => ({
         student_id: studentId,
-        chapter_id: selectedLessonPlanId, // chapter_id now stores lesson_plan_id
-        completed: true, // Assuming completion when recorded
+        lesson_plan_id: selectedLessonPlanId,
+        completed: true,
         date_completed: date,
-        notes: notes || null, // Notes for this specific student's record
+        notes: notes || null,
       }));
 
       const { error: linkError } = await supabase.from("student_chapters").insert(studentLessonRecordsToInsert);
@@ -348,17 +348,10 @@ export default function LessonTracking() {
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">Taught to: {record.students?.name} (Grade {record.students?.grade}) on {format(new Date(record.date_completed), "PPP")}</p>
                       {record.notes && <p className="text-sm mb-2">Session Notes: {record.notes}</p>}
-                      {record.lesson_plans?.file_url && (
+                      {record.lesson_plans?.lesson_file_url && (
                         <Button variant="outline" size="sm" asChild className="mr-2">
-                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(record.lesson_plans.file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(record.lesson_plans.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
                             <BookOpen className="h-4 w-4 mr-1" /> Lesson File
-                          </a>
-                        </Button>
-                      )}
-                      {record.lesson_plans?.media_url && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={supabase.storage.from("lesson-plan-media").getPublicUrl(record.lesson_plans.media_url).data.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <BookOpen className="h-4 w-4 mr-1" /> Lesson Media
                           </a>
                         </Button>
                       )}
