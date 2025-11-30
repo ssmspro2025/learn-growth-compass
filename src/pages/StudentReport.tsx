@@ -14,8 +14,8 @@ import { Tables } from "@/integrations/supabase/types";
 import { Invoice, Payment } from "@/integrations/supabase/finance-types";
 
 type LessonPlan = Tables<'lesson_plans'>;
-type StudentHomeworkStatus = Tables<'student_homework_status'>;
-type PreschoolActivity = Tables<'preschool_activities'>;
+type StudentHomeworkRecord = Tables<'student_homework_records'>;
+type StudentActivity = Tables<'student_activities'>;
 type DisciplineIssue = Tables<'discipline_issues'>;
 
 export default function StudentReport() {
@@ -99,11 +99,11 @@ export default function StudentReport() {
     queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      let query = supabase.from("student_homework_status").select("*, homework(*)").eq("student_id", selectedStudentId)
-        .gte("created_at", format(dateRange.from, "yyyy-MM-dd")) // Assuming created_at is close to assigned date
+      let query = supabase.from("student_homework_records").select("*, homework(*)").eq("student_id", selectedStudentId)
+        .gte("created_at", format(dateRange.from, "yyyy-MM-dd"))
         .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("homework.subject", subjectFilter);
-      const { data, error } = await query.order("homework.due_date", { ascending: false });
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -115,9 +115,9 @@ export default function StudentReport() {
     queryKey: ["student-preschool-activities-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId) return [];
-      const { data, error } = await supabase.from("preschool_activities").select("*").eq("student_id", selectedStudentId)
-        .gte("activity_date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("activity_date", format(dateRange.to, "yyyy-MM-dd"));
+      const { data, error } = await supabase.from("student_activities").select("*, activities(*)").eq("student_id", selectedStudentId)
+        .gte("created_at", format(dateRange.from, "yyyy-MM-dd"))
+        .lte("created_at", format(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
@@ -271,12 +271,12 @@ export default function StudentReport() {
       ["Preschool Activities"],
       ["Type", "Description", "Date", "Involvement", "Photo Link", "Video Link"],
       ...preschoolActivities.map((pa: any) => [
-        pa.activity_type,
-        pa.description,
-        format(new Date(pa.activity_date), "PPP"),
-        pa.involvement_rating || 'N/A',
-        pa.photo_url ? supabase.storage.from("activity-photos").getPublicUrl(pa.photo_url).data.publicUrl : '',
-        pa.video_url ? supabase.storage.from("activity-videos").getPublicUrl(pa.video_url).data.publicUrl : '',
+        pa.activities?.title || 'N/A',
+        pa.activities?.description || 'N/A',
+        pa.activities?.activity_date ? format(new Date(pa.activities.activity_date), "PPP") : 'N/A',
+        pa.involvement_score || 'N/A',
+        pa.activities?.photo_url ? supabase.storage.from("activity-photos").getPublicUrl(pa.activities.photo_url).data.publicUrl : '',
+        pa.activities?.video_url ? supabase.storage.from("activity-videos").getPublicUrl(pa.activities.video_url).data.publicUrl : '',
       ]),
       [""],
       ["Discipline Issues"],
@@ -334,7 +334,7 @@ export default function StudentReport() {
     }).format(amount);
   };
 
-  const getHomeworkStatusIcon = (status: StudentHomeworkStatus['status']) => {
+  const getHomeworkStatusIcon = (status: StudentHomeworkRecord['status']) => {
     switch (status) {
       case 'completed':
       case 'checked':

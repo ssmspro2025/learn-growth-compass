@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { CalendarIcon, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, Database } from '@/integrations/supabase/types';
 
 type Teacher = Tables<'teachers'>;
 type TeacherAttendance = Tables<'teacher_attendance'>;
@@ -108,7 +108,7 @@ export default function TeacherAttendancePage() {
     mutationFn: async () => {
       if (!user?.center_id) throw new Error("Center ID not found");
 
-      const recordsToInsert: Tables<'teacher_attendance'>[] = [];
+      const recordsToInsert: Database['public']['Tables']['teacher_attendance']['Insert'][] = [];
       const recordsToUpdate: Tables<'teacher_attendance'>[] = [];
 
       for (const teacherId in attendanceRecords) {
