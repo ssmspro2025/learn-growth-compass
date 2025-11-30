@@ -5,11 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar"; // Import the new Sidebar component
 
-const navItems = [
-  { to: "/admin-dashboard", label: "Dashboard", icon: Home, role: 'admin' },
-  { to: "/admin/finance", label: "Finance", icon: DollarSign, role: 'admin' },
-  { to: "/admin/settings", label: "Settings", icon: Settings, role: 'admin' },
-  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'admin' },
+const navItems: Array<{
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  role: 'admin' | 'center' | 'parent' | 'teacher';
+}> = [
+  { to: "/admin-dashboard", label: "Dashboard", icon: Home, role: 'admin' as const },
+  { to: "/admin/finance", label: "Finance", icon: DollarSign, role: 'admin' as const },
+  { to: "/admin/settings", label: "Settings", icon: Settings, role: 'admin' as const },
+  { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'admin' as const },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
