@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase
+supabase/.temp/
+supabase_project_backup/ # Add this line
