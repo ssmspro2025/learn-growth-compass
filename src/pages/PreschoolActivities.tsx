@@ -28,8 +28,8 @@ export default function PreschoolActivities() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [showActivityTypeManagement, setShowActivityTypeManagement] = useState(false);
 
-  const [studentId, setStudentId] = useState("");
-  const [activityTypeId, setActivityTypeId] = useState(""); // Now uses activityTypeId from DB
+  const [studentId, setStudentId] = useState("select-student"); // Changed initial state
+  const [activityTypeId, setActivityTypeId] = useState("select-activity-type"); // Changed initial state
   const [title, setTitle] = useState(""); // New state for activity title
   const [description, setDescription] = useState("");
   const [activityDate, setActivityDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -96,8 +96,8 @@ export default function PreschoolActivities() {
   });
 
   const resetForm = () => {
-    setStudentId("");
-    setActivityTypeId("");
+    setStudentId("select-student"); // Reset to default placeholder value
+    setActivityTypeId("select-activity-type"); // Reset to default placeholder value
     setTitle("");
     setDescription("");
     setActivityDate(format(new Date(), "yyyy-MM-dd"));
@@ -132,7 +132,7 @@ export default function PreschoolActivities() {
 
   const createActivityMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !studentId || !activityTypeId || !title) throw new Error("Center ID, Student, Activity Type, or Title not found");
+      if (!user?.center_id || studentId === "select-student" || activityTypeId === "select-activity-type" || !title) throw new Error("Please select a student, activity type, and provide a title."); // Validation
 
       let photoUrl: string | null = null;
       let videoUrl: string | null = null;
@@ -174,7 +174,7 @@ export default function PreschoolActivities() {
 
   const updateActivityMutation = useMutation({
     mutationFn: async () => {
-      if (!editingActivity || !user?.center_id || !studentId || !activityTypeId || !title) throw new Error("Activity, Center ID, Student, Activity Type or Title not found");
+      if (!editingActivity || !user?.center_id || studentId === "select-student" || activityTypeId === "select-activity-type" || !title) throw new Error("Please select a student, activity type, and provide a title."); // Validation
 
       let photoUrl: string | null = (editingActivity as any).activities?.photo_url;
       let videoUrl: string | null = (editingActivity as any).activities?.video_url;
@@ -235,7 +235,7 @@ export default function PreschoolActivities() {
   const handleEditClick = (activity: any) => {
     setEditingActivity(activity);
     setStudentId(activity.student_id);
-    setActivityTypeId(activity.activities?.activity_type_id || "");
+    setActivityTypeId(activity.activities?.activity_type_id || "select-activity-type"); // Set to placeholder if null
     setTitle(activity.activities?.title || "");
     setDescription(activity.activities?.description || "");
     setActivityDate(activity.activities?.activity_date || format(new Date(), "yyyy-MM-dd"));
@@ -321,6 +321,7 @@ export default function PreschoolActivities() {
                     <SelectValue placeholder="Select Student" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
                     {filteredStudentsForModal.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} - {s.grade}
@@ -336,6 +337,7 @@ export default function PreschoolActivities() {
                     <SelectValue placeholder="Select Activity Type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="select-activity-type" disabled>Select Activity Type</SelectItem> {/* Added placeholder item */}
                     {activityTypesFromDb.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name}
@@ -384,7 +386,7 @@ export default function PreschoolActivities() {
               </div>
               <Button
                 onClick={handleSubmit}
-                disabled={!studentId || !activityTypeId || !title || !description || !activityDate || createActivityMutation.isPending || updateActivityMutation.isPending}
+                disabled={studentId === "select-student" || activityTypeId === "select-activity-type" || !title || !description || !activityDate || createActivityMutation.isPending || updateActivityMutation.isPending}
                 className="w-full"
               >
                 {editingActivity ? (updateActivityMutation.isPending ? "Updating..." : "Update Activity") : (createActivityMutation.isPending ? "Logging..." : "Log Activity")}

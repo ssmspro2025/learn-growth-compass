@@ -29,7 +29,7 @@ export default function HomeworkManagement() {
 
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [grade, setGrade] = useState("");
+  const [grade, setGrade] = useState("select-grade"); // Changed initial state
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [file, setFile] = useState<File | null>(null);
@@ -97,7 +97,7 @@ export default function HomeworkManagement() {
   const resetForm = () => {
     setTitle("");
     setSubject("");
-    setGrade("");
+    setGrade("select-grade"); // Reset to default placeholder value
     setDescription("");
     setDueDate(format(new Date(), "yyyy-MM-dd"));
     setFile(null);
@@ -130,6 +130,7 @@ export default function HomeworkManagement() {
   const createHomeworkMutation = useMutation({
     mutationFn: async () => {
       if (!user?.center_id) throw new Error("Center ID not found");
+      if (grade === "select-grade") throw new Error("Please select a valid grade."); // Validation
 
       let fileUrl: string | null = null;
       let imageUrl: string | null = null;
@@ -176,6 +177,7 @@ export default function HomeworkManagement() {
   const updateHomeworkMutation = useMutation({
     mutationFn: async () => {
       if (!editingHomework || !user?.center_id) throw new Error("Homework or Center ID not found");
+      if (grade === "select-grade") throw new Error("Please select a valid grade."); // Validation
 
       let attachmentUrl: string | null = editingHomework.attachment_url;
       let attachmentName: string | null = editingHomework.attachment_name;
@@ -330,6 +332,7 @@ export default function HomeworkManagement() {
                       <SelectValue placeholder="Select Grade" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="select-grade" disabled>Select Grade</SelectItem> {/* Added placeholder item */}
                       {uniqueGrades.map((g) => (
                         <SelectItem key={g} value={g}>{g}</SelectItem>
                       ))}
@@ -361,7 +364,7 @@ export default function HomeworkManagement() {
               </div>
               <Button
                 onClick={handleSubmit}
-                disabled={!title || !subject || !grade || !dueDate || createHomeworkMutation.isPending || updateHomeworkMutation.isPending}
+                disabled={!title || !subject || grade === "select-grade" || !dueDate || createHomeworkMutation.isPending || updateHomeworkMutation.isPending}
                 className="w-full"
               >
                 {editingHomework ? (updateHomeworkMutation.isPending ? "Updating..." : "Update Homework") : (createHomeworkMutation.isPending ? "Creating..." : "Create Homework")}

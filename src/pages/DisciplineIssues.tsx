@@ -33,8 +33,8 @@ export default function DisciplineIssues() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [showCategoryManagement, setShowCategoryManagement] = useState(false);
 
-  const [studentId, setStudentId] = useState("");
-  const [disciplineCategoryId, setDisciplineCategoryId] = useState("");
+  const [studentId, setStudentId] = useState("select-student"); // Changed initial state
+  const [disciplineCategoryId, setDisciplineCategoryId] = useState("select-category"); // Changed initial state
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<DisciplineIssue['severity']>("medium");
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -77,7 +77,7 @@ export default function DisciplineIssues() {
   });
 
   // Fetch discipline issues
-  const { data: issues = [], isLoading } = useQuery({
+  const { data: issues = [] } = useQuery({
     queryKey: ["discipline-issues", user?.center_id, gradeFilter],
     queryFn: async () => {
       if (!user?.center_id) return [];
@@ -99,8 +99,8 @@ export default function DisciplineIssues() {
   });
 
   const resetForm = () => {
-    setStudentId("");
-    setDisciplineCategoryId("");
+    setStudentId("select-student"); // Reset to default placeholder value
+    setDisciplineCategoryId("select-category"); // Reset to default placeholder value
     setDescription("");
     setSeverity("medium");
     setIssueDate(format(new Date(), "yyyy-MM-dd"));
@@ -110,7 +110,7 @@ export default function DisciplineIssues() {
 
   const createIssueMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !studentId || !disciplineCategoryId) throw new Error("Center ID, Student or Category not found");
+      if (!user?.center_id || studentId === "select-student" || disciplineCategoryId === "select-category") throw new Error("Please select a student and category."); // Validation
 
       const { error } = await supabase.from("discipline_issues").insert({
         center_id: user.center_id,
@@ -136,7 +136,7 @@ export default function DisciplineIssues() {
 
   const updateIssueMutation = useMutation({
     mutationFn: async () => {
-      if (!editingIssue || !user?.center_id || !studentId || !disciplineCategoryId) throw new Error("Issue, Center ID, Student or Category not found");
+      if (!editingIssue || !user?.center_id || studentId === "select-student" || disciplineCategoryId === "select-category") throw new Error("Please select a student and category."); // Validation
 
       const { error } = await supabase.from("discipline_issues").update({
         student_id: studentId,
@@ -263,6 +263,7 @@ export default function DisciplineIssues() {
                     <SelectValue placeholder="Select Student" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
                     {filteredStudentsForModal.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} - {s.grade}
@@ -278,6 +279,7 @@ export default function DisciplineIssues() {
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="select-category" disabled>Select Category</SelectItem> {/* Added placeholder item */}
                     {categoriesLoading ? (
                       <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                     ) : categories.length === 0 ? (
@@ -317,7 +319,7 @@ export default function DisciplineIssues() {
               </div>
               <Button
                 onClick={handleSubmit}
-                disabled={!studentId || !disciplineCategoryId || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
+                disabled={studentId === "select-student" || disciplineCategoryId === "select-category" || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
                 className="w-full"
               >
                 {editingIssue ? (updateIssueMutation.isPending ? "Updating..." : "Update Issue") : (createIssueMutation.isPending ? "Logging..." : "Log Issue")}

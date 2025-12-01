@@ -22,7 +22,7 @@ const PaymentTracking = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const [paymentForm, setPaymentForm] = useState({
-    student_id: '',
+    student_id: 'select-student', // Changed initial state
     invoice_id: '',
     amount_paid: '',
     payment_method: 'cash' as PaymentMethod,
@@ -50,7 +50,7 @@ const PaymentTracking = () => {
   const { data: studentInvoices = [] } = useQuery({
     queryKey: ['student-invoices-for-payment', paymentForm.student_id],
     queryFn: async () => {
-      if (!paymentForm.student_id) return [];
+      if (!paymentForm.student_id || paymentForm.student_id === 'select-student') return []; // Added check for placeholder
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
@@ -60,7 +60,7 @@ const PaymentTracking = () => {
       if (error) throw error;
       return data as Invoice[];
     },
-    enabled: !!paymentForm.student_id,
+    enabled: !!paymentForm.student_id && paymentForm.student_id !== 'select-student', // Enabled only if a real student is selected
   });
 
   // Fetch payments
@@ -82,7 +82,7 @@ const PaymentTracking = () => {
   // Record payment mutation
   const recordPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !paymentForm.student_id || !paymentForm.amount_paid) throw new Error('Missing required fields');
+      if (!user?.center_id || paymentForm.student_id === 'select-student' || !paymentForm.amount_paid) throw new Error('Please select a student and enter an amount.'); // Validation
 
       const amountPaid = parseFloat(paymentForm.amount_paid);
       if (isNaN(amountPaid) || amountPaid <= 0) throw new Error('Invalid amount paid');
@@ -163,7 +163,7 @@ const PaymentTracking = () => {
       toast.success('Payment recorded successfully');
       setShowPaymentDialog(false);
       setPaymentForm({
-        student_id: '',
+        student_id: 'select-student', // Reset to default placeholder value
         invoice_id: '',
         amount_paid: '',
         payment_method: 'cash',
@@ -228,6 +228,7 @@ const PaymentTracking = () => {
                         <SelectValue placeholder="Select Student" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
                         {students.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.name} - {s.grade}
@@ -304,7 +305,7 @@ const PaymentTracking = () => {
                   </div>
                   <Button
                     onClick={() => recordPaymentMutation.mutate()}
-                    disabled={!paymentForm.student_id || !paymentForm.amount_paid || recordPaymentMutation.isPending}
+                    disabled={paymentForm.student_id === "select-student" || !paymentForm.amount_paid || recordPaymentMutation.isPending}
                     className="w-full"
                   >
                     {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
