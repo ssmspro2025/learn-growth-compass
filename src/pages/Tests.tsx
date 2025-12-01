@@ -20,6 +20,7 @@ import { Tables } from "@/integrations/supabase/types";
 type Test = Tables<'tests'>;
 type TestResult = Tables<'test_results'>;
 type Student = Tables<'students'>;
+type LessonPlan = Tables<'lesson_plans'>; // Import LessonPlan type
 
 interface Question {
   id: string;
@@ -52,6 +53,7 @@ export default function Tests() {
   const [testDate, setTestDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [totalMarks, setTotalMarks] = useState("");
   const [grade, setGrade] = useState("");
+  const [lessonPlanId, setLessonPlanId] = useState<string | null>(null); // New state for lesson plan
   const [questions, setQuestions] = useState<Question[]>([]); // For question-wise entry
 
   // States for entering marks
@@ -68,7 +70,7 @@ export default function Tests() {
     queryFn: async () => {
       let query = supabase
         .from("tests")
-        .select("*")
+        .select("*, lesson_plans(subject, chapter, topic)") // Fetch lesson plan details
         .order("date", { ascending: false });
       
       if (user?.role !== 'admin' && user?.center_id) {
@@ -79,6 +81,22 @@ export default function Tests() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch lesson plans for the dropdown
+  const { data: lessonPlans = [] } = useQuery({
+    queryKey: ["lesson-plans-for-tests", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("lesson_plans")
+        .select("id, subject, chapter, topic, grade")
+        .eq("center_id", user.center_id)
+        .order("lesson_date", { ascending: false });
+      if (error) throw error;
+      return data as LessonPlan[];
+    },
+    enabled: !!user?.center_id,
   });
 
   // Fetch students
@@ -156,6 +174,7 @@ export default function Tests() {
         date: testDate,
         total_marks: parseInt(totalMarks),
         grade: grade || null,
+        lesson_plan_id: lessonPlanId, // Include lesson_plan_id
         uploaded_file_url: uploadedFileUrl,
         center_id: user?.center_id,
         questions: questions.length > 0 ? (questions as any) : null, // Save questions as Json
@@ -172,6 +191,7 @@ export default function Tests() {
       setTestSubject("");
       setTotalMarks("");
       setGrade("");
+      setLessonPlanId(null); // Reset lesson plan ID
       setQuestions([]);
       setUploadedFile(null);
     },
@@ -461,6 +481,23 @@ export default function Tests() {
                   placeholder="e.g., 10th"
                 />
               </div>
+              {/* New: Select Lesson Plan */}
+              <div className="space-y-2">
+                <Label htmlFor="lessonPlan">Link to Lesson Plan (Optional)</Label>
+                <Select value={lessonPlanId || ""} onValueChange={(value) => setLessonPlanId(value || null)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a lesson plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Lesson Plan</SelectItem>
+                    {lessonPlans.map((lp) => (
+                      <SelectItem key={lp.id} value={lp.id}>
+                        {lp.subject}: {lp.chapter} - {lp.topic} ({lp.grade})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label>Upload Test File (Optional)</Label>
                 <Input
@@ -557,6 +594,11 @@ export default function Tests() {
                       {test.questions && (test.questions as unknown as Question[]).length > 0 && (
                         <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
                           {(test.questions as unknown as Question[]).length} Questions
+                        </span>
+                      )}
+                      {(test as any).lesson_plans?.chapter && (
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
+                          Linked to: {(test as any).lesson_plans.chapter}
                         </span>
                       )}
                     </div>
