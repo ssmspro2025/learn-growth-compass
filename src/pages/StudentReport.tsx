@@ -167,6 +167,38 @@ export default function StudentReport() {
     enabled: !!selectedStudentId,
   });
 
+  // Fetch missed lessons (incomplete chapters)
+  const { data: missedLessons = [] } = useQuery({
+    queryKey: ["student-missed-lessons", selectedStudentId, dateRange],
+    queryFn: async () => {
+      if (!selectedStudentId) return [];
+      const { data, error } = await supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date)").eq("student_id", selectedStudentId)
+        .eq("completed", false);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedStudentId,
+  });
+
+  // Fetch all tests and then filter for missed ones (tests without results for this student)
+  const { data: allTests = [] } = useQuery({
+    queryKey: ["all-tests-for-missed", user?.center_id],
+    queryFn: async () => {
+      let query = supabase.from("tests").select("id, name, subject, date, total_marks").order("date", { ascending: false });
+      if (user?.role !== "admin" && user?.center_id) {
+        query = query.eq("center_id", user.center_id);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Missed tests = all tests - tests with results for this student
+  const missedTests = allTests.filter(test =>
+    !testResults.some(result => result.test_id === test.id)
+  );
+
   // Statistics
   const totalDays = attendanceData.length;
   const presentDays = attendanceData.filter((a) => a.status === "Present").length;
