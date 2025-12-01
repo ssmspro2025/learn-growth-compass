@@ -109,10 +109,10 @@ export default function ParentMessages() {
         description: 'Conversation started',
       });
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      console.error('Error creating conversation:', getErrorMessage(error));
       toast({
         title: 'Error',
-        description: 'Failed to start conversation',
+        description: `Failed to start conversation: ${getErrorMessage(error)}`,
         variant: 'destructive',
       });
     } finally {
