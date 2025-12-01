@@ -181,6 +181,7 @@ export default function Tests() {
         uploaded_file_url: uploadedFileUrl,
         center_id: user?.center_id,
         questions: questions.length > 0 ? (questions as any) : null, // Save questions as Json
+        lesson_plan_id: selectedLessonPlanId || null,
       }).select().single();
 
       if (error) throw error;
