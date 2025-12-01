@@ -352,7 +352,12 @@ export default function Tests() {
   };
 
   const addQuestion = () => {
-    setQuestions(prev => [...prev, { id: crypto.randomUUID(), questionText: '', maxMarks: 0, correctAnswer: '' }]);
+    console.log("Attempting to add new question. Current questions length:", questions.length);
+    setQuestions(prev => {
+      const newQuestions = [...prev, { id: crypto.randomUUID(), questionText: '', maxMarks: 0, correctAnswer: '' }];
+      console.log("Questions after adding:", newQuestions.length, newQuestions);
+      return newQuestions;
+    });
   };
 
   const updateQuestion = (id: string, field: keyof Question, value: any) => {
@@ -520,6 +525,8 @@ export default function Tests() {
                 <p className="text-sm text-muted-foreground">
                   Add individual questions for detailed mark entry. Total marks for questions will override overall total marks.
                 </p>
+                {/* DEBUG: Display current number of questions */}
+                <p className="text-sm text-muted-foreground">Current questions: {questions.length}</p>
                 {questions.map((q, index) => (
                   <div key={q.id} className="flex flex-col gap-2 border p-3 rounded-md bg-muted/20">
                     <div className="flex justify-between items-center">
@@ -790,9 +797,8 @@ export default function Tests() {
                   fileName={selectedTestData.uploaded_file_url}
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
       )}
 
       {selectedTest && testResults.length > 0 && (
