@@ -17,3 +17,26 @@ export function safeFormatDate(dateInput: string | Date | null | undefined, form
   }
   return dateFnsFormat(date, formatString);
 }
+
+// Helper function to format error messages
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null) {
+    const err = error as Record<string, unknown>;
+    if (typeof err.message === 'string') {
+      return err.message;
+    }
+    if (typeof err.error_description === 'string') {
+      return err.error_description;
+    }
+    if (typeof err.hint === 'string') {
+      return err.hint;
+    }
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'An unknown error occurred';
+}
