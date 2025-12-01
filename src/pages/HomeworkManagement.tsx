@@ -308,70 +308,70 @@ export default function HomeworkManagement() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> Create Homework</Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingHomework ? "Edit Homework" : "Create New Homework"}</DialogTitle>
-              <DialogDescription>
-                {editingHomework ? "Update the details of this homework assignment." : "Assign new homework to students by filling in the details."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Math Worksheet 1" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="homework-create-title" aria-describedby="homework-create-description">
+              <DialogHeader>
+                <DialogTitle id="homework-create-title">{editingHomework ? "Edit Homework" : "Create New Homework"}</DialogTitle>
+                <DialogDescription id="homework-create-description">
+                  {editingHomework ? "Update the details of this homework assignment." : "Assign new homework to students by filling in the details."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Mathematics" />
+                  <Label htmlFor="title">Title *</Label>
+                  <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Math Worksheet 1" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Subject *</Label>
+                    <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Mathematics" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="grade">Grade *</Label>
+                    <Select value={grade} onValueChange={setGrade}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Grade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="select-grade" disabled>Select Grade</SelectItem> {/* Added placeholder item */}
+                        {uniqueGrades.map((g) => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="grade">Grade *</Label>
-                  <Select value={grade} onValueChange={setGrade}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Grade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="select-grade" disabled>Select Grade</SelectItem> {/* Added placeholder item */}
-                      {uniqueGrades.map((g) => (
-                        <SelectItem key={g} value={g}>{g}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Instructions for homework" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">Due Date *</Label>
+                  <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="file">Attach File (PDF, DOCX - Optional)</Label>
+                  <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+                  {editingHomework?.attachment_url && !file && editingHomework.attachment_name && (editingHomework.attachment_name.endsWith('.pdf') || editingHomework.attachment_name.endsWith('.doc') || editingHomework.attachment_name.endsWith('.docx')) && (
+                    <p className="text-sm text-muted-foreground">Current file: {editingHomework.attachment_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="image">Attach Image (Optional)</Label>
+                  <Input id="image" type="file" accept="image/*" onChange={handleImageChange} />
+                  {editingHomework?.attachment_url && !image && editingHomework.attachment_name && !editingHomework.attachment_name.endsWith('.pdf') && !editingHomework.attachment_name.endsWith('.doc') && !editingHomework.attachment_name.endsWith('.docx') && (
+                    <p className="text-sm text-muted-foreground">Current image: {editingHomework.attachment_name}</p>
+                  )}
+                </div>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!title || !subject || grade === "select-grade" || !dueDate || createHomeworkMutation.isPending || updateHomeworkMutation.isPending}
+                  className="w-full"
+                >
+                  {editingHomework ? (updateHomeworkMutation.isPending ? "Updating..." : "Update Homework") : (createHomeworkMutation.isPending ? "Creating..." : "Create Homework")}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Instructions for homework" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dueDate">Due Date *</Label>
-                <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="file">Attach File (PDF, DOCX - Optional)</Label>
-                <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-                {editingHomework?.attachment_url && !file && editingHomework.attachment_name && (editingHomework.attachment_name.endsWith('.pdf') || editingHomework.attachment_name.endsWith('.doc') || editingHomework.attachment_name.endsWith('.docx')) && (
-                  <p className="text-sm text-muted-foreground">Current file: {editingHomework.attachment_name}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="image">Attach Image (Optional)</Label>
-                <Input id="image" type="file" accept="image/*" onChange={handleImageChange} />
-                {editingHomework?.attachment_url && !image && editingHomework.attachment_name && !editingHomework.attachment_name.endsWith('.pdf') && !editingHomework.attachment_name.endsWith('.doc') && !editingHomework.attachment_name.endsWith('.docx') && (
-                  <p className="text-sm text-muted-foreground">Current image: {editingHomework.attachment_name}</p>
-                )}
-              </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={!title || !subject || grade === "select-grade" || !dueDate || createHomeworkMutation.isPending || updateHomeworkMutation.isPending}
-                className="w-full"
-              >
-                {editingHomework ? (updateHomeworkMutation.isPending ? "Updating..." : "Update Homework") : (createHomeworkMutation.isPending ? "Creating..." : "Create Homework")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -422,10 +422,10 @@ export default function HomeworkManagement() {
 
       {/* Manage Student Homework Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-labelledby="homework-status-title" aria-describedby="homework-status-description">
           <DialogHeader>
-            <DialogTitle>Manage Status for: {selectedHomeworkForStatus?.title}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="homework-status-title">Manage Status for: {selectedHomeworkForStatus?.title}</DialogTitle>
+            <DialogDescription id="homework-status-description">
               Update the submission status and add remarks for each student.
             </DialogDescription>
           </DialogHeader>

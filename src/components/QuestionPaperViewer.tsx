@@ -94,13 +94,13 @@ export default function QuestionPaperViewer({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col" aria-labelledby="qp-viewer-title" aria-describedby="qp-viewer-description">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle id="qp-viewer-title" className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               {testName}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="qp-viewer-description">
               Preview or download the question paper for {testName}.
             </DialogDescription>
           </DialogHeader>

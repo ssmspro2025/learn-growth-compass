@@ -81,8 +81,8 @@ export default function TeacherFeaturePermissions({ teacherId, teacherName }: { 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Manage Features for {teacherName}</CardTitle>
-        <DialogDescription>
+        <CardTitle id="teacher-permissions-title">Manage Features for {teacherName}</CardTitle>
+        <DialogDescription id="teacher-permissions-description">
           Enable or disable specific features for this teacher.
         </DialogDescription>
       </CardHeader>

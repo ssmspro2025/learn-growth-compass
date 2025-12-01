@@ -165,10 +165,10 @@ export default function DisciplineCategoryManagement() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> New Category</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-labelledby="discipline-category-manage-title" aria-describedby="discipline-category-manage-description">
               <DialogHeader>
-                <DialogTitle>{editingCategory ? "Edit Discipline Category" : "Create New Discipline Category"}</DialogTitle>
-                <DialogDescription>
+                <DialogTitle id="discipline-category-manage-title">{editingCategory ? "Edit Discipline Category" : "Create New Discipline Category"}</DialogTitle>
+                <DialogDescription id="discipline-category-manage-description">
                   {editingCategory ? "Update the details of this discipline category." : "Define a new category for discipline issues."}
                 </DialogDescription>
               </DialogHeader>

@@ -230,10 +230,10 @@ const AdminDashboard = () => {
                 Create Center
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-labelledby="create-center-title" aria-describedby="create-center-description">
               <DialogHeader>
-                <DialogTitle>Create New Center</DialogTitle>
-                <DialogDescription>
+                <DialogTitle id="create-center-title">Create New Center</DialogTitle>
+                <DialogDescription id="create-center-description">
                   Add a new tuition center with login credentials
                 </DialogDescription>
               </DialogHeader>
@@ -293,10 +293,10 @@ const AdminDashboard = () => {
         </div>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent aria-labelledby="edit-center-title" aria-describedby="edit-center-description">
             <DialogHeader>
-              <DialogTitle>Edit Center</DialogTitle>
-              <DialogDescription>
+              <DialogTitle id="edit-center-title">Edit Center</DialogTitle>
+              <DialogDescription id="edit-center-description">
                 Update center name and address
               </DialogDescription>
             </DialogHeader>

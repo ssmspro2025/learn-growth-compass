@@ -116,10 +116,10 @@ const ExpenseManagement = () => {
                   Record Expense
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-labelledby="expense-record-title" aria-describedby="expense-record-description">
                 <DialogHeader>
-                  <DialogTitle>Record Expense</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle id="expense-record-title">Record Expense</DialogTitle>
+                  <DialogDescription id="expense-record-description">
                     Enter details for a new operating expense.
                   </DialogDescription>
                 </DialogHeader>

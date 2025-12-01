@@ -239,10 +239,10 @@ const InvoiceManagement = () => {
                   Generate Monthly Invoices
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-labelledby="invoice-generate-title" aria-describedby="invoice-generate-description">
                 <DialogHeader>
-                  <DialogTitle>Generate Monthly Invoices</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle id="invoice-generate-title">Generate Monthly Invoices</DialogTitle>
+                  <DialogDescription id="invoice-generate-description">
                     Automatically create invoices for all students with active fee assignments.
                   </DialogDescription>
                 </DialogHeader>
@@ -387,10 +387,10 @@ const InvoiceManagement = () => {
 
       {/* Invoice Details Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-labelledby="invoice-details-title" aria-describedby="invoice-details-description">
           <DialogHeader>
-            <DialogTitle>Invoice Details</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="invoice-details-title">Invoice Details</DialogTitle>
+            <DialogDescription id="invoice-details-description">
               Detailed view of the selected invoice and its items.
             </DialogDescription>
           </DialogHeader>

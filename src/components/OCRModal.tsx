@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -120,10 +122,10 @@ export default function OCRModal({ open, onOpenChange, onSave }: OCRModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-labelledby="ocr-modal-title" aria-describedby="ocr-modal-description">
         <DialogHeader>
-          <DialogTitle>Upload Test Paper & Extract Text</DialogTitle>
-          <DialogDescription>
+          <DialogTitle id="ocr-modal-title">Upload Test Paper & Extract Text</DialogTitle>
+          <DialogDescription id="ocr-modal-description">
             Upload a PDF or image file to extract text using OCR.
           </DialogDescription>
         </DialogHeader>

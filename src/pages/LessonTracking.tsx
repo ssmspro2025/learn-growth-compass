@@ -225,10 +225,10 @@ export default function LessonTracking() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> Record Lesson</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-labelledby="record-lesson-title" aria-describedby="record-lesson-description">
             <DialogHeader>
-              <DialogTitle>Record Lesson Taught</DialogTitle>
-              <DialogDescription>Select a lesson plan and students who attended</DialogDescription>
+              <DialogTitle id="record-lesson-title">Record Lesson Taught</DialogTitle>
+              <DialogDescription id="record-lesson-description">Select a lesson plan and students who attended</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">

@@ -51,7 +51,7 @@ export default function LessonPlans() {
 
   // Fetch lesson plans
   const { data: lessonPlans = [], isLoading } = useQuery({
-    queryKey: ["lesson-plans", user?.center_id, subjectFilter, gradeFilter], // Add gradeFilter to query key
+    queryKey: ["lesson-plans-for-tracking", user?.center_id, subjectFilter, gradeFilter], // Add gradeFilter to query key
     queryFn: async () => {
       if (!user?.center_id) return [];
       let query = supabase
@@ -245,67 +245,67 @@ export default function LessonPlans() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> Create Lesson Plan</Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingLessonPlan ? "Edit Lesson Plan" : "Create New Lesson Plan"}</DialogTitle>
-              <DialogDescription>
-                {editingLessonPlan ? "Update the details of this lesson plan." : "Fill in the details to create a new lesson plan."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Mathematics" />
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="lesson-plan-create-title" aria-describedby="lesson-plan-create-description">
+              <DialogHeader>
+                <DialogTitle id="lesson-plan-create-title">{editingLessonPlan ? "Edit Lesson Plan" : "Create New Lesson Plan"}</DialogTitle>
+                <DialogDescription id="lesson-plan-create-description">
+                  {editingLessonPlan ? "Update the details of this lesson plan." : "Fill in the details to create a new lesson plan."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Subject *</Label>
+                    <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Mathematics" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="chapter">Chapter *</Label>
+                    <Input id="chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} placeholder="e.g., Algebra" />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="chapter">Chapter *</Label>
-                  <Input id="chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} placeholder="e.g., Algebra" />
+                  <Label htmlFor="topic">Topic *</Label>
+                  <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g., Linear Equations" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade">Grade (Optional)</Label> {/* Input for grade */}
+                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Grades</SelectItem>
+                      {uniqueGrades.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lessonDate">Date *</Label>
+                  <Input id="lessonDate" type="date" value={lessonDate} onChange={(e) => setLessonDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Key points, teaching strategies, etc." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="file">Upload Lesson Plan File (PDF, DOCX - Optional)</Label>
+                  <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+                  {editingLessonPlan?.lesson_file_url && !file && (
+                    <p className="text-sm text-muted-foreground">Current file: {editingLessonPlan.lesson_file_url.split('-').pop()}</p>
+                  )}
+                </div>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!subject || !chapter || !topic || !lessonDate || createLessonPlanMutation.isPending || updateLessonPlanMutation.isPending}
+                  className="w-full"
+                >
+                  {editingLessonPlan ? (updateLessonPlanMutation.isPending ? "Updating..." : "Update Lesson Plan") : (createLessonPlanMutation.isPending ? "Creating..." : "Create Lesson Plan")}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="topic">Topic *</Label>
-                <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g., Linear Equations" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="grade">Grade (Optional)</Label> {/* Input for grade */}
-                <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Grade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Grades</SelectItem>
-                    {uniqueGrades.map((g) => (
-                      <SelectItem key={g} value={g}>{g}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lessonDate">Date *</Label>
-                <Input id="lessonDate" type="date" value={lessonDate} onChange={(e) => setLessonDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Key points, teaching strategies, etc." />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="file">Upload Lesson Plan File (PDF, DOCX - Optional)</Label>
-                <Input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-                {editingLessonPlan?.lesson_file_url && !file && (
-                  <p className="text-sm text-muted-foreground">Current file: {editingLessonPlan.lesson_file_url.split('-').pop()}</p>
-                )}
-              </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={!subject || !chapter || !topic || !lessonDate || createLessonPlanMutation.isPending || updateLessonPlanMutation.isPending}
-                className="w-full"
-              >
-                {editingLessonPlan ? (updateLessonPlanMutation.isPending ? "Updating..." : "Update Lesson Plan") : (createLessonPlanMutation.isPending ? "Creating..." : "Create Lesson Plan")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

@@ -234,99 +234,99 @@ export default function DisciplineIssues() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> Log Issue</Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingIssue ? "Edit Discipline Issue" : "Log New Discipline Issue"}</DialogTitle>
-              <DialogDescription>
-                {editingIssue ? "Update the details of this discipline issue." : "Record a new discipline issue for a student."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="modalGradeFilter">Filter Students by Grade</Label>
-                <Select value={modalGradeFilter} onValueChange={setModalGradeFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Grades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Grades</SelectItem>
-                    {uniqueGrades.map((g) => (
-                      <SelectItem key={g} value={g}>{g}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="student">Student *</Label>
-                <Select value={studentId} onValueChange={setStudentId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
-                    {filteredStudentsForModal.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} - {s.grade}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select value={disciplineCategoryId} onValueChange={setDisciplineCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="select-category" disabled>Select Category</SelectItem> {/* Added placeholder item */}
-                    {categoriesLoading ? (
-                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                    ) : categories.length === 0 ? (
-                      <SelectItem value="no-categories" disabled>No categories available. Add some!</SelectItem>
-                    ) : (
-                      categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="discipline-issue-log-title" aria-describedby="discipline-issue-log-description">
+              <DialogHeader>
+                <DialogTitle id="discipline-issue-log-title">{editingIssue ? "Edit Discipline Issue" : "Log New Discipline Issue"}</DialogTitle>
+                <DialogDescription id="discipline-issue-log-description">
+                  {editingIssue ? "Update the details of this discipline issue." : "Record a new discipline issue for a student."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="modalGradeFilter">Filter Students by Grade</Label>
+                  <Select value={modalGradeFilter} onValueChange={setModalGradeFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Grades" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Grades</SelectItem>
+                      {uniqueGrades.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="student">Student *</Label>
+                  <Select value={studentId} onValueChange={setStudentId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
+                      {filteredStudentsForModal.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} - {s.grade}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <Select value={disciplineCategoryId} onValueChange={setDisciplineCategoryId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="select-category" disabled>Select Category</SelectItem> {/* Added placeholder item */}
+                      {categoriesLoading ? (
+                        <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                      ) : categories.length === 0 ? (
+                        <SelectItem value="no-categories" disabled>No categories available. Add some!</SelectItem>
+                      ) : (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Describe the incident" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="severity">Severity *</Label>
+                  <Select value={severity} onValueChange={(value: DisciplineIssue['severity']) => setSeverity(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Severity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {severityLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="issueDate">Date *</Label>
+                  <Input id="issueDate" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+                </div>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={studentId === "select-student" || disciplineCategoryId === "select-category" || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
+                  className="w-full"
+                >
+                  {editingIssue ? (updateIssueMutation.isPending ? "Updating..." : "Update Issue") : (createIssueMutation.isPending ? "Logging..." : "Log Issue")}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Describe the incident" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="severity">Severity *</Label>
-                <Select value={severity} onValueChange={(value: DisciplineIssue['severity']) => setSeverity(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Severity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {severityLevels.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="issueDate">Date *</Label>
-                <Input id="issueDate" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
-              </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={studentId === "select-student" || disciplineCategoryId === "select-category" || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
-                className="w-full"
-              >
-                {editingIssue ? (updateIssueMutation.isPending ? "Updating..." : "Update Issue") : (createIssueMutation.isPending ? "Logging..." : "Log Issue")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -367,10 +367,10 @@ export default function DisciplineIssues() {
 
       {/* Discipline Category Management Dialog */}
       <Dialog open={showCategoryManagement} onOpenChange={setShowCategoryManagement}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-labelledby="discipline-category-management-title" aria-describedby="discipline-category-management-description">
           <DialogHeader>
-            <DialogTitle>Manage Discipline Categories</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="discipline-category-management-title">Manage Discipline Categories</DialogTitle>
+            <DialogDescription id="discipline-category-management-description">
               Add, edit, or deactivate categories for discipline issues.
             </DialogDescription>
           </DialogHeader>

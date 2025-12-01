@@ -320,10 +320,10 @@ const ParentFinanceDashboard = () => {
 
         {/* Invoice Details Dialog */}
         <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl" aria-labelledby="parent-invoice-details-title" aria-describedby="parent-invoice-details-description">
             <DialogHeader>
-              <DialogTitle>Invoice Details</DialogTitle>
-              <DialogDescription>
+              <DialogTitle id="parent-invoice-details-title">Invoice Details</DialogTitle>
+              <DialogDescription id="parent-invoice-details-description">
                 View the full details of this invoice, including line items and payment status.
               </DialogDescription>
             </DialogHeader>

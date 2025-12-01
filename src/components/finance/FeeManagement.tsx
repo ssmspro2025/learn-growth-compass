@@ -164,10 +164,10 @@ const FeeManagement = () => {
                   New Heading
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-labelledby="fee-heading-create-title" aria-describedby="fee-heading-create-description">
                 <DialogHeader>
-                  <DialogTitle>Create Fee Heading</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle id="fee-heading-create-title">Create Fee Heading</DialogTitle>
+                  <DialogDescription id="fee-heading-create-description">
                     Define a new category for fees (e.g., Tuition, Transport).
                   </DialogDescription>
                 </DialogHeader>
@@ -272,10 +272,10 @@ const FeeManagement = () => {
                   New Structure
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-labelledby="fee-structure-create-title" aria-describedby="fee-structure-create-description">
                 <DialogHeader>
-                  <DialogTitle>Create Fee Structure</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle id="fee-structure-create-title">Create Fee Structure</DialogTitle>
+                  <DialogDescription id="fee-structure-create-description">
                     Define fee amounts for each grade
                   </DialogDescription>
                 </DialogHeader>

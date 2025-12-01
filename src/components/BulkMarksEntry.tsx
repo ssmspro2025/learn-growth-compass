@@ -130,10 +130,10 @@ export default function BulkMarksEntry({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-labelledby="bulk-marks-title" aria-describedby="bulk-marks-description">
         <DialogHeader>
-          <DialogTitle>Bulk Marks Entry</DialogTitle>
-          <DialogDescription>
+          <DialogTitle id="bulk-marks-title">Bulk Marks Entry</DialogTitle>
+          <DialogDescription id="bulk-marks-description">
             Enter marks for multiple students or upload a CSV.
           </DialogDescription>
         </DialogHeader>

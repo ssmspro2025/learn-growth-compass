@@ -213,10 +213,10 @@ const PaymentTracking = () => {
                   Record Payment
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-labelledby="payment-record-title" aria-describedby="payment-record-description">
                 <DialogHeader>
-                  <DialogTitle>Record Payment</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle id="payment-record-title">Record Payment</DialogTitle>
+                  <DialogDescription id="payment-record-description">
                     Enter details for a payment received from a student.
                   </DialogDescription>
                 </DialogHeader>

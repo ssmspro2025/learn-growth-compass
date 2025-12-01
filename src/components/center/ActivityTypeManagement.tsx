@@ -144,10 +144,10 @@ export default function ActivityTypeManagement() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> New Type</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-labelledby="activity-type-manage-title" aria-describedby="activity-type-manage-description">
               <DialogHeader>
-                <DialogTitle>{editingType ? "Edit Activity Type" : "Create New Activity Type"}</DialogTitle>
-                <DialogDescription>
+                <DialogTitle id="activity-type-manage-title">{editingType ? "Edit Activity Type" : "Create New Activity Type"}</DialogTitle>
+                <DialogDescription id="activity-type-manage-description">
                   {editingType ? "Update the details of this activity type." : "Define a new category for preschool activities."}
                 </DialogDescription>
               </DialogHeader>
