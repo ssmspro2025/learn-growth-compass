@@ -37,6 +37,8 @@ import ParentActivities from "./pages/ParentActivities";
 import ParentDiscipline from "./pages/ParentDiscipline";
 import TeacherDashboard from "./pages/TeacherDashboard"; // NEW
 import InitAdmin from "./pages/InitAdmin";
+import Messages from "./pages/Messages";
+import ParentMessages from "./pages/ParentMessages";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/admin/Settings";
 import ChangePassword from "./pages/ChangePassword";
@@ -64,6 +66,7 @@ const App = () => (
             <Route path="/parent-homework" element={<ProtectedRoute role="parent"><ParentLayout><ParentHomework /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-activities" element={<ProtectedRoute role="parent"><ParentLayout><ParentActivities /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-discipline" element={<ProtectedRoute role="parent"><ParentLayout><ParentDiscipline /></ParentLayout></ProtectedRoute>} />
+            <Route path="/parent-messages" element={<ProtectedRoute role="parent"><ParentMessages /></ProtectedRoute>} />
 
             {/* Teacher Routes */}
             <Route path="/teacher-dashboard" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherDashboard /></TeacherLayout></ProtectedRoute>} />
@@ -93,6 +96,7 @@ const App = () => (
             <Route path="/records" element={<ProtectedRoute role="center"><CenterLayout><ViewRecords /></CenterLayout></ProtectedRoute>} />
             <Route path="/summary" element={<ProtectedRoute role="center"><CenterLayout><Summary /></CenterLayout></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute role="center"><CenterLayout><AdminFinance /></CenterLayout></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute role="center"><Messages /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin-dashboard" element={<ProtectedRoute role="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
