@@ -25,7 +25,22 @@ const TEACHER_FEATURES = [
 
 export default function TeacherFeaturePermissions({ teacherId, teacherName }: { teacherId: string; teacherName: string }) {
   const queryClient = useQueryClient();
-  const { user } = useAuth(); // Get the current user to pass the access token
+  const { user } = useAuth();
+
+  // Fetch center's feature permissions (to show which features are available)
+  const { data: centerPermissions = [], isLoading: centerPermissionsLoading } = useQuery({
+    queryKey: ['center-feature-permissions', user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from('center_feature_permissions')
+        .select('*')
+        .eq('center_id', user.center_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
 
   // Fetch teacher's feature permissions
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
@@ -41,7 +56,13 @@ export default function TeacherFeaturePermissions({ teacherId, teacherName }: { 
     enabled: !!teacherId,
   });
 
-  // Group permissions by feature_name for easy lookup
+  // Group center permissions
+  const centerPermissionsByFeature = centerPermissions.reduce((acc, perm) => {
+    acc[perm.feature_name] = perm.is_enabled;
+    return acc;
+  }, {} as Record<string, boolean>);
+
+  // Group teacher permissions
   const permissionsByFeature = permissions.reduce((acc, perm) => {
     acc[perm.feature_name] = perm.is_enabled;
     return acc;
@@ -74,7 +95,7 @@ export default function TeacherFeaturePermissions({ teacherId, teacherName }: { 
     updatePermissionMutation.mutate({ featureName, isEnabled: !currentStatus });
   };
 
-  if (permissionsLoading) {
+  if (permissionsLoading || centerPermissionsLoading) {
     return <p>Loading teacher permissions...</p>;
   }
 
@@ -91,20 +112,32 @@ export default function TeacherFeaturePermissions({ teacherId, teacherName }: { 
           <TableHeader>
             <TableRow>
               <TableHead>Feature</TableHead>
-              <TableHead className="text-center">Enabled</TableHead>
+              <TableHead className="text-center">Admin Enabled</TableHead>
+              <TableHead className="text-center">Teacher Access</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {TEACHER_FEATURES.map(feature => {
-              const isEnabled = permissionsByFeature[feature.name] ?? true; // Default to true if no explicit setting
+              const centerEnabled = centerPermissionsByFeature[feature.name] ?? true;
+              const teacherEnabled = permissionsByFeature[feature.name] ?? true;
+              const isDisabledByCenter = !centerEnabled;
+              
               return (
                 <TableRow key={feature.name}>
                   <TableCell className="font-medium">{feature.label}</TableCell>
                   <TableCell className="text-center">
+                    {centerEnabled ? (
+                      <span className="text-green-600 font-medium">✓ Yes</span>
+                    ) : (
+                      <span className="text-red-600 font-medium">✗ No</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Switch
-                      checked={isEnabled}
-                      onCheckedChange={() => handleToggle(feature.name, isEnabled)}
-                      disabled={updatePermissionMutation.isPending}
+                      checked={teacherEnabled}
+                      onCheckedChange={() => handleToggle(feature.name, teacherEnabled)}
+                      disabled={updatePermissionMutation.isPending || isDisabledByCenter}
+                      title={isDisabledByCenter ? 'Feature not enabled by admin for this center' : ''}
                     />
                   </TableCell>
                 </TableRow>
@@ -112,6 +145,9 @@ export default function TeacherFeaturePermissions({ teacherId, teacherName }: { 
             })}
           </TableBody>
         </Table>
+        <p className="text-sm text-muted-foreground mt-4">
+          Note: Teachers can only access features that are enabled by both Admin and your Center.
+        </p>
       </CardContent>
     </Card>
   );

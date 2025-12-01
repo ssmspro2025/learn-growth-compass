@@ -117,18 +117,49 @@ serve(async (req) => {
     }
 
     // Fetch teacher feature permissions if role is teacher
-    if (userData.role === 'teacher' && userData.teacher_id) {
-      const { data: permissionsData } = await supabaseClient
+    if (userData.role === 'teacher' && userData.teacher_id && userData.center_id) {
+      // Load center permissions (what admin enabled for the center)
+      const { data: centerPermissionsData } = await supabaseClient
+        .from('center_feature_permissions')
+        .select('feature_name, is_enabled')
+        .eq('center_id', userData.center_id);
+      
+      const centerPerms: Record<string, boolean> = {};
+      if (centerPermissionsData) {
+        centerPermissionsData.forEach(perm => {
+          centerPerms[perm.feature_name] = perm.is_enabled;
+        });
+      }
+      user.centerPermissions = centerPerms;
+
+      // Load teacher permissions (what center enabled for this teacher)
+      const { data: teacherPermissionsData } = await supabaseClient
         .from('teacher_feature_permissions')
         .select('feature_name, is_enabled')
         .eq('teacher_id', userData.teacher_id);
       
-      if (permissionsData) {
-        user.teacherPermissions = permissionsData.reduce((acc, perm) => {
-          acc[perm.feature_name] = perm.is_enabled;
-          return acc;
-        }, {} as Record<string, boolean>);
+      const teacherPerms: Record<string, boolean> = {};
+      if (teacherPermissionsData) {
+        teacherPermissionsData.forEach(perm => {
+          teacherPerms[perm.feature_name] = perm.is_enabled;
+        });
       }
+      user.teacherPermissions = teacherPerms;
+
+      // Compute effective permissions (BOTH must be enabled)
+      const effectivePerms: Record<string, boolean> = {};
+      const allFeatures = new Set([
+        ...Object.keys(centerPerms),
+        ...Object.keys(teacherPerms)
+      ]);
+      
+      allFeatures.forEach(feature => {
+        const centerEnabled = centerPerms[feature] ?? true; // Default true if not set
+        const teacherEnabled = teacherPerms[feature] ?? true; // Default true if not set
+        effectivePerms[feature] = centerEnabled && teacherEnabled; // BOTH must be true
+      });
+      
+      user.effectivePermissions = effectivePerms;
     }
 
     // Update last login
