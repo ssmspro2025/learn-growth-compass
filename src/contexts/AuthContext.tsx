@@ -16,6 +16,7 @@ interface User {
   teacher_name?: string;
   centerPermissions?: Record<string, boolean>;
   teacherPermissions?: Record<string, boolean>;
+  effectivePermissions?: Record<string, boolean>; // Cascaded permissions (admin AND center)
 }
 
 interface AuthContextType {

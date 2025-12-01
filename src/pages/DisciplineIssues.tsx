@@ -38,7 +38,10 @@ export default function DisciplineIssues() {
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<DisciplineIssue['severity']>("medium");
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [modalGradeFilter, setModalGradeFilter] = useState<string>("all"); // New state for grade filter inside modal
+  const [modalGradeFilter, setModalGradeFilter] = useState<string>("all");
+  const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
 
   // Fetch students
   const { data: students = [] } = useQuery({
@@ -105,8 +108,43 @@ export default function DisciplineIssues() {
     setSeverity("medium");
     setIssueDate(format(new Date(), "yyyy-MM-dd"));
     setEditingIssue(null);
-    setModalGradeFilter("all"); // Reset modal grade filter
+    setModalGradeFilter("all");
+    setShowNewCategoryForm(false);
+    setNewCategoryName("");
+    setNewCategoryDescription("");
   };
+
+  // Quick category creation mutation
+  const createCategoryMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.center_id || !newCategoryName) throw new Error("Center ID or category name missing");
+      
+      const { data, error } = await supabase
+        .from("discipline_categories")
+        .insert({
+          center_id: user.center_id,
+          name: newCategoryName,
+          description: newCategoryDescription || null,
+          is_active: true,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["discipline-categories"] });
+      setDisciplineCategoryId(data.id); // Auto-select the new category
+      setShowNewCategoryForm(false);
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      toast.success("Category created successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to create category");
+    },
+  });
 
   const createIssueMutation = useMutation({
     mutationFn: async () => {
@@ -272,25 +310,63 @@ export default function DisciplineIssues() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select value={disciplineCategoryId} onValueChange={setDisciplineCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoriesLoading ? (
-                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                    ) : categories.length === 0 ? (
-                      <SelectItem value="no-categories" disabled>No categories available. Add some!</SelectItem>
-                    ) : (
-                      categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="category">Category *</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowNewCategoryForm(!showNewCategoryForm)}
+                    className="h-6 px-2"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {showNewCategoryForm ? "Cancel" : "New"}
+                  </Button>
+                </div>
+
+                {showNewCategoryForm ? (
+                  <div className="space-y-2 p-3 border rounded-md bg-muted/50">
+                    <Input
+                      placeholder="Category name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                    />
+                    <Textarea
+                      placeholder="Description (optional)"
+                      value={newCategoryDescription}
+                      onChange={(e) => setNewCategoryDescription(e.target.value)}
+                      rows={2}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => createCategoryMutation.mutate()}
+                      disabled={!newCategoryName || createCategoryMutation.isPending}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Select value={disciplineCategoryId} onValueChange={setDisciplineCategoryId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoriesLoading ? (
+                        <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                      ) : categories.length === 0 ? (
+                        <SelectItem value="no-categories" disabled>No categories available. Create one above!</SelectItem>
+                      ) : (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description *</Label>

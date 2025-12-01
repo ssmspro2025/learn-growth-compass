@@ -73,6 +73,28 @@ serve(async (req) => {
       });
     }
 
+    // CASCADING CHECK: Verify the center has this feature enabled by admin
+    const { data: centerPermission, error: centerPermError } = await supabase
+      .from('center_feature_permissions')
+      .select('is_enabled')
+      .eq('center_id', dbUser.center_id)
+      .eq('feature_name', featureName)
+      .single();
+
+    // If center doesn't have permission or it's disabled, reject the request
+    if (centerPermError || !centerPermission?.is_enabled) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `This feature is not enabled for your center by admin. Contact admin to enable "${featureName}" first.` 
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Perform the upsert using the service role key
     const { data, error } = await supabase
       .from("teacher_feature_permissions")
