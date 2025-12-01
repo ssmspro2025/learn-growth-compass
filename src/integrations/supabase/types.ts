@@ -2312,6 +2312,7 @@ export type Database = {
           extracted_text: string | null
           grade: string | null
           id: string
+          lesson_plan_id: string | null
           name: string
           questions: Json | null
           subject: string
@@ -2325,6 +2326,7 @@ export type Database = {
           extracted_text?: string | null
           grade?: string | null
           id?: string
+          lesson_plan_id?: string | null
           name: string
           questions?: Json | null
           subject: string
@@ -2338,6 +2340,7 @@ export type Database = {
           extracted_text?: string | null
           grade?: string | null
           id?: string
+          lesson_plan_id?: string | null
           name?: string
           questions?: Json | null
           subject?: string
@@ -2350,6 +2353,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tests_lesson_plan_id_fkey"
+            columns: ["lesson_plan_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_plans"
             referencedColumns: ["id"]
           },
         ]
