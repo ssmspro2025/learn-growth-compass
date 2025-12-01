@@ -484,12 +484,12 @@ export default function Tests() {
               {/* New: Select Lesson Plan */}
               <div className="space-y-2">
                 <Label htmlFor="lessonPlan">Link to Lesson Plan (Optional)</Label>
-                <Select value={lessonPlanId || ""} onValueChange={(value) => setLessonPlanId(value || null)}>
+                <Select value={lessonPlanId || "none"} onValueChange={(value) => setLessonPlanId(value === "none" ? null : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a lesson plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Lesson Plan</SelectItem>
+                    <SelectItem value="none">No Lesson Plan</SelectItem>
                     {lessonPlans.map((lp) => (
                       <SelectItem key={lp.id} value={lp.id}>
                         {lp.subject}: {lp.chapter} - {lp.topic} ({lp.grade})
