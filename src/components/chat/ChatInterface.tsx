@@ -145,10 +145,10 @@ export default function ChatInterface({ conversationId, recipientName }: ChatInt
       if (error) throw error;
       setNewMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message:', getErrorMessage(error));
       toast({
         title: 'Error',
-        description: 'Failed to send message',
+        description: `Failed to send message: ${getErrorMessage(error)}`,
         variant: 'destructive',
       });
     } finally {
