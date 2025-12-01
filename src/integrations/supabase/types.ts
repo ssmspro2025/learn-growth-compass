@@ -1497,6 +1497,173 @@ export type Database = {
           },
         ]
       }
+      meeting_attendees: {
+        Row: {
+          attendance_status: Database["public"]["Enums"]["attendance_status"]
+          created_at: string | null
+          id: string
+          meeting_id: string
+          notes: string | null
+          student_id: string | null
+          teacher_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          created_at?: string | null
+          id?: string
+          meeting_id: string
+          notes?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          created_at?: string | null
+          id?: string
+          meeting_id?: string
+          notes?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_attendees_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_attendees_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_attendees_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_attendees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_conclusions: {
+        Row: {
+          conclusion_notes: string
+          created_at: string | null
+          id: string
+          meeting_id: string
+          recorded_by: string
+          recorded_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          conclusion_notes: string
+          created_at?: string | null
+          id?: string
+          meeting_id: string
+          recorded_by: string
+          recorded_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          conclusion_notes?: string
+          created_at?: string | null
+          id?: string
+          meeting_id?: string
+          recorded_by?: string
+          recorded_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_conclusions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: true
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_conclusions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          agenda: string | null
+          center_id: string
+          created_at: string | null
+          created_by: string
+          id: string
+          meeting_date: string
+          meeting_time: string
+          meeting_type: Database["public"]["Enums"]["meeting_type"]
+          status: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          agenda?: string | null
+          center_id: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          meeting_date: string
+          meeting_time: string
+          meeting_type: Database["public"]["Enums"]["meeting_type"]
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          agenda?: string | null
+          center_id?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          meeting_date?: string
+          meeting_time?: string
+          meeting_type?: Database["public"]["Enums"]["meeting_type"]
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_allocations: {
         Row: {
           allocated_amount: number
@@ -2208,7 +2375,7 @@ export type Database = {
           extracted_text: string | null
           grade: string | null
           id: string
-          lesson_plan_id: string | null // Added this line
+          lesson_plan_id: string | null
           name: string
           questions: Json | null
           subject: string
@@ -2222,7 +2389,7 @@ export type Database = {
           extracted_text?: string | null
           grade?: string | null
           id?: string
-          lesson_plan_id?: string | null // Added this line
+          lesson_plan_id?: string | null
           name: string
           questions?: Json | null
           subject: string
@@ -2236,7 +2403,7 @@ export type Database = {
           extracted_text?: string | null
           grade?: string | null
           id?: string
-          lesson_plan_id?: string | null // Added this line
+          lesson_plan_id?: string | null
           name?: string
           questions?: Json | null
           subject?: string
@@ -2252,11 +2419,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tests_lesson_plan_id_fkey" // Added this line
-            columns: ["lesson_plan_id"] // Added this line
-            isOneToOne: false // Added this line
-            referencedRelation: "lesson_plans" // Added this line
-            referencedColumns: ["id"] // Added this line
+            foreignKeyName: "tests_lesson_plan_id_fkey"
+            columns: ["lesson_plan_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_plans"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2396,6 +2563,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "center" | "parent" | "teacher"
+      attendance_status: "pending" | "present" | "absent" | "excused"
+      meeting_status: "scheduled" | "completed" | "cancelled"
+      meeting_type: "parents" | "teachers" | "both"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2524,6 +2694,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "center", "parent", "teacher"],
+      attendance_status: ["pending", "present", "absent", "excused"],
+      meeting_status: ["scheduled", "completed", "cancelled"],
+      meeting_type: ["parents", "teachers", "both"],
     },
   },
 } as const
