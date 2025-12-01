@@ -92,11 +92,30 @@ export default function Tests() {
         .from("students")
         .select("*")
         .order("name");
-      
+
       if (user?.role !== 'admin' && user?.center_id) {
         query = query.eq('center_id', user.center_id);
       }
-      
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch lesson plans for optional linking
+  const { data: lessonPlans = [] } = useQuery({
+    queryKey: ["lesson-plans", user?.center_id],
+    queryFn: async () => {
+      let query = supabase
+        .from("lesson_plans")
+        .select("id, chapter, subject, topic, lesson_date")
+        .order("lesson_date", { ascending: false });
+
+      if (user?.role !== 'admin' && user?.center_id) {
+        query = query.eq('center_id', user.center_id);
+      }
+
       const { data, error } = await query;
       if (error) throw error;
       return data;
