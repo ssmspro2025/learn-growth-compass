@@ -197,6 +197,7 @@ export default function Tests() {
       setGrade("");
       setQuestions([]);
       setUploadedFile(null);
+      setSelectedLessonPlanId("");
     },
     onError: (error: any) => {
       console.error("Error creating test:", error);
