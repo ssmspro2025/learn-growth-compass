@@ -57,7 +57,7 @@ export default function ParentMessages() {
       if (error) throw error;
       setStudents(data || []);
     } catch (error) {
-      console.error('Error fetching students:', error);
+      console.error('Error fetching students:', getErrorMessage(error));
     }
   };
 
