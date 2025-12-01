@@ -486,6 +486,22 @@ export default function Tests() {
                 />
               </div>
               <div>
+                <Label>Link to Lesson Plan (Optional)</Label>
+                <Select value={selectedLessonPlanId} onValueChange={setSelectedLessonPlanId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a lesson plan (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {lessonPlans.map((lp) => (
+                      <SelectItem key={lp.id} value={lp.id}>
+                        {lp.subject} - {lp.topic} ({format(new Date(lp.lesson_date), "MMM d")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label>Upload Test File (Optional)</Label>
                 <Input
                   type="file"
