@@ -31,7 +31,7 @@ export default function LessonTracking() {
   // State
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [selectedLessonPlanId, setSelectedLessonPlanId] = useState(""); // Now selects a Lesson Plan
+  const [selectedLessonPlanId, setSelectedLessonPlanId] = useState("none"); // Changed initial state to "none"
   const [notes, setNotes] = useState(""); // Notes for this specific teaching instance
   const [filterSubject, setFilterSubject] = useState("all");
   const [filterStudent, setFilterStudent] = useState("all");
@@ -136,7 +136,7 @@ export default function LessonTracking() {
   // Mutations
   const recordLessonMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || !selectedLessonPlanId || selectedStudentIds.length === 0) {
+      if (!user?.center_id || selectedLessonPlanId === "none" || selectedStudentIds.length === 0) { // Updated check
         throw new Error("Select a lesson plan and at least one student.");
       }
 
@@ -158,7 +158,7 @@ export default function LessonTracking() {
       queryClient.invalidateQueries({ queryKey: ["student-lesson-records"] });
       toast.success("Lesson recorded for selected students!");
       setSelectedStudentIds([]);
-      setSelectedLessonPlanId("");
+      setSelectedLessonPlanId("none"); // Reset to "none"
       setNotes("");
       setIsDialogOpen(false);
     },
@@ -241,20 +241,17 @@ export default function LessonTracking() {
               {/* SELECT LESSON PLAN */}
               <div className="space-y-3 border rounded-lg p-4">
                 <Label className="text-base font-semibold">Select Lesson Plan *</Label>
-                {lessonPlans.length > 0 ? (
-                  <Select value={selectedLessonPlanId} onValueChange={setSelectedLessonPlanId}>
-                    <SelectTrigger><SelectValue placeholder="Choose a lesson plan..." /></SelectTrigger>
-                    <SelectContent>
-                      {lessonPlans.map((lp: any) => (
-                        <SelectItem key={lp.id} value={lp.id}>
-                          {lp.subject} - {lp.chapter} - {lp.topic} ({format(new Date(lp.lesson_date), "MMM d")})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No lesson plans found. Create one first!</p>
-                )}
+                <Select value={selectedLessonPlanId} onValueChange={setSelectedLessonPlanId}>
+                  <SelectTrigger><SelectValue placeholder="Choose a lesson plan..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Choose a lesson plan...</SelectItem> {/* Added placeholder item */}
+                    {lessonPlans.map((lp: any) => (
+                      <SelectItem key={lp.id} value={lp.id}>
+                        {lp.subject} - {lp.chapter} - {lp.topic} ({format(new Date(lp.lesson_date), "MMM d")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* NOTES */}
@@ -312,7 +309,7 @@ export default function LessonTracking() {
               {/* RECORD BUTTON */}
               <Button
                 onClick={() => recordLessonMutation.mutate()}
-                disabled={selectedStudentIds.length === 0 || !selectedLessonPlanId || recordLessonMutation.isPending}
+                disabled={selectedStudentIds.length === 0 || selectedLessonPlanId === "none" || recordLessonMutation.isPending} // Updated check
                 className="w-full"
               >
                 {recordLessonMutation.isPending ? "Recording..." : `Record Lesson for ${selectedStudentIds.length} Student(s)`}

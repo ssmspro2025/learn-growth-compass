@@ -22,7 +22,7 @@ type DisciplineIssue = Tables<'discipline_issues'>;
 export default function StudentReport() {
   const { user } = useAuth();
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("none"); // Changed initial state to "none"
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -49,7 +49,7 @@ export default function StudentReport() {
   const { data: attendanceData = [] } = useQuery({
     queryKey: ["student-attendance", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       const { data, error } = await supabase
         .from("attendance")
         .select("*")
@@ -60,14 +60,14 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch lesson records (student_chapters now links to lesson_plans)
   const { data: lessonRecords = [] } = useQuery({
     queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)").eq("student_id", selectedStudentId)
         .gte("date_completed", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("date_completed", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
@@ -76,14 +76,14 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Fetch test results
   const { data: testResults = [] } = useQuery({
     queryKey: ["student-test-results", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       let query = supabase.from("test_results").select("*, tests(*)").eq("student_id", selectedStudentId)
         .gte("date_taken", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("date_taken", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
@@ -92,14 +92,14 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Fetch homework status
   const { data: homeworkStatus = [] } = useQuery({
     queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       let query = supabase.from("student_homework_records").select("*, homework(*)")
         .eq("student_id", selectedStudentId)
         .gte("homework.due_date", safeFormatDate(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
@@ -109,62 +109,62 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Fetch preschool activities
   const { data: preschoolActivities = [] } = useQuery({
     queryKey: ["student-preschool-activities-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       const { data, error } = await supabase.from("student_activities").select("*, activities(title, description, activity_date, photo_url, video_url, activity_type_id, activity_types(name))").eq("student_id", selectedStudentId)
         .gte("created_at", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("created_at", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Fetch discipline issues
   const { data: disciplineIssues = [] } = useQuery({
     queryKey: ["student-discipline-issues-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       const { data, error } = await supabase.from("discipline_issues").select("*, discipline_categories(name)").eq("student_id", selectedStudentId)
         .gte("issue_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("issue_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Fetch finance data
   const { data: invoices = [] } = useQuery({
     queryKey: ["student-invoices-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
         .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data as Invoice[];
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   const { data: payments = [] } = useQuery({
     queryKey: ["student-payments-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId) return [];
+      if (!selectedStudentId || selectedStudentId === "none") return [];
       const { data, error } = await supabase.from("payments").select("*").eq("student_id", selectedStudentId)
         .gte("payment_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("payment_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data as Payment[];
     },
-    enabled: !!selectedStudentId,
+    enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Statistics
@@ -201,6 +201,10 @@ export default function StudentReport() {
   // AI Summary mutation
   const generateSummaryMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedStudentId || selectedStudentId === "none") {
+        toast.error("Please select a student to generate AI summary.");
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("ai-student-summary", {
         body: { studentId: selectedStudentId },
       });
@@ -362,7 +366,7 @@ export default function StudentReport() {
       {/* Header and Print/Export */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Student Report</h1>
-        {selectedStudentId && (
+        {selectedStudentId !== "none" && ( // Only show if a student is selected
           <div className="flex gap-2">
             <Button onClick={exportToCSV} variant="outline">
               <Download className="mr-2 h-4 w-4" /> Export CSV
@@ -416,6 +420,7 @@ export default function StudentReport() {
             <SelectValue placeholder="Select Student" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="none">Select Student</SelectItem> {/* Added placeholder item */}
             {filteredStudents.map((student) => (
               <SelectItem key={student.id} value={student.id}>
                 {student.name} - Grade {student.grade}
@@ -425,7 +430,7 @@ export default function StudentReport() {
         </Select>
       </div>
 
-      {selectedStudent && (
+      {selectedStudentId !== "none" && selectedStudent && ( // Only render report if a student is selected
         <div id="printable-report" className="space-y-6">
           {/* Finance Summary */}
           <Card>
