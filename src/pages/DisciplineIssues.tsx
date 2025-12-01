@@ -77,7 +77,7 @@ export default function DisciplineIssues() {
   });
 
   // Fetch discipline issues
-  const { data: issues = [] } = useQuery({
+  const { data: issues = [], isLoading: issuesLoading } = useQuery({ // Destructure isLoading here
     queryKey: ["discipline-issues", user?.center_id, gradeFilter],
     queryFn: async () => {
       if (!user?.center_id) return [];
@@ -335,7 +335,7 @@ export default function DisciplineIssues() {
           <CardTitle>All Discipline Issues</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {issuesLoading ? (
             <p>Loading issues...</p>
           ) : issues.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No discipline issues found for the selected grade.</p>
