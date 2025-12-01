@@ -435,10 +435,10 @@ export default function Tests() {
                 Create Test
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-labelledby="create-test-title" aria-describedby="create-test-description">
             <DialogHeader>
-              <DialogTitle>Create New Test</DialogTitle>
-              <DialogDescription>
+              <DialogTitle id="create-test-title">Create New Test</DialogTitle>
+              <DialogDescription id="create-test-description">
                 Define a new test, its details, and optional questions.
               </DialogDescription>
             </DialogHeader>
@@ -787,52 +787,6 @@ export default function Tests() {
                 testName={selectedTestData.name}
                 fileName={selectedTestData.uploaded_file_url}
               />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {selectedTest && testResults.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Test Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Student</th>
-                    <th className="px-4 py-2 text-left">Grade</th>
-                    <th className="px-4 py-2 text-right">Marks</th>
-                    <th className="px-4 py-2 text-right">Percentage</th>
-                    <th className="px-4 py-2 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {testResults.map((result) => (
-                    <tr key={result.id} className="border-t">
-                      <td className="px-4 py-2">{result.students?.name}</td>
-                      <td className="px-4 py-2">{result.students?.grade}</td>
-                      <td className="px-4 py-2 text-right">
-                        {result.marks_obtained}/{selectedTestData?.total_marks}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {Math.round((result.marks_obtained / (selectedTestData?.total_marks || 1)) * 100)}%
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteResultMutation.mutate(result.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </CardContent>
         </Card>

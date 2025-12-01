@@ -510,10 +510,10 @@ export default function RegisterStudent() {
 
       {/* CSV Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto" aria-labelledby="csv-preview-title" aria-describedby="csv-preview-description">
           <DialogHeader>
-            <DialogTitle>Preview Parsed Rows</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="csv-preview-title">Preview Parsed Rows</DialogTitle>
+            <DialogDescription id="csv-preview-description">
               Review parsed rows before inserting. Errors (if any) are below.
             </DialogDescription>
           </DialogHeader>
@@ -721,10 +721,10 @@ export default function RegisterStudent() {
 
       {/* Create Parent Dialog */}
       <Dialog open={isCreatingParent} onOpenChange={setIsCreatingParent}>
-        <DialogContent>
+        <DialogContent aria-labelledby="create-parent-title" aria-describedby="create-parent-description">
           <DialogHeader>
-            <DialogTitle>Create Parent Account</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="create-parent-title">Create Parent Account</DialogTitle>
+            <DialogDescription id="create-parent-description">
               Set a username and password for the parent of {selectedStudentForParent?.name}
             </DialogDescription>
           </DialogHeader>

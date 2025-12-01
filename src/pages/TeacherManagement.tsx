@@ -352,10 +352,10 @@ export default function TeacherManagement() {
 
       {/* Create Teacher Login Dialog */}
       <Dialog open={isCreatingTeacherLogin} onOpenChange={setIsCreatingTeacherLogin}>
-        <DialogContent>
+        <DialogContent aria-labelledby="create-teacher-login-title" aria-describedby="create-teacher-login-description">
           <DialogHeader>
-            <DialogTitle>Create Login for {selectedTeacherForLogin?.name}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="create-teacher-login-title">Create Login for {selectedTeacherForLogin?.name}</DialogTitle>
+            <DialogDescription id="create-teacher-login-description">
               Set a username and password for this teacher to log in.
             </DialogDescription>
           </DialogHeader>
@@ -399,10 +399,10 @@ export default function TeacherManagement() {
 
       {/* Manage Teacher Permissions Dialog */}
       <Dialog open={showPermissionsDialog} onOpenChange={setShowPermissionsDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-labelledby="manage-teacher-permissions-title" aria-describedby="manage-teacher-permissions-description">
           <DialogHeader>
-            <DialogTitle>Manage Teacher Permissions</DialogTitle>
-            <DialogDescription>
+            <DialogTitle id="manage-teacher-permissions-title">Manage Teacher Permissions</DialogTitle>
+            <DialogDescription id="manage-teacher-permissions-description">
               Enable or disable specific features for {selectedTeacherForPermissions?.name}.
             </DialogDescription>
           </DialogHeader>

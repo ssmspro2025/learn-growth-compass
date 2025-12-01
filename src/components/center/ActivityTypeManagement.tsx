@@ -146,9 +146,9 @@ export default function ActivityTypeManagement() {
             </DialogTrigger>
             <DialogContent aria-labelledby="activity-type-manage-title" aria-describedby="activity-type-manage-description">
               <DialogHeader>
-                <DialogTitle id="activity-type-manage-title">{editingType ? "Edit Activity Type" : "Create New Activity Type"}</DialogTitle>
+                <DialogTitle id="activity-type-manage-title">Create Fee Heading</DialogTitle>
                 <DialogDescription id="activity-type-manage-description">
-                  {editingType ? "Update the details of this activity type." : "Define a new category for preschool activities."}
+                  Define a new category for fees (e.g., Tuition, Transport).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
