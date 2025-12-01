@@ -634,6 +634,80 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
+          {/* Missed Lessons */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" /> Missed/Incomplete Lessons
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {missedLessons.length === 0 ? (
+                <p className="text-muted-foreground">No missed lessons. Student is up-to-date!</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Chapter</th>
+                        <th className="border px-2 py-1">Topic</th>
+                        <th className="border px-2 py-1">Lesson Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missedLessons.map((ml: any) => (
+                        <tr key={ml.id} className="bg-red-50">
+                          <td className="border px-2 py-1">{ml.lesson_plans?.subject}</td>
+                          <td className="border px-2 py-1">{ml.lesson_plans?.chapter}</td>
+                          <td className="border px-2 py-1">{ml.lesson_plans?.topic}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(ml.lesson_plans?.lesson_date, "PPP")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Missed Tests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" /> Missed Tests
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {missedTests.length === 0 ? (
+                <p className="text-muted-foreground">Student has taken all available tests.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Test Name</th>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Total Marks</th>
+                        <th className="border px-2 py-1">Test Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missedTests.map((mt) => (
+                        <tr key={mt.id} className="bg-orange-50">
+                          <td className="border px-2 py-1">{mt.name}</td>
+                          <td className="border px-2 py-1">{mt.subject}</td>
+                          <td className="border px-2 py-1">{mt.total_marks}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(mt.date, "PPP")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Homework Status */}
           <Card>
             <CardHeader>
