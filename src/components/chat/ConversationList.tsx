@@ -86,10 +86,10 @@ export default function ConversationList({
 
       setConversations(conversationsWithUnread);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('Error fetching conversations:', getErrorMessage(error));
       toast({
         title: 'Error',
-        description: 'Failed to load conversations',
+        description: `Failed to load conversations: ${getErrorMessage(error)}`,
         variant: 'destructive',
       });
     } finally {
