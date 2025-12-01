@@ -126,7 +126,7 @@ export default function ChatInterface({ conversationId, recipientName }: ChatInt
         .neq('sender_user_id', user?.id)
         .eq('is_read', false);
     } catch (error) {
-      console.error('Error marking messages as read:', error);
+      console.error('Error marking messages as read:', getErrorMessage(error));
     }
   };
 
