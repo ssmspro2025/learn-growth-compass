@@ -67,13 +67,15 @@ export default function ParentMessages() {
     setCreating(true);
     try {
       // Check if conversation already exists
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('chat_conversations')
         .select('id')
         .eq('center_id', user.center_id)
         .eq('parent_user_id', user.id)
         .eq('student_id', selectedStudentId)
-        .single();
+        .maybeSingle();
+
+      if (existingError) throw existingError;
 
       if (existing) {
         const student = students.find((s) => s.id === selectedStudentId);
