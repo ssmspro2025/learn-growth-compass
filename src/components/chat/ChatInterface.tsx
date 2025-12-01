@@ -65,10 +65,10 @@ export default function ChatInterface({ conversationId, recipientName }: ChatInt
       if (error) throw error;
       setMessages(data || []);
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('Error fetching messages:', getErrorMessage(error));
       toast({
         title: 'Error',
-        description: 'Failed to load messages',
+        description: `Failed to load messages: ${getErrorMessage(error)}`,
         variant: 'destructive',
       });
     } finally {
