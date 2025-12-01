@@ -62,6 +62,9 @@ export default function Tests() {
   const [resultDate, setResultDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [resultNotes, setResultNotes] = useState("");
 
+  // State for linking test to lesson plan
+  const [selectedLessonPlanId, setSelectedLessonPlanId] = useState<string>("");
+
   // Fetch tests
   const { data: tests = [] } = useQuery({
     queryKey: ["tests", user?.center_id],
