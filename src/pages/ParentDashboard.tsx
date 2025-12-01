@@ -149,11 +149,38 @@ const ParentDashboardContent = () => {
   const { data: lessonRecords = [] } = useQuery({
     queryKey: ['student-lesson-records', user.student_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('student_chapters').select('*, lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url)').eq('student_id', user.student_id).order('date_completed', { ascending: false });
+      const { data, error } = await supabase.from('student_chapters').select('*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)').eq('student_id', user.student_id).order('date_completed', { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  // Fetch missed lessons (incomplete chapters)
+  const { data: missedLessons = [] } = useQuery({
+    queryKey: ['student-missed-lessons', user.student_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('student_chapters').select('*, lesson_plans(id, subject, chapter, topic, lesson_date)').eq('student_id', user.student_id).eq('completed', false);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch all tests for this student's center to determine missed tests
+  const { data: allTests = [] } = useQuery({
+    queryKey: ['all-tests-for-missed', student?.center_id],
+    queryFn: async () => {
+      if (!student?.center_id) return [];
+      const { data, error } = await supabase.from('tests').select('id, name, subject, date, total_marks').eq('center_id', student.center_id).order('date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!student?.center_id,
+  });
+
+  // Missed tests = all tests - tests with results for this student
+  const missedTests = allTests.filter(test =>
+    !testResults.some(result => result.test_id === test.id)
+  );
 
   // Homework Records
   const { data: homeworkStatus = [] } = useQuery({
