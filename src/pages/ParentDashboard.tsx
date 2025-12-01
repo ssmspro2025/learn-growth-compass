@@ -615,6 +615,80 @@ const ParentDashboardContent = () => {
           </CardContent>
         </Card>
 
+        {/* MISSED LESSONS */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" /> Missed/Incomplete Lessons
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {missedLessons.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No missed lessons. Student is up-to-date!</p>
+            ) : (
+              <div className="overflow-x-auto max-h-64">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Chapter</TableHead>
+                      <TableHead>Topic</TableHead>
+                      <TableHead>Lesson Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {missedLessons.map((ml: any) => (
+                      <TableRow key={ml.id} className="bg-red-50">
+                        <TableCell>{ml.lesson_plans?.subject || '-'}</TableCell>
+                        <TableCell>{ml.lesson_plans?.chapter || '-'}</TableCell>
+                        <TableCell>{ml.lesson_plans?.topic || '-'}</TableCell>
+                        <TableCell>{safeFormatDate(ml.lesson_plans?.lesson_date, "PPP")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* MISSED TESTS */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Missed Tests
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {missedTests.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Student has taken all available tests.</p>
+            ) : (
+              <div className="overflow-x-auto max-h-64">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Test Name</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Total Marks</TableHead>
+                      <TableHead>Test Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {missedTests.map((mt) => (
+                      <TableRow key={mt.id} className="bg-orange-50">
+                        <TableCell>{mt.name || '-'}</TableCell>
+                        <TableCell>{mt.subject || '-'}</TableCell>
+                        <TableCell>{mt.total_marks || 0}</TableCell>
+                        <TableCell>{safeFormatDate(mt.date, "PPP")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
