@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Check } from 'lucide-react';
-import { Expense, ExpenseCategory } from '@/integrations/supabase/finance-types';
+import { Plus } from 'lucide-react';
+import { formatCurrency } from '@/integrations/supabase/finance-types';
+
+const EXPENSE_CATEGORIES = ['salaries', 'rent', 'utilities', 'materials', 'maintenance', 'transport', 'admin', 'other'];
 
 const ExpenseManagement = () => {
   const { user } = useAuth();
@@ -18,15 +20,12 @@ const ExpenseManagement = () => {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
 
   const [expenseForm, setExpenseForm] = useState({
-    expense_category: 'admin' as ExpenseCategory,
+    category: 'admin',
     description: '',
     amount: '',
-    payment_method: 'cash',
-    reference_number: '',
-    notes: ''
+    vendor: ''
   });
 
-  // Fetch expenses
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({
     queryKey: ['expenses', user?.center_id],
     queryFn: async () => {
@@ -37,12 +36,11 @@ const ExpenseManagement = () => {
         .order('expense_date', { ascending: false });
 
       if (error) throw error;
-      return data as Expense[];
+      return data;
     },
     enabled: !!user?.center_id
   });
 
-  // Create expense mutation
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!user?.center_id) throw new Error('Center ID not found');
@@ -51,15 +49,12 @@ const ExpenseManagement = () => {
         .from('expenses')
         .insert({
           center_id: user.center_id,
-          expense_category: expenseForm.expense_category,
+          category: expenseForm.category,
           description: expenseForm.description,
           amount: parseFloat(expenseForm.amount),
           expense_date: new Date().toISOString().split('T')[0],
-          payment_method: expenseForm.payment_method,
-          reference_number: expenseForm.reference_number || null,
-          notes: expenseForm.notes || null,
-          is_approved: false,
-          created_by_user_id: user.id
+          vendor: expenseForm.vendor || null,
+          created_by: user.id
         });
 
       if (error) throw error;
@@ -67,14 +62,7 @@ const ExpenseManagement = () => {
     onSuccess: () => {
       toast.success('Expense recorded successfully');
       setShowExpenseDialog(false);
-      setExpenseForm({
-        expense_category: 'admin',
-        description: '',
-        amount: '',
-        payment_method: 'cash',
-        reference_number: '',
-        notes: ''
-      });
+      setExpenseForm({ category: 'admin', description: '', amount: '', vendor: '' });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
     },
     onError: (error: any) => {
@@ -82,15 +70,8 @@ const ExpenseManagement = () => {
     }
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
-
-  const getCategoryColor = (category: ExpenseCategory) => {
-    const colors: Record<ExpenseCategory, string> = {
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
       salaries: 'bg-red-100 text-red-800',
       rent: 'bg-orange-100 text-orange-800',
       utilities: 'bg-yellow-100 text-yellow-800',
@@ -116,30 +97,23 @@ const ExpenseManagement = () => {
                   Record Expense
                 </Button>
               </DialogTrigger>
-              <DialogContent aria-labelledby="expense-record-title" aria-describedby="expense-record-description">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle id="expense-record-title">Record Expense</DialogTitle>
-                  <DialogDescription id="expense-record-description">
-                    Enter details for a new operating expense.
-                  </DialogDescription>
+                  <DialogTitle>Record Expense</DialogTitle>
+                  <DialogDescription>Enter details for a new expense.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="category">Category *</Label>
                     <select
                       id="category"
-                      value={expenseForm.expense_category}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, expense_category: e.target.value as ExpenseCategory })}
+                      value={expenseForm.category}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
                       className="w-full px-3 py-2 border rounded-md"
                     >
-                      <option value="salaries">Salaries</option>
-                      <option value="rent">Rent</option>
-                      <option value="utilities">Utilities</option>
-                      <option value="materials">Materials</option>
-                      <option value="maintenance">Maintenance</option>
-                      <option value="transport">Transport</option>
-                      <option value="admin">Admin</option>
-                      <option value="other">Other</option>
+                      {EXPENSE_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -163,36 +137,12 @@ const ExpenseManagement = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payment_method">Payment Method</Label>
-                    <select
-                      id="payment_method"
-                      value={expenseForm.payment_method}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, payment_method: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="card">Card</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ref_number">Reference Number</Label>
+                    <Label htmlFor="vendor">Vendor</Label>
                     <Input
-                      id="ref_number"
-                      value={expenseForm.reference_number}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, reference_number: e.target.value })}
-                      placeholder="e.g., CHQ-12345"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="exp_notes">Notes</Label>
-                    <Input
-                      id="exp_notes"
-                      value={expenseForm.notes}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
-                      placeholder="Additional notes"
+                      id="vendor"
+                      value={expenseForm.vendor}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+                      placeholder="Vendor name"
                     />
                   </div>
                   <Button
@@ -220,7 +170,7 @@ const ExpenseManagement = () => {
                   <TableHead>Category</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Vendor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,22 +178,13 @@ const ExpenseManagement = () => {
                   <TableRow key={expense.id}>
                     <TableCell className="font-medium">{expense.description}</TableCell>
                     <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(expense.expense_category)}`}>
-                        {expense.expense_category.replace('_', ' ')}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(expense.category)}`}>
+                        {expense.category}
                       </span>
                     </TableCell>
                     <TableCell>{formatCurrency(expense.amount)}</TableCell>
                     <TableCell>{new Date(expense.expense_date).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {expense.is_approved ? (
-                        <span className="text-green-600 flex items-center gap-1">
-                          <Check className="h-4 w-4" />
-                          Approved
-                        </span>
-                      ) : (
-                        <span className="text-orange-600">Pending</span>
-                      )}
-                    </TableCell>
+                    <TableCell>{expense.vendor || '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

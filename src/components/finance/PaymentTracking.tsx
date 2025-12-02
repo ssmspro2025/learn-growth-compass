@@ -10,11 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Check } from 'lucide-react';
-import { Payment, PaymentMethod, Invoice, LedgerEntry, ACCOUNT_CODES, getInvoiceStatus } from '@/integrations/supabase/finance-types';
-import { Tables, Database } from '@/integrations/supabase/types';
+import { Plus } from 'lucide-react';
+import { formatCurrency } from '@/integrations/supabase/finance-types';
 
-type Student = Tables<'students'>;
+const PAYMENT_METHODS = ['cash', 'cheque', 'bank_transfer', 'upi', 'card', 'other'];
 
 const PaymentTracking = () => {
   const { user } = useAuth();
@@ -22,45 +21,26 @@ const PaymentTracking = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const [paymentForm, setPaymentForm] = useState({
-    student_id: 'select-student', // Changed initial state
     invoice_id: '',
-    amount_paid: '',
-    payment_method: 'cash' as PaymentMethod,
-    reference_number: '',
-    notes: ''
+    amount: '',
+    payment_method: 'cash',
+    reference_number: ''
   });
 
-  // Fetch students for dropdown
-  const { data: students = [] } = useQuery({
-    queryKey: ['students-for-payments', user?.center_id],
+  // Fetch unpaid invoices
+  const { data: unpaidInvoices = [] } = useQuery({
+    queryKey: ['unpaid-invoices', user?.center_id],
     queryFn: async () => {
-      if (!user?.center_id) return [];
       const { data, error } = await supabase
-        .from('students')
-        .select('id, name, grade')
-        .eq('center_id', user.center_id)
-        .order('name');
+        .from('invoices')
+        .select('*, students(name)')
+        .eq('center_id', user?.center_id!)
+        .neq('status', 'paid')
+        .order('due_date');
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.center_id,
-  });
-
-  // Fetch invoices for selected student
-  const { data: studentInvoices = [] } = useQuery({
-    queryKey: ['student-invoices-for-payment', paymentForm.student_id],
-    queryFn: async () => {
-      if (!paymentForm.student_id || paymentForm.student_id === 'select-student') return []; // Added check for placeholder
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('student_id', paymentForm.student_id)
-        .in('status', ['issued', 'partial', 'overdue']) // Only show outstanding invoices
-        .order('due_date', { ascending: true });
-      if (error) throw error;
-      return data as Invoice[];
-    },
-    enabled: !!paymentForm.student_id && paymentForm.student_id !== 'select-student', // Enabled only if a real student is selected
+    enabled: !!user?.center_id
   });
 
   // Fetch payments
@@ -69,136 +49,54 @@ const PaymentTracking = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payments')
-        .select('*, students(name)')
-        .eq('center_id', user?.center_id!)
-        .order('payment_date', { ascending: false });
-
+        .select('*, invoices(invoice_number, students(name))')
+        .order('payment_date', { ascending: false })
+        .limit(50);
       if (error) throw error;
-      return data as (Payment & { students: { name: string } })[];
+      return data;
     },
     enabled: !!user?.center_id
   });
 
-  // Record payment mutation
   const recordPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.center_id || paymentForm.student_id === 'select-student' || !paymentForm.amount_paid) throw new Error('Please select a student and enter an amount.'); // Validation
+      if (!paymentForm.invoice_id || !paymentForm.amount) throw new Error('Please fill required fields');
 
-      const amountPaid = parseFloat(paymentForm.amount_paid);
-      if (isNaN(amountPaid) || amountPaid <= 0) throw new Error('Invalid amount paid');
+      const invoice = unpaidInvoices.find(i => i.id === paymentForm.invoice_id);
+      if (!invoice) throw new Error('Invoice not found');
 
-      // 1. Record the payment
-      const { data: newPayment, error: paymentError } = await supabase
+      // Create payment record
+      const { error: paymentError } = await supabase
         .from('payments')
         .insert({
-          center_id: user.center_id,
-          student_id: paymentForm.student_id,
-          invoice_id: paymentForm.invoice_id || null,
-          amount_paid: amountPaid,
-          payment_method: paymentForm.payment_method,
-          reference_number: paymentForm.reference_number || null,
-          notes: paymentForm.notes || null,
+          invoice_id: paymentForm.invoice_id,
+          amount: parseFloat(paymentForm.amount),
           payment_date: new Date().toISOString().split('T')[0],
-          received_by_user_id: user.id
-        })
-        .select()
-        .single();
-
+          payment_method: paymentForm.payment_method,
+          reference_number: paymentForm.reference_number || null
+        });
       if (paymentError) throw paymentError;
 
-      // 2. Update the associated invoice (if any)
-      if (paymentForm.invoice_id) {
-        const currentInvoice = studentInvoices.find(inv => inv.id === paymentForm.invoice_id);
-        if (currentInvoice) {
-          const updatedPaidAmount = currentInvoice.paid_amount + amountPaid;
-          const newStatus = getInvoiceStatus(currentInvoice.total_amount, updatedPaidAmount, currentInvoice.due_date);
-
-          const { error: invoiceUpdateError } = await supabase
-            .from('invoices')
-            .update({
-              paid_amount: updatedPaidAmount,
-              status: newStatus,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', paymentForm.invoice_id);
-
-          if (invoiceUpdateError) throw invoiceUpdateError;
-
-          // 3. Create ledger entries for payment and invoice update
-          const ledgerEntries: Database['public']['Tables']['ledger_entries']['Insert'][] = [
-            // Debit: Cash/Bank Account
-            {
-              center_id: user.center_id,
-              transaction_date: newPayment.payment_date,
-              transaction_type: 'payment_received',
-              reference_type: 'payment',
-              reference_id: newPayment.id,
-              account_code: ACCOUNT_CODES.ASSETS.CASH, // Assuming cash for simplicity, could be dynamic
-              account_name: 'Cash/Bank',
-              debit_amount: amountPaid,
-              credit_amount: 0,
-              description: `Payment received from student ${paymentForm.student_id} for invoice ${currentInvoice.invoice_number}`
-            },
-            // Credit: Accounts Receivable
-            {
-              center_id: user.center_id,
-              transaction_date: newPayment.payment_date,
-              transaction_type: 'payment_received',
-              reference_type: 'payment',
-              reference_id: newPayment.id,
-              account_code: ACCOUNT_CODES.ASSETS.RECEIVABLE,
-              account_name: 'Accounts Receivable',
-              debit_amount: 0,
-              credit_amount: amountPaid,
-              description: `Reduction in Accounts Receivable for invoice ${currentInvoice.invoice_number}`
-            }
-          ];
-
-          const { error: ledgerError } = await supabase.from('ledger_entries').insert(ledgerEntries);
-          if (ledgerError) throw ledgerError;
-        }
+      // Update invoice status if fully paid
+      const totalPaid = parseFloat(paymentForm.amount);
+      if (totalPaid >= invoice.total_amount) {
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', paymentForm.invoice_id);
+        if (updateError) throw updateError;
       }
     },
     onSuccess: () => {
       toast.success('Payment recorded successfully');
       setShowPaymentDialog(false);
-      setPaymentForm({
-        student_id: 'select-student', // Reset to default placeholder value
-        invoice_id: '',
-        amount_paid: '',
-        payment_method: 'cash',
-        reference_number: '',
-        notes: ''
-      });
+      setPaymentForm({ invoice_id: '', amount: '', payment_method: 'cash', reference_number: '' });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] }); // Invalidate invoices to reflect status change
-      queryClient.invalidateQueries({ queryKey: ['financial-summary'] }); // Invalidate summary
+      queryClient.invalidateQueries({ queryKey: ['unpaid-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to record payment');
-    }
+    onError: (error: any) => toast.error(error.message || 'Failed to record payment')
   });
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
-
-  const getPaymentMethodIcon = (method: PaymentMethod) => {
-    const icons: Record<PaymentMethod, string> = {
-      cash: '💵',
-      cheque: ' cheques',
-      bank_transfer: '🏦',
-      upi: '📱',
-      card: '💳',
-      wallet: '👛',
-      other: '📄',
-      manual_adjustment: '📝' // Added missing entry
-    };
-    return icons[method] || '📄';
-  };
 
   return (
     <div className="space-y-6">
@@ -208,106 +106,47 @@ const PaymentTracking = () => {
             <CardTitle>Payment Records</CardTitle>
             <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Record Payment
-                </Button>
+                <Button><Plus className="h-4 w-4 mr-2" />Record Payment</Button>
               </DialogTrigger>
-              <DialogContent aria-labelledby="payment-record-title" aria-describedby="payment-record-description">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle id="payment-record-title">Record Payment</DialogTitle>
-                  <DialogDescription id="payment-record-description">
-                    Enter details for a payment received from a student.
-                  </DialogDescription>
+                  <DialogTitle>Record Payment</DialogTitle>
+                  <DialogDescription>Enter payment details.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="student">Student *</Label>
-                    <Select value={paymentForm.student_id} onValueChange={(value) => setPaymentForm({ ...paymentForm, student_id: value, invoice_id: '' })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Student" />
-                      </SelectTrigger>
+                    <Label>Invoice *</Label>
+                    <Select value={paymentForm.invoice_id} onValueChange={(v) => setPaymentForm({ ...paymentForm, invoice_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select Invoice" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="select-student" disabled>Select Student</SelectItem> {/* Added placeholder item */}
-                        {students.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name} - {s.grade}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="invoice">Allocate to Invoice (Optional)</Label>
-                    <Select value={paymentForm.invoice_id || "none"} onValueChange={(value) => setPaymentForm({ ...paymentForm, invoice_id: value === "none" ? null : value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Invoice" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Do not allocate</SelectItem>
-                        {studentInvoices.map((inv) => (
+                        {unpaidInvoices.map((inv) => (
                           <SelectItem key={inv.id} value={inv.id}>
-                            {inv.invoice_number} (Outstanding: {formatCurrency(inv.total_amount - inv.paid_amount)})
+                            {inv.invoice_number} - {(inv as any).students?.name} ({formatCurrency(inv.total_amount)})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="amount">Amount (₹) *</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      value={paymentForm.amount_paid}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, amount_paid: e.target.value })}
-                      placeholder="0.00"
-                    />
+                    <Label>Amount (₹) *</Label>
+                    <Input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="method">Payment Method *</Label>
-                    <Select
-                      value={paymentForm.payment_method}
-                      onValueChange={(value: PaymentMethod) => setPaymentForm({ ...paymentForm, payment_method: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Method" />
-                      </SelectTrigger>
+                    <Label>Payment Method</Label>
+                    <Select value={paymentForm.payment_method} onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="cheque">Cheque</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                        <SelectItem value="upi">UPI</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                        <SelectItem value="wallet">Wallet</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                        <SelectItem value="manual_adjustment">Manual Adjustment</SelectItem>
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m} value={m}>{m.replace('_', ' ').toUpperCase()}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reference">Reference Number</Label>
-                    <Input
-                      id="reference"
-                      value={paymentForm.reference_number}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, reference_number: e.target.value })}
-                      placeholder="e.g., CHQ-12345"
-                    />
+                    <Label>Reference Number</Label>
+                    <Input value={paymentForm.reference_number} onChange={(e) => setPaymentForm({ ...paymentForm, reference_number: e.target.value })} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notes</Label>
-                    <Input
-                      id="notes"
-                      value={paymentForm.notes}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-                      placeholder="Additional notes"
-                    />
-                  </div>
-                  <Button
-                    onClick={() => recordPaymentMutation.mutate()}
-                    disabled={paymentForm.student_id === "select-student" || !paymentForm.amount_paid || recordPaymentMutation.isPending}
-                    className="w-full"
-                  >
+                  <Button onClick={() => recordPaymentMutation.mutate()} disabled={!paymentForm.invoice_id || !paymentForm.amount || recordPaymentMutation.isPending} className="w-full">
                     {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
                   </Button>
                 </div>
@@ -324,6 +163,7 @@ const PaymentTracking = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Invoice</TableHead>
                   <TableHead>Student</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
@@ -334,9 +174,10 @@ const PaymentTracking = () => {
               <TableBody>
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.students?.name || 'N/A'}</TableCell>
-                    <TableCell>{formatCurrency(payment.amount_paid)}</TableCell>
-                    <TableCell>{getPaymentMethodIcon(payment.payment_method)} {payment.payment_method}</TableCell>
+                    <TableCell className="font-medium">{(payment as any).invoices?.invoice_number || '-'}</TableCell>
+                    <TableCell>{(payment as any).invoices?.students?.name || '-'}</TableCell>
+                    <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                    <TableCell>{payment.payment_method?.replace('_', ' ') || '-'}</TableCell>
                     <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
                     <TableCell>{payment.reference_number || '-'}</TableCell>
                   </TableRow>
