@@ -21,6 +21,7 @@ const TEACHER_FEATURES = [
   { name: 'discipline_issues', label: 'Discipline Issues' },
   { name: 'test_management', label: 'Test Management' },
   { name: 'student_report_access', label: 'Student Report Access' },
+  { name: 'meetings_management', label: 'Meetings Management' }, // NEW
 ];
 
 export default function TeacherFeaturePermissions({ teacherId, teacherName }: { teacherId: string; teacherName: string }) {

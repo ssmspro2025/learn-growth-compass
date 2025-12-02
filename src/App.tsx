@@ -8,7 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import CenterLayout from "./components/CenterLayout";
 import AdminLayout from "./components/AdminLayout";
 import ParentLayout from "./components/ParentLayout";
-import TeacherLayout from "./components/TeacherLayout"; // NEW
+import TeacherLayout from "./components/TeacherLayout";
 import Dashboard from "./pages/Dashboard";
 import RegisterStudent from "./pages/RegisterStudent";
 import TakeAttendance from "./pages/TakeAttendance";
@@ -35,7 +35,10 @@ import ParentFinanceDashboard from "./pages/ParentFinanceDashboard";
 import ParentHomework from "./pages/ParentHomework";
 import ParentActivities from "./pages/ParentActivities";
 import ParentDiscipline from "./pages/ParentDiscipline";
-import TeacherDashboard from "./pages/TeacherDashboard"; // NEW
+import ParentMeetings from "./pages/ParentMeetings"; // NEW
+import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherMeetings from "./pages/TeacherMeetings"; // NEW
+import MeetingManagement from "./pages/MeetingManagement"; // NEW
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/admin/Settings";
@@ -64,6 +67,7 @@ const App = () => (
             <Route path="/parent-homework" element={<ProtectedRoute role="parent"><ParentLayout><ParentHomework /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-activities" element={<ProtectedRoute role="parent"><ParentLayout><ParentActivities /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-discipline" element={<ProtectedRoute role="parent"><ParentLayout><ParentDiscipline /></ParentLayout></ProtectedRoute>} />
+            <Route path="/parent-meetings" element={<ProtectedRoute role="parent"><ParentLayout><ParentMeetings /></ParentLayout></ProtectedRoute>} /> {/* NEW */}
 
             {/* Teacher Routes */}
             <Route path="/teacher-dashboard" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherDashboard /></TeacherLayout></ProtectedRoute>} />
@@ -74,6 +78,7 @@ const App = () => (
             <Route path="/teacher/discipline-issues" element={<ProtectedRoute role="teacher"><TeacherLayout><DisciplineIssues /></TeacherLayout></ProtectedRoute>} />
             <Route path="/teacher/test-management" element={<ProtectedRoute role="teacher"><TeacherLayout><Tests /></TeacherLayout></ProtectedRoute>} />
             <Route path="/teacher/student-report" element={<ProtectedRoute role="teacher"><TeacherLayout><StudentReport /></TeacherLayout></ProtectedRoute>} />
+            <Route path="/teacher-meetings" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherMeetings /></TeacherLayout></ProtectedRoute>} /> {/* NEW */}
 
             {/* Center Routes */}
             <Route path="/" element={<ProtectedRoute role="center"><CenterLayout><Dashboard /></CenterLayout></ProtectedRoute>} />
@@ -93,6 +98,7 @@ const App = () => (
             <Route path="/records" element={<ProtectedRoute role="center"><CenterLayout><ViewRecords /></CenterLayout></ProtectedRoute>} />
             <Route path="/summary" element={<ProtectedRoute role="center"><CenterLayout><Summary /></CenterLayout></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute role="center"><CenterLayout><AdminFinance /></CenterLayout></ProtectedRoute>} />
+            <Route path="/meetings" element={<ProtectedRoute role="center"><CenterLayout><MeetingManagement /></CenterLayout></ProtectedRoute>} /> {/* NEW */}
 
             {/* Admin Routes */}
             <Route path="/admin-dashboard" element={<ProtectedRoute role="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />

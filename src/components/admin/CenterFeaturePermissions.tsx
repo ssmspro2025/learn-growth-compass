@@ -29,6 +29,7 @@ const FEATURES = [
   { name: 'view_records', label: 'View Records' },
   { name: 'summary', label: 'Summary' },
   { name: 'finance', label: 'Finance Management' },
+  { name: 'meetings_management', label: 'Meetings Management' }, // NEW
 ];
 
 export default function CenterFeaturePermissions() {
