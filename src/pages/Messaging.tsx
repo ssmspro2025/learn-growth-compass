@@ -27,6 +27,10 @@ export default function Messaging() {
   const [broadcastTargetAudience, setBroadcastTargetAudience] = useState("all_parents");
   const [broadcastTargetGrade, setBroadcastTargetGrade] = useState("all");
 
+  // New states for filtering students in 'Start new conversation'
+  const [newConversationGradeFilter, setNewConversationGradeFilter] = useState("all");
+  const [newConversationStudentSearch, setNewConversationStudentSearch] = useState("");
+
   // Fetch all conversations for center users
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ["chat-conversations", user?.center_id],
@@ -171,6 +175,12 @@ export default function Messaging() {
     enabled: !!user?.center_id && user?.role === "center",
   });
 
+  // Filtered students for starting new conversations
+  const filteredStudentsForNewConversation = studentsWithParents.filter(s => 
+    (newConversationGradeFilter === "all" || s.grade === newConversationGradeFilter) &&
+    (s.name.toLowerCase().includes(newConversationStudentSearch.toLowerCase()))
+  );
+
   const createConversationMutation = useMutation({
     mutationFn: async (studentData: any) => {
       if (!user?.center_id) throw new Error("Center ID not found");
@@ -286,9 +296,27 @@ export default function Messaging() {
                   {user?.role === "center" && studentsWithParents.length > 0 && (
                     <div className="mb-4 p-2 border-b">
                       <p className="text-sm text-muted-foreground mb-2">Start new conversation:</p>
-                      {studentsWithParents
+                      <div className="flex flex-col gap-2 mb-3">
+                        <Select value={newConversationGradeFilter} onValueChange={setNewConversationGradeFilter}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Filter by Grade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Grades</SelectItem>
+                            {uniqueGrades.map((g) => (
+                              <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Search student name..."
+                          value={newConversationStudentSearch}
+                          onChange={(e) => setNewConversationStudentSearch(e.target.value)}
+                        />
+                      </div>
+                      {filteredStudentsForNewConversation
                         .filter(s => !activeConversations.some((c: any) => c.student_id === s.id))
-                        .slice(0, 5)
+                        .slice(0, 5) // Limit to 5 suggestions
                         .map((student: any) => (
                           <Button
                             key={student.id}
@@ -300,6 +328,9 @@ export default function Messaging() {
                             + {student.name} ({student.grade})
                           </Button>
                         ))}
+                        {filteredStudentsForNewConversation.filter(s => !activeConversations.some((c: any) => c.student_id === s.id)).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center">No students found to start a new conversation.</p>
+                        )}
                     </div>
                   )}
 
