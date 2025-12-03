@@ -58,6 +58,7 @@ export default function LessonTracking() {
       if (error) throw error;
       return data || [];
     },
+    enabled: !!user?.center_id, // Ensure this is enabled for center users
   });
 
   // Fetch lesson plans for dropdown and listing
@@ -76,7 +77,7 @@ export default function LessonTracking() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.center_id,
+    enabled: !!user?.center_id, // Ensure this is enabled for center users
   });
 
   // Fetch student_chapters (now linked to lesson_plans)
@@ -100,7 +101,8 @@ export default function LessonTracking() {
       const { data, error } = await query.order("completed_at", { ascending: false });
       if (error) throw error;
 
-      return data;
+      // Filter out records where student or lesson_plan data might be missing
+      return data?.filter((d: any) => d.students && d.lesson_plans) || [];
     },
     enabled: !!user?.center_id,
   });
@@ -149,18 +151,17 @@ export default function LessonTracking() {
       if (!user?.center_id || selectedLessonPlanId === "none" || selectedStudentIds.length === 0) {
         throw new Error("Select a lesson plan and at least one student.");
       }
-      if (!user?.teacher_id) {
-        throw new Error("Only teachers can record lessons.");
-      }
+      // Allow center users to record. If user.role is 'center', user.teacher_id will be null,
+      // which is fine for the nullable recorded_by_teacher_id foreign key.
+      // No explicit check for user.role === 'teacher' is needed here.
 
-      // Link lesson plan to selected students via student_chapters table
       const studentLessonRecordsToInsert = selectedStudentIds.map((studentId) => ({
         student_id: studentId,
         lesson_plan_id: selectedLessonPlanId,
         completed: true,
         completed_at: date,
         notes: generalLessonNotes || null, // Use generalLessonNotes
-        recorded_by_teacher_id: user.teacher_id, // Record the teacher who assigned the lesson
+        recorded_by_teacher_id: user.teacher_id || null, // Set to null if not a teacher
       }));
 
       const { error: linkError } = await supabase.from("student_chapters").insert(studentLessonRecordsToInsert);
