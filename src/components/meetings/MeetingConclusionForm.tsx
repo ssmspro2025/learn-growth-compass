@@ -49,7 +49,7 @@ export default function MeetingConclusionForm({ meetingId, onSave, onClose }: Me
   const upsertConclusionMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("User ID not found");
-      const payload: Tables<'meeting_conclusions'>['Insert'] = {
+      const payload = {
         meeting_id: meetingId,
         conclusion_notes: conclusionNotes,
         recorded_by: user.id,

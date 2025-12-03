@@ -38,7 +38,9 @@ import ParentDiscipline from "./pages/ParentDiscipline";
 import ParentMeetings from "./pages/ParentMeetings"; // NEW
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherMeetings from "./pages/TeacherMeetings"; // NEW
-import MeetingManagement from "./pages/MeetingManagement"; // NEW
+import MeetingManagement from "./pages/MeetingManagement";
+import Messages from "./pages/Messages";
+import Timetable from "./pages/Timetable";
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/admin/Settings";
@@ -98,7 +100,9 @@ const App = () => (
             <Route path="/records" element={<ProtectedRoute role="center"><CenterLayout><ViewRecords /></CenterLayout></ProtectedRoute>} />
             <Route path="/summary" element={<ProtectedRoute role="center"><CenterLayout><Summary /></CenterLayout></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute role="center"><CenterLayout><AdminFinance /></CenterLayout></ProtectedRoute>} />
-            <Route path="/meetings" element={<ProtectedRoute role="center"><CenterLayout><MeetingManagement /></CenterLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/meetings" element={<ProtectedRoute role="center"><CenterLayout><MeetingManagement /></CenterLayout></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute role="center"><CenterLayout><Messages /></CenterLayout></ProtectedRoute>} />
+            <Route path="/timetable" element={<ProtectedRoute role="center"><CenterLayout><Timetable /></CenterLayout></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin-dashboard" element={<ProtectedRoute role="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />

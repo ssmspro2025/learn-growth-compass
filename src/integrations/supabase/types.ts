@@ -427,6 +427,151 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          center_id: string
+          created_at: string | null
+          id: string
+          parent_user_id: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string | null
+          id?: string
+          parent_user_id: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string | null
+          id?: string
+          parent_user_id?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_conversations_parent_user_id_fkey"
+            columns: ["parent_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_conversations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_conversations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_outstanding"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message_text: string
+          read_at: string | null
+          sender_user_id: string
+          sent_at: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message_text: string
+          read_at?: string | null
+          sender_user_id: string
+          sent_at?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message_text?: string
+          read_at?: string | null
+          sender_user_id?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_periods: {
+        Row: {
+          center_id: string
+          created_at: string | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          period_number: number
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          period_number: number
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          period_number?: number
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_periods_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discipline_actions: {
         Row: {
           action_date: string
@@ -1499,7 +1644,7 @@ export type Database = {
       }
       meeting_attendees: {
         Row: {
-          attendance_status: Database["public"]["Enums"]["attendance_status"]
+          attendance_status: string
           created_at: string | null
           id: string
           meeting_id: string
@@ -1510,7 +1655,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          attendance_status?: string
           created_at?: string | null
           id?: string
           meeting_id: string
@@ -1521,7 +1666,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          attendance_status?: string
           created_at?: string | null
           id?: string
           meeting_id?: string
@@ -1547,6 +1692,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_attendees_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_outstanding"
+            referencedColumns: ["student_id"]
+          },
+          {
             foreignKeyName: "meeting_attendees_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
@@ -1565,29 +1717,26 @@ export type Database = {
       meeting_conclusions: {
         Row: {
           conclusion_notes: string
-          created_at: string | null
           id: string
           meeting_id: string
-          recorded_by: string
           recorded_at: string | null
+          recorded_by: string
           updated_at: string | null
         }
         Insert: {
           conclusion_notes: string
-          created_at?: string | null
           id?: string
           meeting_id: string
-          recorded_by: string
           recorded_at?: string | null
+          recorded_by: string
           updated_at?: string | null
         }
         Update: {
           conclusion_notes?: string
-          created_at?: string | null
           id?: string
           meeting_id?: string
-          recorded_by?: string
           recorded_at?: string | null
+          recorded_by?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -1616,8 +1765,8 @@ export type Database = {
           id: string
           meeting_date: string
           meeting_time: string
-          meeting_type: Database["public"]["Enums"]["meeting_type"]
-          status: Database["public"]["Enums"]["meeting_status"]
+          meeting_type: string
+          status: string
           title: string
           updated_at: string | null
         }
@@ -1629,8 +1778,8 @@ export type Database = {
           id?: string
           meeting_date: string
           meeting_time: string
-          meeting_type: Database["public"]["Enums"]["meeting_type"]
-          status?: Database["public"]["Enums"]["meeting_status"]
+          meeting_type: string
+          status?: string
           title: string
           updated_at?: string | null
         }
@@ -1642,8 +1791,8 @@ export type Database = {
           id?: string
           meeting_date?: string
           meeting_time?: string
-          meeting_type?: Database["public"]["Enums"]["meeting_type"]
-          status?: Database["public"]["Enums"]["meeting_status"]
+          meeting_type?: string
+          status?: string
           title?: string
           updated_at?: string | null
         }
@@ -1661,6 +1810,87 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          attachment_type: string | null
+          attachment_url: string | null
+          center_id: string
+          created_at: string | null
+          id: string
+          is_read_by_receiver: boolean
+          is_read_by_sender: boolean
+          message_text: string | null
+          receiver_id: string
+          sender_id: string
+          status: Database["public"]["Enums"]["chat_message_status"]
+          student_id: string | null
+        }
+        Insert: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          center_id: string
+          created_at?: string | null
+          id?: string
+          is_read_by_receiver?: boolean
+          is_read_by_sender?: boolean
+          message_text?: string | null
+          receiver_id: string
+          sender_id: string
+          status?: Database["public"]["Enums"]["chat_message_status"]
+          student_id?: string | null
+        }
+        Update: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          center_id?: string
+          created_at?: string | null
+          id?: string
+          is_read_by_receiver?: boolean
+          is_read_by_sender?: boolean
+          message_text?: string | null
+          receiver_id?: string
+          sender_id?: string
+          status?: Database["public"]["Enums"]["chat_message_status"]
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_outstanding"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -1781,6 +2011,64 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_student_outstanding"
             referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      period_schedules: {
+        Row: {
+          center_id: string
+          class_period_id: string
+          created_at: string | null
+          day_of_week: number
+          grade: string
+          id: string
+          subject: string
+          teacher_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          class_period_id: string
+          created_at?: string | null
+          day_of_week: number
+          grade: string
+          id?: string
+          subject: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          class_period_id?: string
+          created_at?: string | null
+          day_of_week?: number
+          grade?: string
+          id?: string
+          subject?: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_schedules_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_schedules_class_period_id_fkey"
+            columns: ["class_period_id"]
+            isOneToOne: false
+            referencedRelation: "class_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_schedules_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2563,9 +2851,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "center" | "parent" | "teacher"
-      attendance_status: "pending" | "present" | "absent" | "excused"
-      meeting_status: "scheduled" | "completed" | "cancelled"
-      meeting_type: "parents" | "teachers" | "both"
+      chat_message_status: "sent" | "delivered" | "seen"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2694,9 +2980,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "center", "parent", "teacher"],
-      attendance_status: ["pending", "present", "absent", "excused"],
-      meeting_status: ["scheduled", "completed", "cancelled"],
-      meeting_type: ["parents", "teachers", "both"],
+      chat_message_status: ["sent", "delivered", "seen"],
     },
   },
 } as const
