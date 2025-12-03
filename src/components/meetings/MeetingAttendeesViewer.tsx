@@ -28,20 +28,14 @@ export default function MeetingAttendeesViewer({ meetingId }: MeetingAttendeesVi
     enabled: !!meetingId,
   });
 
-  const getStatusVariant = (status: string | null) => {
-    switch (status) {
-      case "present": return "default";
-      case "absent": return "destructive";
-      case "excused": return "secondary";
-      default: return "outline";
-    }
-  };
-
+  // Updated to include 'invite' and 'pending'
   const getStatusColorClass = (status: string | null) => {
     switch (status) {
       case "present": return "bg-green-100 text-green-800";
       case "absent": return "bg-red-100 text-red-800";
       case "excused": return "bg-yellow-100 text-yellow-800";
+      case "invite": return "bg-blue-100 text-blue-800"; // New color for invite
+      case "pending": return "bg-gray-100 text-gray-800"; // Color for pending
       default: return "bg-gray-100 text-gray-800";
     }
   };

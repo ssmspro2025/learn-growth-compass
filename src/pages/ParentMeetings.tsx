@@ -55,10 +55,16 @@ export default function ParentMeetings() {
     }
   };
 
-  const getAttendanceStatusColor = (attended: boolean | null) => {
-    if (attended === true) return 'text-green-600';
-    if (attended === false) return 'text-red-600';
-    return 'text-gray-600';
+  // Updated to use attendance_status directly
+  const getAttendanceStatusColor = (status: MeetingAttendee['attendance_status']) => {
+    switch (status) {
+      case 'present': return 'text-green-600';
+      case 'absent': return 'text-red-600';
+      case 'excused': return 'text-yellow-600';
+      case 'invite': return 'text-blue-600'; // New color for invite
+      case 'pending': return 'text-gray-660'; // Color for pending
+      default: return 'text-gray-600';
+    }
   };
 
   const handleViewConclusion = (conclusion: MeetingConclusion) => {
@@ -113,8 +119,8 @@ export default function ParentMeetings() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span className={`font-semibold ${getAttendanceStatusColor(attendee.attended)}`}>
-                            {attendee.attended === true ? 'Present' : attendee.attended === false ? 'Absent' : 'Pending'}
+                          <span className={`font-semibold ${getAttendanceStatusColor(attendee.attendance_status)}`}>
+                            {attendee.attendance_status ? attendee.attendance_status.charAt(0).toUpperCase() + attendee.attendance_status.slice(1) : 'Pending'}
                           </span>
                         </TableCell>
                         <TableCell>
