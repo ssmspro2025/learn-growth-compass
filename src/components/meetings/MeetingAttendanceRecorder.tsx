@@ -135,12 +135,13 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
   const updateAttendanceMutation = useMutation({
     mutationFn: async () => {
-      const updates: any[] = [];
+      const recordsToInsert: Tables<'meeting_attendees'>['Insert'][] = [];
+      const recordsToUpdate: Tables<'meeting_attendees'>['Update'][] = [];
       
       for (const participant of participants) {
         const participantId = participant.id;
         const attendance_status = attendeeStatuses[participantId] ?? "pending";
-        const attended = attendance_status === "present"; // Only 'present' counts as attended
+        const attended = attendance_status === "present";
         
         const existingRecord = existingAttendees.find((ea: any) => 
           (ea.student_id === participantId && (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general')) ||
@@ -151,29 +152,37 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           meeting_id: meetingId,
           attended,
           attendance_status,
-          notes: null, // Add notes if needed in the future
+          notes: null,
         };
 
         if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
           Object.assign(baseRecord, { student_id: participantId, user_id: existingRecord?.user_id || null, teacher_id: null });
         } else if (meetingDetails?.meeting_type === 'teachers') {
-          // For teachers, participant.id is the teacher_id, we need to find the corresponding user_id
           const teacherUser = allTeachers.find(t => t.id === participantId);
           Object.assign(baseRecord, { teacher_id: participantId, user_id: teacherUser?.user_id || null, student_id: null });
         }
 
         if (existingRecord) {
-          updates.push({ 
-            id: existingRecord.id, 
-            ...baseRecord 
-          });
+          // For update, we need the ID of the existing record
+          recordsToUpdate.push({ id: existingRecord.id, ...baseRecord });
         } else {
-          updates.push(baseRecord);
+          // For insert, we just need the new record data
+          recordsToInsert.push(baseRecord);
         }
       }
 
-      const { error } = await supabase.from("meeting_attendees").upsert(updates, { onConflict: 'meeting_id, student_id, teacher_id, user_id' });
-      if (error) throw error;
+      // Perform inserts
+      if (recordsToInsert.length > 0) {
+        const { error: insertError } = await supabase.from("meeting_attendees").insert(recordsToInsert);
+        if (insertError) throw insertError;
+      }
+
+      // Perform updates
+      if (recordsToUpdate.length > 0) {
+        // Use upsert with 'id' for updates, as 'id' is the primary key
+        const { error: updateError } = await supabase.from("meeting_attendees").upsert(recordsToUpdate, { onConflict: 'id' });
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting-attendees", meetingId] });
