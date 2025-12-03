@@ -235,7 +235,7 @@ export default function ClassRoutine() {
     setSchedulePeriodId("");
     setScheduleDay("");
     setScheduleSubject("");
-    setScheduleTeacherId("");
+    setScheduleTeacherId("none");
     setEditingSchedule(null);
   };
 
