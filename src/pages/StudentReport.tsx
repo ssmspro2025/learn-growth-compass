@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, Printer, DollarSign, BookOpen, Book, Paintbrush, AlertTriangle, FileText, CheckCircle, XCircle, Clock, Star, User } from "lucide-react";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subYears } from "date-fns"; // Added subYears
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
 import { Invoice, Payment } from "@/integrations/supabase/finance-types";
@@ -25,7 +25,7 @@ export default function StudentReport() {
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>("none"); // Changed initial state to "none"
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: startOfMonth(new Date()),
+    from: subYears(new Date(), 1), // Default to last year
     to: endOfMonth(new Date()),
   });
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
@@ -146,10 +146,11 @@ export default function StudentReport() {
   });
 
   // Fetch finance data
-  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+  const { data: invoices = [] } = useQuery({
     queryKey: ["student-invoices-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
+      console.log("Fetching invoices for student:", selectedStudentId, "from:", safeFormatDate(dateRange.from, "yyyy-MM-dd"), "to:", safeFormatDate(dateRange.to, "yyyy-MM-dd")); // Added explicit log
       const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
         .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
@@ -160,7 +161,7 @@ export default function StudentReport() {
     enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+  const { data: payments = [] } = useQuery({
     queryKey: ["student-payments-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
