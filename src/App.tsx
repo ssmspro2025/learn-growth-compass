@@ -87,6 +87,8 @@ const App = () => (
             <Route path="/teacher/test-management" element={<ProtectedRoute role="teacher"><TeacherLayout><Tests /></TeacherLayout></ProtectedRoute>} />
             <Route path="/teacher/student-report" element={<ProtectedRoute role="teacher"><TeacherLayout><StudentReport /></TeacherLayout></ProtectedRoute>} />
             <Route path="/teacher-meetings" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherMeetings /></TeacherLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/teacher-messages" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherMessages /></TeacherLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/teacher-timetable" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherTimetable /></TeacherLayout></ProtectedRoute>} /> {/* NEW */}
 
             {/* Center Routes */}
             <Route path="/" element={<ProtectedRoute role="center"><CenterLayout><Dashboard /></CenterLayout></ProtectedRoute>} />
