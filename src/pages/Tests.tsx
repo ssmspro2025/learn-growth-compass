@@ -204,15 +204,23 @@ export default function Tests() {
     mutationFn: async () => {
       const totalMarksObtainedFromQuestions = questionMarks.reduce((sum, qm) => sum + qm.marksObtained, 0);
 
-      const { data, error } = await supabase.from("test_results").insert({
+      const resultData = {
         test_id: selectedTest,
         student_id: selectedStudentId,
-        marks_obtained: totalMarksObtainedFromQuestions, // Use sum of question marks
+        marks_obtained: questions.length > 0 ? totalMarksObtainedFromQuestions : parseInt(marksObtained), // Use sum of question marks or overall marks
         date_taken: resultDate,
         notes: resultNotes || null,
-        question_marks: questionMarks.length > 0 ? (questionMarks as any) : null, // Save question-wise marks as Json
-      });
-      if (error) throw error;
+        question_marks: questions.length > 0 ? (questionMarks as any) : null, // Save question-wise marks as Json
+      };
+
+      console.log("Attempting to save test result with data:", resultData);
+
+      const { data, error } = await supabase.from("test_results").insert(resultData);
+      if (error) {
+        console.error("Supabase error saving test result:", error);
+        throw error;
+      }
+      console.log("Test result saved successfully:", data);
       return data;
     },
     onSuccess: () => {
@@ -225,10 +233,11 @@ export default function Tests() {
       setResultNotes("");
     },
     onError: (error: any) => {
+      console.error("Error in addResultMutation:", error);
       if (error.code === "23505") {
-        toast.error("Marks already recorded for this student");
+        toast.error("Marks already recorded for this student for this test.");
       } else {
-        toast.error("Failed to record marks");
+        toast.error(error.message || "Failed to record marks");
       }
     },
   });
@@ -236,6 +245,22 @@ export default function Tests() {
   // Bulk marks entry mutation
   const bulkMarksMutation = useMutation({
     mutationFn: async (marks: Array<{ studentId: string; marks: number }>) => {
+      console.log("Attempting bulk marks save for test:", selectedTest, "with marks:", marks);
+
+      // Delete existing records for these students in this test to prevent unique constraint errors
+      const studentIdsInBatch = marks.map((m) => m.studentId);
+      const { error: deleteError } = await supabase
+        .from("test_results")
+        .delete()
+        .eq("test_id", selectedTest)
+        .in("student_id", studentIdsInBatch);
+
+      if (deleteError) {
+        console.error("Supabase error deleting existing bulk marks:", deleteError);
+        throw deleteError;
+      }
+      console.log("Existing bulk marks deleted for selected students.");
+
       const records = marks.map((m) => ({
         test_id: selectedTest,
         student_id: m.studentId,
@@ -244,21 +269,21 @@ export default function Tests() {
         question_marks: null, // Bulk entry doesn't support question-wise for now
       }));
 
-      await supabase
-        .from("test_results")
-        .delete()
-        .eq("test_id", selectedTest)
-        .in("student_id", marks.map((m) => m.studentId));
-
+      console.log("Inserting new bulk marks records:", records);
       const { error } = await supabase.from("test_results").insert(records);
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error inserting bulk marks:", error);
+        throw error;
+      }
+      console.log("Bulk marks saved successfully.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["test-results"] });
       toast.success("Bulk marks saved successfully");
     },
-    onError: () => {
-      toast.error("Failed to save bulk marks");
+    onError: (error: any) => {
+      console.error("Error in bulkMarksMutation:", error);
+      toast.error(error.message || "Failed to save bulk marks");
     },
   });
 
