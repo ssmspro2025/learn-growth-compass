@@ -15,7 +15,8 @@ import { Tables } from "@/integrations/supabase/types";
 import MeetingForm from "@/components/meetings/MeetingForm";
 import MeetingAttendanceRecorder from "@/components/meetings/MeetingAttendanceRecorder";
 import MeetingConclusionForm from "@/components/meetings/MeetingConclusionForm";
-import MeetingConclusionViewer from "@/components/meetings/MeetingConclusionViewer"; // Import the new viewer
+import MeetingConclusionViewer from "@/components/meetings/MeetingConclusionViewer";
+import MeetingAttendeesViewer from "@/components/meetings/MeetingAttendeesViewer"; // Import the new viewer
 
 type Meeting = Tables<'meetings'>;
 type MeetingConclusion = Tables<'meeting_conclusions'>;
@@ -29,7 +30,7 @@ export default function MeetingManagement() {
   const [showAttendanceDialog, setShowAttendanceDialog] = useState(false);
   const [selectedMeetingForAttendance, setSelectedMeetingForAttendance] = useState<Meeting | null>(null);
   const [showConclusionDialog, setShowConclusionDialog] = useState(false);
-  const [selectedMeetingForConclusion, setSelectedMeetingForConclusion] = useState<Meeting & { meeting_conclusions: MeetingConclusion[] } | null>(null); // Update type to include conclusions
+  const [selectedMeetingForConclusion, setSelectedMeetingForConclusion] = useState<Meeting & { meeting_conclusions: MeetingConclusion[] } | null>(null);
 
   // Fetch meetings for the current center
   const { data: meetings = [], isLoading } = useQuery({
@@ -38,7 +39,7 @@ export default function MeetingManagement() {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("meetings")
-        .select("*, meeting_conclusions(conclusion_notes, recorded_at)") // Fetch conclusion_notes and recorded_at
+        .select("*, meeting_conclusions(conclusion_notes, recorded_at)")
         .eq("center_id", user.center_id)
         .order("meeting_date", { ascending: false });
       if (error) throw error;
@@ -91,7 +92,7 @@ export default function MeetingManagement() {
         <h1 className="text-3xl font-bold">Meeting Management</h1>
         <Dialog open={showMeetingFormDialog} onOpenChange={(open) => {
           setShowMeetingFormDialog(open);
-          if (!open) setEditingMeeting(null); // Clear editing state when dialog closes
+          if (!open) setEditingMeeting(null);
         }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> Create Meeting</Button>
@@ -197,26 +198,31 @@ export default function MeetingManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Conclusion Form/Viewer Dialog */}
+      {/* Conclusion Form/Viewer Dialog (now includes attendees) */}
       <Dialog open={showConclusionDialog} onOpenChange={setShowConclusionDialog}>
-        <DialogContent className="max-w-2xl" aria-labelledby="conclusion-dialog-title" aria-describedby="conclusion-dialog-description">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="conclusion-dialog-title" aria-describedby="conclusion-dialog-description">
           <DialogHeader>
-            <DialogTitle id="conclusion-dialog-title">Meeting Conclusion for {selectedMeetingForConclusion?.title}</DialogTitle>
+            <DialogTitle id="conclusion-dialog-title">Meeting Details for {selectedMeetingForConclusion?.title}</DialogTitle>
             <DialogDescription id="conclusion-dialog-description">
               {selectedMeetingForConclusion?.meeting_conclusions && selectedMeetingForConclusion.meeting_conclusions.length > 0
-                ? "View the summary and notes from this meeting."
+                ? "View the summary and notes from this meeting, along with attendee details."
                 : "Add the summary and notes for this meeting."}
             </DialogDescription>
           </DialogHeader>
-          {selectedMeetingForConclusion && selectedMeetingForConclusion.meeting_conclusions && selectedMeetingForConclusion.meeting_conclusions.length > 0 ? (
-            <MeetingConclusionViewer conclusion={selectedMeetingForConclusion.meeting_conclusions[0]} />
-          ) : selectedMeetingForConclusion ? (
-            <MeetingConclusionForm
-              meetingId={selectedMeetingForConclusion.id}
-              onSave={() => setShowConclusionDialog(false)}
-              onClose={() => setShowConclusionDialog(false)}
-            />
-          ) : null}
+          {selectedMeetingForConclusion && (
+            <div className="space-y-6 py-4">
+              {selectedMeetingForConclusion.meeting_conclusions && selectedMeetingForConclusion.meeting_conclusions.length > 0 ? (
+                <MeetingConclusionViewer conclusion={selectedMeetingForConclusion.meeting_conclusions[0]} />
+              ) : (
+                <MeetingConclusionForm
+                  meetingId={selectedMeetingForConclusion.id}
+                  onSave={() => setShowConclusionDialog(false)}
+                  onClose={() => setShowConclusionDialog(false)}
+                />
+              )}
+              <MeetingAttendeesViewer meetingId={selectedMeetingForConclusion.id} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
