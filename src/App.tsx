@@ -74,6 +74,8 @@ const App = () => (
             <Route path="/parent-activities" element={<ProtectedRoute role="parent"><ParentLayout><ParentActivities /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-discipline" element={<ProtectedRoute role="parent"><ParentLayout><ParentDiscipline /></ParentLayout></ProtectedRoute>} />
             <Route path="/parent-meetings" element={<ProtectedRoute role="parent"><ParentLayout><ParentMeetings /></ParentLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/parent-messages" element={<ProtectedRoute role="parent"><ParentLayout><ParentMessages /></ParentLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/parent-timetable" element={<ProtectedRoute role="parent"><ParentLayout><ParentTimetable /></ParentLayout></ProtectedRoute>} /> {/* NEW */}
 
             {/* Teacher Routes */}
             <Route path="/teacher-dashboard" element={<ProtectedRoute role="teacher"><TeacherLayout><TeacherDashboard /></TeacherLayout></ProtectedRoute>} />
