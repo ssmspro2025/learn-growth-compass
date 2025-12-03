@@ -26,18 +26,18 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [title, setTitle] = useState(meeting?.title || "");
-  const [description, setDescription] = useState(meeting?.description || "");
-  const [meetingDate, setMeetingDate] = useState(meeting?.meeting_date ? format(new Date(meeting.meeting_date), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-  const [location, setLocation] = useState(meeting?.location || "");
-  const [meetingType, setMeetingType] = useState(meeting?.meeting_type || "general");
-  const [status, setStatus] = useState(meeting?.status || "scheduled");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [meetingDate, setMeetingDate] = useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+  const [location, setLocation] = useState("");
+  const [meetingType, setMeetingType] = useState("general");
+  const [status, setStatus] = useState("scheduled");
   
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
 
-  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]); // New state for teacher selection
-  const [teacherSearch, setTeacherSearch] = useState(""); // New state for teacher search
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [teacherSearch, setTeacherSearch] = useState("");
 
   // Fetch all students for the current center
   const { data: allStudents = [], isLoading: studentsLoading } = useQuery({
@@ -62,7 +62,7 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("teachers")
-        .select("id, name, user_id") // Also fetch user_id for linking
+        .select("id, name, user_id")
         .eq("center_id", user.center_id)
         .eq("is_active", true)
         .order("name");
@@ -83,8 +83,11 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
     teacher.name.toLowerCase().includes(teacherSearch.toLowerCase())
   );
 
+  // Effect to initialize form fields and selections when 'meeting' prop changes
   useEffect(() => {
+    console.log("MeetingForm useEffect triggered. Meeting prop:", meeting);
     if (meeting) {
+      // Editing existing meeting
       setTitle(meeting.title);
       setDescription(meeting.description || "");
       setMeetingDate(meeting.meeting_date ? format(new Date(meeting.meeting_date), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"));
@@ -102,9 +105,27 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
         });
         setSelectedStudentIds(initialSelectedStudentIds);
         setSelectedTeacherIds(initialSelectedTeacherIds);
+        console.log("Pre-selected Student IDs:", initialSelectedStudentIds);
+        console.log("Pre-selected Teacher IDs:", initialSelectedTeacherIds);
+      } else {
+        // If no attendees are fetched for an existing meeting, ensure selections are cleared
+        setSelectedStudentIds([]);
+        setSelectedTeacherIds([]);
+        console.log("No attendees found for existing meeting, clearing selections.");
       }
+    } else {
+      // Creating new meeting - reset all form states
+      console.log("Creating new meeting, resetting form states.");
+      setTitle("");
+      setDescription("");
+      setMeetingDate(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+      setLocation("");
+      setMeetingType("general");
+      setStatus("scheduled");
+      setSelectedStudentIds([]);
+      setSelectedTeacherIds([]);
     }
-  }, [meeting]);
+  }, [meeting]); // Dependency on 'meeting' prop
 
   const toggleStudentSelection = (studentId: string) => {
     setSelectedStudentIds(prev =>
