@@ -146,7 +146,7 @@ export default function StudentReport() {
   });
 
   // Fetch finance data
-  const { data: invoices = [] } = useQuery({
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ["student-invoices-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
@@ -154,12 +154,13 @@ export default function StudentReport() {
         .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
+      console.log("Raw invoices data from Supabase:", data); // Debug log
       return data as Invoice[];
     },
     enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
-  const { data: payments = [] } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ["student-payments-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
@@ -178,15 +179,31 @@ export default function StudentReport() {
         .gte("payment_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("payment_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
+      console.log("Raw payments data from Supabase:", data); // Debug log
       return data as Payment[];
     },
     enabled: !!selectedStudentId && selectedStudentId !== "none",
   });
 
   // Calculate finance summary
-  const totalInvoiced = useMemo(() => invoices.reduce((sum, inv) => sum + inv.total_amount, 0), [invoices]);
-  const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
-  const outstandingDues = useMemo(() => totalInvoiced - totalPaid, [totalInvoiced, totalPaid]);
+  const totalInvoiced = useMemo(() => {
+    const sum = invoices.reduce((acc, inv) => acc + inv.total_amount, 0);
+    console.log("Calculated totalInvoiced:", sum, "from invoices:", invoices); // Debug log
+    return sum;
+  }, [invoices]);
+  
+  // Corrected: Calculate totalPaid from invoices.paid_amount
+  const totalPaid = useMemo(() => {
+    const sum = invoices.reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
+    console.log("Calculated totalPaid (from invoices.paid_amount):", sum, "from invoices:", invoices); // Debug log
+    return sum;
+  }, [invoices]);
+
+  const outstandingDues = useMemo(() => {
+    const dues = totalInvoiced - totalPaid;
+    console.log("Calculated outstandingDues:", dues); // Debug log
+    return dues;
+  }, [totalInvoiced, totalPaid]);
 
   // Statistics
   const totalDays = attendanceData.length;
@@ -409,14 +426,6 @@ export default function StudentReport() {
       default: return "text-gray-600";
     }
   };
-
-  console.log("Selected Student ID:", selectedStudentId);
-  console.log("Date Range From:", dateRange.from, "To:", dateRange.to);
-  console.log("Fetched Invoices:", invoices);
-  console.log("Calculated Total Invoiced:", totalInvoiced);
-  console.log("Fetched Payments:", payments);
-  console.log("Calculated Total Paid:", totalPaid);
-  console.log("Calculated Outstanding Dues:", outstandingDues);
 
   return (
     <div className="space-y-6">
