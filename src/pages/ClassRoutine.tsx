@@ -171,7 +171,7 @@ export default function ClassRoutine() {
         grade: scheduleGrade,
         day_of_week: parseInt(scheduleDay),
         subject: scheduleSubject,
-        teacher_id: scheduleTeacherId || null,
+        teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
       });
       if (error) throw error;
     },
@@ -194,7 +194,7 @@ export default function ClassRoutine() {
         grade: scheduleGrade,
         day_of_week: parseInt(scheduleDay),
         subject: scheduleSubject,
-        teacher_id: scheduleTeacherId || null,
+        teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
       }).eq("id", editingSchedule.id);
       if (error) throw error;
     },
