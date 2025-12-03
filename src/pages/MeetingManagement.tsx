@@ -62,9 +62,11 @@ export default function MeetingManagement() {
     },
   });
 
-  const handleMeetingSave = async (meetingData: Meeting, selectedStudentIds: string[]) => {
+  const handleMeetingSave = async (meetingData: Tables<'meetings'>, selectedStudentIds: string[]) => {
     // This function is called by MeetingForm after meeting is created/updated
-    // Now handle attendees
+    // meetingData is the newly created or updated meeting object from the DB.
+
+    // Handle attendees based on meeting type
     if (meetingData.meeting_type === 'parents' && selectedStudentIds.length > 0) {
       // Fetch parent user IDs for the selected students
       const { data: parentUsers, error: parentUserError } = await supabase
@@ -79,28 +81,43 @@ export default function MeetingManagement() {
         return;
       }
 
-      const attendeesToInsert = parentUsers.map(pu => ({
+      const attendeesToUpsert = parentUsers.map(pu => ({
         meeting_id: meetingData.id,
         student_id: pu.student_id,
         user_id: pu.id, // Link parent user ID
         attendance_status: 'pending' as const,
       }));
 
-      // Delete existing student attendees for this meeting first
-      await supabase.from('meeting_attendees').delete().eq('meeting_id', meetingData.id).not('student_id', 'is', null);
+      // First, delete any existing attendees for this meeting that are NOT in the new selection
+      // This ensures that if a student is unselected, their attendee record is removed.
+      const existingAttendeeStudentIds = (meetings.find(m => m.id === meetingData.id) as any)?.meeting_attendees?.map((att: any) => att.student_id) || [];
+      const studentIdsToRemove = existingAttendeeStudentIds.filter((id: string) => !selectedStudentIds.includes(id));
 
-      // Insert new student attendees
-      const { error: attendeeError } = await supabase.from('meeting_attendees').insert(attendeesToInsert);
-      if (attendeeError) {
-        console.error("Error inserting meeting attendees:", attendeeError);
-        toast.error("Failed to save meeting attendees.");
+      if (studentIdsToRemove.length > 0) {
+        await supabase.from('meeting_attendees').delete()
+          .eq('meeting_id', meetingData.id)
+          .in('student_id', studentIdsToRemove);
       }
+
+      // Then, upsert the selected attendees
+      if (attendeesToUpsert.length > 0) {
+        const { error: attendeeError } = await supabase.from('meeting_attendees').upsert(attendeesToUpsert, {
+          onConflict: 'meeting_id, student_id', // Conflict on meeting_id and student_id
+          ignoreDuplicates: false, // Ensure updates happen if status changes
+        });
+        if (attendeeError) {
+          console.error("Error upserting meeting attendees:", attendeeError);
+          toast.error("Failed to save meeting attendees.");
+        }
+      }
+
     } else if (meetingData.meeting_type === 'teachers') {
       // For teacher meetings, we'd fetch teachers and link their user_ids
       // This is not explicitly requested by the user yet, so leaving it as a future enhancement.
-      // For now, if meeting_type is teachers, no specific attendees are set at creation.
-    } else {
-      // For 'general' meetings, clear any specific attendees if they were previously set
+      // If there were previously parent attendees, they should be cleared.
+      await supabase.from('meeting_attendees').delete().eq('meeting_id', meetingData.id).not('student_id', 'is', null);
+
+    } else { // For 'general' meetings, clear any specific attendees if they were previously set
       await supabase.from('meeting_attendees').delete().eq('meeting_id', meetingData.id);
     }
 
@@ -152,29 +169,7 @@ export default function MeetingManagement() {
             </DialogHeader>
             <MeetingForm
               meeting={editingMeeting}
-              onSave={async (selectedStudentIds) => {
-                if (editingMeeting) {
-                  await handleMeetingSave(editingMeeting, selectedStudentIds);
-                } else {
-                  // For new meetings, the mutation returns the created meeting data
-                  const newMeeting = await supabase.from("meetings").insert({
-                    center_id: user?.center_id!,
-                    created_by: user?.id!,
-                    title: editingMeeting?.title || '', // Use form state directly
-                    description: editingMeeting?.description || null,
-                    meeting_date: editingMeeting?.meeting_date || new Date().toISOString(),
-                    location: editingMeeting?.location || null,
-                    meeting_type: editingMeeting?.meeting_type || 'general',
-                    status: editingMeeting?.status || 'scheduled',
-                  }).select().single();
-
-                  if (newMeeting.data) {
-                    await handleMeetingSave(newMeeting.data, selectedStudentIds);
-                  } else if (newMeeting.error) {
-                    toast.error(newMeeting.error.message || "Failed to create meeting.");
-                  }
-                }
-              }}
+              onSave={handleMeetingSave} // Pass the simplified handler
               onCancel={() => setShowMeetingFormDialog(false)}
             />
           </DialogContent>

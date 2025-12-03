@@ -18,7 +18,7 @@ import { Tables } from "@/integrations/supabase/types";
 
 interface MeetingFormProps {
   meeting?: Tables<'meetings'> & { meeting_attendees?: Tables<'meeting_attendees'>[] };
-  onSave: (selectedStudentIds: string[]) => void;
+  onSave: (meetingData: Tables<'meetings'>, selectedStudentIds: string[]) => void; // Updated prop signature
   onCancel: () => void;
 }
 
@@ -96,7 +96,7 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("Meeting created successfully!");
-      onSave(selectedStudentIds); // Pass selected student IDs back
+      onSave(data, selectedStudentIds); // Pass both meeting data and selected student IDs
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create meeting");
@@ -120,7 +120,7 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("Meeting updated successfully!");
-      onSave(selectedStudentIds); // Pass selected student IDs back
+      onSave(data, selectedStudentIds); // Pass both meeting data and selected student IDs
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update meeting");
