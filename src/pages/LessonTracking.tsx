@@ -87,7 +87,7 @@ export default function LessonTracking() {
       if (filterGrade !== "all") query = query.eq("students.grade", filterGrade);
       if (filterSubject !== "all") query = query.eq("lesson_plans.subject", filterSubject); // Filter by lesson plan subject
 
-      const { data, error } = await query.order("date_completed", { ascending: false });
+      const { data, error } = await query.order("completed_at", { ascending: false });
       if (error) throw error;
 
       return data;

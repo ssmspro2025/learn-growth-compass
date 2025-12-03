@@ -153,7 +153,7 @@ export default function Dashboard() {
         .from("student_chapters")
         .select("*, lesson_plans(*)")
         .eq("student_id", studentId)
-        .order("date_completed", { ascending: false });
+        .order("completed_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
