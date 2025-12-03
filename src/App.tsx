@@ -36,8 +36,12 @@ import ParentHomework from "./pages/ParentHomework";
 import ParentActivities from "./pages/ParentActivities";
 import ParentDiscipline from "./pages/ParentDiscipline";
 import ParentMeetings from "./pages/ParentMeetings"; // NEW
+import ParentMessages from "./pages/ParentMessages"; // NEW
+import ParentTimetable from "./pages/ParentTimetable"; // NEW
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherMeetings from "./pages/TeacherMeetings"; // NEW
+import TeacherMessages from "./pages/TeacherMessages"; // NEW
+import TeacherTimetable from "./pages/TeacherTimetable"; // NEW
 import MeetingManagement from "./pages/MeetingManagement";
 import Messages from "./pages/Messages";
 import Timetable from "./pages/Timetable";
