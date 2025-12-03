@@ -62,7 +62,7 @@ export default function Tests() {
   const [questionMarks, setQuestionMarks] = useState<QuestionMark[]>([]); // Question-wise marks
   const [studentAnswer, setStudentAnswer] = useState(""); // For AI grading
   const [resultDate, setResultDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [resultNotes, setResultNotes] = useState("");
+  // Removed resultNotes state
 
   // Fetch tests
   const { data: tests = [] } = useQuery({
@@ -209,7 +209,7 @@ export default function Tests() {
         student_id: selectedStudentId,
         marks_obtained: questions.length > 0 ? totalMarksObtainedFromQuestions : parseInt(marksObtained), // Use sum of question marks or overall marks
         date_taken: resultDate,
-        notes: resultNotes || null,
+        // Removed notes field
         question_marks: questions.length > 0 ? (questionMarks as any) : null, // Save question-wise marks as Json
       };
 
@@ -230,7 +230,7 @@ export default function Tests() {
       setMarksObtained("");
       setQuestionMarks([]);
       setStudentAnswer("");
-      setResultNotes("");
+      // Removed resultNotes reset
     },
     onError: (error: any) => {
       console.error("Error in addResultMutation:", error);
@@ -611,7 +611,7 @@ export default function Tests() {
                   >
                     <div className="font-medium">{test.name}</div>
                     <div className="text-sm opacity-80">
-                      {test.subject} • {format(new Date(test.date), "PPP")} • {test.total_marks} marks
+                      {test.subject} • {test.date ? format(new Date(test.date), "MMM d, yyyy") : 'No date'} • {test.total_marks} marks
                       {test.questions && (test.questions as unknown as Question[]).length > 0 && (
                         <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
                           {(test.questions as unknown as Question[]).length} Questions
@@ -762,15 +762,7 @@ export default function Tests() {
                   onChange={(e) => setResultDate(e.target.value)}
                 />
               </div>
-              <div>
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={resultNotes}
-                  onChange={(e) => setResultNotes(e.target.value)}
-                  placeholder="Any additional notes..."
-                  rows={2}
-                />
-              </div>
+              {/* Removed Notes section */}
               <Button
                 onClick={() => addResultMutation.mutate()}
                 disabled={!selectedStudentId || (!marksObtained && questions.length === 0) || addResultMutation.isPending}
