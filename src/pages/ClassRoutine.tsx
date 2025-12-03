@@ -371,7 +371,7 @@ export default function ClassRoutine() {
                     <Select value={scheduleTeacherId} onValueChange={setScheduleTeacherId}>
                       <SelectTrigger><SelectValue placeholder="Select teacher (optional)" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No teacher assigned</SelectItem>
+                        <SelectItem value="none">No teacher assigned</SelectItem>
                         {teachers.map((teacher: any) => (
                           <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
                         ))}
