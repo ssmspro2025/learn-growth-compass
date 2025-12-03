@@ -91,7 +91,7 @@ export default function Dashboard() {
       (att) =>
         att.student_id === student.id &&
         att.date === today &&
-        att.status === "Present"
+        att.status === "present" // Changed to lowercase
     )
   );
 
@@ -100,7 +100,7 @@ export default function Dashboard() {
       (att) =>
         att.student_id === student.id &&
         att.date === today &&
-        att.status === "Absent"
+        att.status === "absent" // Changed to lowercase
     )
   );
 
@@ -115,9 +115,9 @@ export default function Dashboard() {
     const studentAttendance = allAttendance.filter(
       (a) => a.student_id === student.id
     );
-    const present = studentAttendance.filter((a) => a.status === "Present")
+    const present = studentAttendance.filter((a) => a.status === "present") // Changed to lowercase
       .length;
-    const absent = studentAttendance.filter((a) => a.status === "Absent").length;
+    const absent = studentAttendance.filter((a) => a.status === "absent").length; // Changed to lowercase
     const total = present + absent;
     const percentage = total > 0 ? Math.round((absent / total) * 100) : 0;
     return { ...student, present, absent, total, percentage };
@@ -176,7 +176,7 @@ export default function Dashboard() {
   });
 
   const totalDays = attendanceData.length;
-  const presentDays = attendanceData.filter((a) => a.status === "Present")
+  const presentDays = attendanceData.filter((a) => a.status === "present") // Changed to lowercase
     .length;
   const attendancePercentage =
     totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
@@ -285,7 +285,7 @@ export default function Dashboard() {
                         (a) =>
                           a.student_id === student.id &&
                           a.date === today &&
-                          a.status === "Absent"
+                          a.status === "absent" // Changed to lowercase
                       ).length}
                     </TableCell>
                   </TableRow>
@@ -381,7 +381,7 @@ export default function Dashboard() {
                         <TableRow key={record.id}>
                           <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
                           <TableCell>
-                            <Badge variant={record.status === "Present" ? "default" : "destructive"}>
+                            <Badge variant={record.status === "present" ? "default" : "destructive"}> {/* Changed to lowercase */}
                               {record.status}
                             </Badge>
                           </TableCell>

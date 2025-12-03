@@ -125,8 +125,8 @@ export default function ViewRecords() {
     }
   }, [showStudentDetailDialog, selectedStudentDetail?.id, detailMonthFilter, refetchStudentDetailAttendance]);
 
-  const presentCount = records?.filter(r => r.status === "Present").length || 0;
-  const absentCount = records?.filter(r => r.status === "Absent").length || 0;
+  const presentCount = records?.filter(r => r.status === "present").length || 0; // Changed to lowercase
+  const absentCount = records?.filter(r => r.status === "absent").length || 0; // Changed to lowercase
 
   const exportToCSV = () => {
     if (!records || records.length === 0) return;
@@ -170,7 +170,7 @@ export default function ViewRecords() {
     let absentDaysList: string[] = [];
 
     studentDetailAttendance.forEach(record => {
-      if (record.status === 'Present' && record.time_in) {
+      if (record.status === 'present' && record.time_in) { // Changed to lowercase
         totalPresentDays++;
         try {
           const [hours, minutes] = record.time_in.split(':').map(Number);
@@ -189,7 +189,7 @@ export default function ViewRecords() {
         } catch (e) {
           console.error("Error parsing time_in:", record.time_in, e);
         }
-      } else if (record.status === 'Absent') {
+      } else if (record.status === 'absent') { // Changed to lowercase
         absentDaysList.push(record.date);
       }
     });
@@ -307,8 +307,8 @@ export default function ViewRecords() {
                       <TableCell>{r.students.grade}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={r.status === "Present" ? "default" : "destructive"}
-                          className={r.status === "Present" ? "bg-secondary hover:bg-secondary/80" : ""}
+                          variant={r.status === "present" ? "default" : "destructive"} // Changed to lowercase
+                          className={r.status === "present" ? "bg-secondary hover:bg-secondary/80" : ""} // Changed to lowercase
                         >
                           {r.status}
                         </Badge>
@@ -458,8 +458,8 @@ export default function ViewRecords() {
                             <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
                             <TableCell>
                               <Badge
-                                variant={record.status === "Present" ? "default" : "destructive"}
-                                className={record.status === "Present" ? "bg-secondary hover:bg-secondary/80" : ""}
+                                variant={record.status === "present" ? "default" : "destructive"} // Changed to lowercase
+                                className={record.status === "present" ? "bg-secondary hover:bg-secondary/80" : ""} // Changed to lowercase
                               >
                                 {record.status}
                               </Badge>

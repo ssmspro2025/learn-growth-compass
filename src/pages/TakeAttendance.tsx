@@ -79,7 +79,7 @@ export default function TakeAttendance() {
       if (!centerStudentIds.length) return [];
       const { data, error } = await supabase
         .from("attendance")
-        .select("student_id, status, time_in, time_out, date, center_id") // ADD center_id here
+        .select("student_id, status, time_in, time_out, date, center_id")
         .eq("date", dateStr)
         .in("student_id", centerStudentIds);
       if (error) throw error;
@@ -116,7 +116,7 @@ export default function TakeAttendance() {
       students.forEach((student) => {
         const record = existingAttendance?.find((a) => a.student_id === student.id);
         newAttendance[student.id] = {
-          present: record?.status === "Present",
+          present: record?.status === "present", // Changed to lowercase
           timeIn: record?.time_in || "",
           timeOut: record?.time_out || "",
           studentId: student.id,
@@ -204,7 +204,7 @@ export default function TakeAttendance() {
         student_id: student.id,
         center_id: user.center_id!,
         date: dateStr,
-        status: attendance[student.id]?.present ? "Present" : "Absent",
+        status: attendance[student.id]?.present ? "present" : "absent", // Changed to lowercase
         time_in: attendance[student.id]?.timeIn || null,
         time_out: attendance[student.id]?.timeOut || null,
       }));
