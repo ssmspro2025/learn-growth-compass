@@ -46,7 +46,7 @@ export default function ClassRoutine() {
   const [schedulePeriodId, setSchedulePeriodId] = useState("");
   const [scheduleDay, setScheduleDay] = useState("");
   const [scheduleSubject, setScheduleSubject] = useState("");
-  const [scheduleTeacherId, setScheduleTeacherId] = useState("");
+  const [scheduleTeacherId, setScheduleTeacherId] = useState("none");
 
   // Fetch class periods
   const { data: periods = [], isLoading: periodsLoading } = useQuery({
@@ -171,7 +171,7 @@ export default function ClassRoutine() {
         grade: scheduleGrade,
         day_of_week: parseInt(scheduleDay),
         subject: scheduleSubject,
-        teacher_id: scheduleTeacherId || null,
+        teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
       });
       if (error) throw error;
     },
@@ -194,7 +194,7 @@ export default function ClassRoutine() {
         grade: scheduleGrade,
         day_of_week: parseInt(scheduleDay),
         subject: scheduleSubject,
-        teacher_id: scheduleTeacherId || null,
+        teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
       }).eq("id", editingSchedule.id);
       if (error) throw error;
     },
@@ -235,7 +235,7 @@ export default function ClassRoutine() {
     setSchedulePeriodId("");
     setScheduleDay("");
     setScheduleSubject("");
-    setScheduleTeacherId("");
+    setScheduleTeacherId("none");
     setEditingSchedule(null);
   };
 
@@ -253,7 +253,7 @@ export default function ClassRoutine() {
     setSchedulePeriodId(schedule.class_period_id);
     setScheduleDay(schedule.day_of_week.toString());
     setScheduleSubject(schedule.subject);
-    setScheduleTeacherId(schedule.teacher_id || "");
+    setScheduleTeacherId(schedule.teacher_id || "none");
     setShowScheduleDialog(true);
   };
 
@@ -371,7 +371,7 @@ export default function ClassRoutine() {
                     <Select value={scheduleTeacherId} onValueChange={setScheduleTeacherId}>
                       <SelectTrigger><SelectValue placeholder="Select teacher (optional)" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No teacher assigned</SelectItem>
+                        <SelectItem value="none">No teacher assigned</SelectItem>
                         {teachers.map((teacher: any) => (
                           <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
                         ))}
