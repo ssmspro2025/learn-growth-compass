@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, CheckSquare, BookOpen, Book, Paintbrush, AlertTriangle, FileText, ClipboardCheck, User, LogOut, KeyRound, Video } from "lucide-react"; // Added Video icon
+import { Home, CheckSquare, BookOpen, Book, Paintbrush, AlertTriangle, FileText, ClipboardCheck, User, LogOut, KeyRound, Video, MessageSquare, Clock } from "lucide-react"; // Added Video icon, MessageSquare, Clock
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ const navItems: Array<{
   { to: "/teacher/test-management", label: "Test Management", icon: ClipboardCheck, role: 'teacher' as const, featureName: 'test_management' },
   { to: "/teacher/student-report", label: "Student Report", icon: User, role: 'teacher' as const, featureName: 'student_report_access' },
   { to: "/teacher-meetings", label: "Meetings", icon: Video, role: 'teacher' as const, featureName: 'meetings_management' },
+  { to: "/teacher-messages", label: "Messages", icon: MessageSquare, role: 'teacher' as const },
+  { to: "/teacher-timetable", label: "Timetable", icon: Clock, role: 'teacher' as const },
   { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'teacher' as const },
 ];
 
