@@ -291,5 +291,3 @@ export default function MeetingManagement() {
     </div>
   );
 };
-
-export default MeetingManagement;
