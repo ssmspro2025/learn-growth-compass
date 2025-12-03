@@ -20,6 +20,7 @@ type AttendanceStatus = "pending" | "present" | "absent" | "excused" | "invite";
 // Define partial types for fetched data
 type PartialStudent = Pick<Tables<'students'>, 'id' | 'name' | 'grade'>;
 type PartialTeacher = Pick<Tables<'teachers'>, 'id' | 'name' | 'user_id'>;
+type PartialUser = Pick<Tables<'users'>, 'id' | 'username' | 'role'>; // New PartialUser type
 
 type MeetingAttendeeRow = Tables<'meeting_attendees'>;
 
@@ -60,6 +61,23 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   });
   const uniqueGrades = Array.from(new Set(allStudents.map(s => s.grade))).sort();
 
+  // Fetch all active teachers for the current center (needed for teacherUser lookup in mutation)
+  const { data: allTeachers = [] } = useQuery({
+    queryKey: ["all-teachers-for-meeting-attendance", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("teachers")
+        .select("id, name, user_id")
+        .eq("center_id", user.center_id)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
   // Fetch existing attendees for this meeting
   const { data: existingAttendees = [], isLoading: existingAttendeesLoading } = useQuery({
     queryKey: ["meeting-attendees", meetingId],
@@ -80,7 +98,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
     queryFn: async () => {
       if (!user?.center_id || !meetingDetails) return [];
 
-      let fetchedParticipants: (PartialStudent | PartialTeacher | Tables<'users'>)[] = [];
+      let fetchedParticipants: (PartialStudent | PartialTeacher | PartialUser)[] = [];
 
       if (meetingDetails.meeting_type === "parents" || meetingDetails.meeting_type === "general") {
         const { data, error } = await supabase
@@ -110,7 +128,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
     const initialStatuses: Record<string, AttendanceStatus> = {};
     
     // Initialize with existing attendance
-    existingAttendees.forEach((attendee: MeetingAttendeeRow & { students?: PartialStudent, users?: Tables<'users'>, teachers?: PartialTeacher }) => {
+    existingAttendees.forEach((attendee: MeetingAttendeeRow & { students?: PartialStudent, users?: PartialUser, teachers?: PartialTeacher }) => {
       let participantId: string | undefined;
       if (attendee.student_id) participantId = attendee.student_id;
       else if (attendee.teacher_id) participantId = attendee.teacher_id;
@@ -132,9 +150,9 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   }, [existingAttendees, participants]);
 
   const updateAttendanceMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ allTeachersInScope }: { allTeachersInScope: PartialTeacher[] }) => { // Pass allTeachers here
       const recordsToInsert: TablesInsert<'meeting_attendees'>[] = [];
-      const recordsToUpdate: TablesUpdate<'meeting_attendees'>[] = [];
+      const recordsToUpdate: TablesInsert<'meeting_attendees'>[] = []; // Changed to TablesInsert for upsert compatibility
       
       for (const participant of participants) {
         const participantId = participant.id;
@@ -146,7 +164,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           (ea.teacher_id === participantId && meetingDetails?.meeting_type === 'teachers')
         );
 
-        const baseRecord: TablesInsert<'meeting_attendees'> = {
+        const baseRecord: TablesInsert<'meeting_attendees'> = { // Changed to TablesInsert
           meeting_id: meetingId,
           attended,
           attendance_status,
@@ -164,7 +182,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           
           Object.assign(baseRecord, { student_id: participantId, user_id: parentUser?.id || null, teacher_id: null });
         } else if (meetingDetails?.meeting_type === 'teachers') {
-          const teacherUser = allTeachers.find(t => t.id === participantId); // allTeachers is in scope
+          const teacherUser = allTeachersInScope.find(t => t.id === participantId); // Use allTeachersInScope
           Object.assign(baseRecord, { teacher_id: participantId, user_id: teacherUser?.user_id || null, student_id: null });
         }
 
@@ -285,7 +303,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose} disabled={updateAttendanceMutation.isPending}>Cancel</Button>
-        <Button onClick={() => updateAttendanceMutation.mutate()} disabled={updateAttendanceMutation.isPending}>
+        <Button onClick={() => updateAttendanceMutation.mutate({ allTeachersInScope: allTeachers })} disabled={updateAttendanceMutation.isPending}>
           {updateAttendanceMutation.isPending ? "Saving..." : "Save Attendance"}
         </Button>
       </div>
