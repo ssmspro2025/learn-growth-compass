@@ -253,7 +253,7 @@ export default function ClassRoutine() {
     setSchedulePeriodId(schedule.class_period_id);
     setScheduleDay(schedule.day_of_week.toString());
     setScheduleSubject(schedule.subject);
-    setScheduleTeacherId(schedule.teacher_id || "");
+    setScheduleTeacherId(schedule.teacher_id || "none");
     setShowScheduleDialog(true);
   };
 
