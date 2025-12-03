@@ -46,7 +46,7 @@ export default function ClassRoutine() {
   const [schedulePeriodId, setSchedulePeriodId] = useState("");
   const [scheduleDay, setScheduleDay] = useState("");
   const [scheduleSubject, setScheduleSubject] = useState("");
-  const [scheduleTeacherId, setScheduleTeacherId] = useState("");
+  const [scheduleTeacherId, setScheduleTeacherId] = useState("none");
 
   // Fetch class periods
   const { data: periods = [], isLoading: periodsLoading } = useQuery({
