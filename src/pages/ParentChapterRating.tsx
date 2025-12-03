@@ -26,7 +26,7 @@ export default function ParentChapterRating() {
     queryFn: async () => {
       let query = supabase.from('student_chapters').select(`
         *,
-        lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url),
+        lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url),
         recorded_by_teacher:recorded_by_teacher_id(name)
       `).eq('student_id', user.student_id).order('completed_at', { ascending: false });
       
