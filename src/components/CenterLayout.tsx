@@ -29,9 +29,9 @@ const navItems: Array<{
   { to: "/records", label: "View Records", icon: FileText, role: 'center' as const, featureName: 'view_records' },
   { to: "/summary", label: "Summary", icon: BarChart3, role: 'center' as const, featureName: 'summary' },
   { to: "/finance", label: "Finance", icon: DollarSign, role: 'center' as const, featureName: 'finance' },
-  { to: "/meetings", label: "Meetings", icon: Video, role: 'center' as const, featureName: 'meetings_management' },
-  { to: "/messages", label: "Messages", icon: MessageSquare, role: 'center' as const, featureName: 'messages' },
-  { to: "/timetable", label: "Timetable", icon: Clock, role: 'center' as const, featureName: 'timetable' },
+  { to: "/meetings", label: "Meetings", icon: Video, role: 'center' as const },
+  { to: "/messages", label: "Messages", icon: MessageSquare, role: 'center' as const },
+  { to: "/timetable", label: "Timetable", icon: Clock, role: 'center' as const },
   { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'center' as const },
 ];
 
