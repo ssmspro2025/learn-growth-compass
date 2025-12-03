@@ -149,9 +149,9 @@ export default function MeetingManagement() {
                       </TableCell>
                       <TableCell>
                         {meeting.meeting_conclusions && meeting.meeting_conclusions.length > 0 ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600" title="Conclusion Added" />
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
                         ) : (
-                          <XCircle className="h-5 w-5 text-red-600" title="No Conclusion" />
+                          <XCircle className="h-5 w-5 text-red-600" />
                         )}
                       </TableCell>
                       <TableCell className="flex gap-2">

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -103,7 +104,7 @@ export default function MeetingAttendanceRecorder({ meetingId, meetingType, onCl
 
   const updateAttendanceMutation = useMutation({
     mutationFn: async () => {
-      const updates: Tables<'meeting_attendees'>['Insert'][] = [];
+      const updates: any[] = [];
       const existingAttendeeIds = new Set(existingAttendees.map((ea: any) => ea.student_id || ea.teacher_id || ea.user_id));
 
       // Prepare updates for existing attendees and inserts for new ones
