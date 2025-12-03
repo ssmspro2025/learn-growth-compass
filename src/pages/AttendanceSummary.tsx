@@ -47,7 +47,7 @@ export default function AttendanceSummary() {
 
       const { data, error } = await supabase
         .from('attendance')
-        .select('*, students(name, grade)') // Changed 'class' to 'grade'
+        .select('*, students(name, grade)')
         .in('student_id', studentIds)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -64,34 +64,41 @@ export default function AttendanceSummary() {
   const calculateStats = (): AttendanceStats[] => {
     const statsMap = new Map<string, AttendanceStats>();
 
-    attendanceData.forEach((record: any) => {
-      if (!filteredStudents.some(fs => fs.id === record.student_id)) return;
+    // Start with students filtered by class and optionally by a specific student
+    const studentsToProcess = filteredStudents.filter(s =>
+      selectedStudent === 'all' || s.id === selectedStudent
+    );
 
-      const key = record.student_id;
-      if (!statsMap.has(key)) {
-        statsMap.set(key, {
-          studentId: key,
-          studentName: record.students?.name || 'Unknown',
-          totalDays: 0,
-          presentDays: 0,
-          absentDays: 0,
-          attendancePercentage: 0,
-        });
-      }
+    studentsToProcess.forEach(student => {
+      const studentAttendanceRecords = attendanceData.filter(
+        (record: any) => record.student_id === student.id
+      );
 
-      const stats = statsMap.get(key)!;
-      stats.totalDays += 1;
-      if (record.status === 'present') {
-        stats.presentDays += 1;
-      } else {
-        stats.absentDays += 1;
-      }
-    });
+      let totalDays = 0;
+      let presentDays = 0;
+      let absentDays = 0;
 
-    statsMap.forEach((stats) => {
-      stats.attendancePercentage = stats.totalDays > 0
-        ? Math.round((stats.presentDays / stats.totalDays) * 100)
+      studentAttendanceRecords.forEach((record: any) => {
+        totalDays += 1;
+        if (record.status === 'present') {
+          presentDays += 1;
+        } else {
+          absentDays += 1;
+        }
+      });
+
+      const attendancePercentage = totalDays > 0
+        ? Math.round((presentDays / totalDays) * 100)
         : 0;
+
+      statsMap.set(student.id, {
+        studentId: student.id,
+        studentName: student.name, // Use student.name directly from the filtered students
+        totalDays,
+        presentDays,
+        absentDays,
+        attendancePercentage,
+      });
     });
 
     return Array.from(statsMap.values());

@@ -45,7 +45,10 @@ export default function Summary() {
     queryFn: async () => {
       const studentIds = students?.map((s) => s.id) || [];
       if (!studentIds.length) return [];
-      const { data, error } = await supabase.from("attendance").select("*").in("student_id", studentIds);
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("*")
+        .in("student_id", studentIds);
       if (error) throw error;
       return data;
     },
@@ -68,12 +71,12 @@ export default function Summary() {
           return isWithinInterval(date, { start, end });
         });
 
-        const present = filteredAttendance.filter((a) => a.status === "Present").length;
-        const absent = filteredAttendance.filter((a) => a.status === "Absent").length;
+        const present = filteredAttendance.filter((a) => a.status === "present").length;
+        const absent = filteredAttendance.filter((a) => a.status === "absent").length;
         const total = present + absent;
         const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
         const absentDates = filteredAttendance
-          .filter((a) => a.status === "Absent")
+          .filter((a) => a.status === "absent")
           .map((a) => a.date)
           .sort();
 
