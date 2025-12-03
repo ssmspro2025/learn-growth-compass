@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Printer, DollarSign, BookOpen, Book, Paintbrush, AlertTriangle, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Download, Printer, DollarSign, BookOpen, Book, Paintbrush, AlertTriangle, FileText, CheckCircle, XCircle, Clock, Star, User } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
@@ -18,6 +18,7 @@ type LessonPlan = Tables<'lesson_plans'>;
 type StudentHomeworkRecord = Tables<'student_homework_records'>;
 type StudentActivity = Tables<'student_activities'>;
 type DisciplineIssue = Tables<'discipline_issues'>;
+type StudentChapter = Tables<'student_chapters'>; // Import StudentChapter type
 
 export default function StudentReport() {
   const { user } = useAuth();
@@ -68,7 +69,11 @@ export default function StudentReport() {
     queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
-      let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)").eq("student_id", selectedStudentId)
+      let query = supabase.from("student_chapters").select(`
+        *,
+        lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url),
+        recorded_by_teacher:recorded_by_teacher_id(name)
+      `).eq("student_id", selectedStudentId)
         .gte("completed_at", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("completed_at", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("lesson_plans.subject", subjectFilter);
@@ -180,7 +185,7 @@ export default function StudentReport() {
 
   // Statistics
   const totalDays = attendanceData.length;
-  const presentDays = attendanceData.filter((a) => a.status === "Present").length;
+  const presentDays = attendanceData.filter((a) => a.status === "present").length;
   const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
   const totalTests = testResults.length;
@@ -196,10 +201,6 @@ export default function StudentReport() {
     totalMaxMarks > 0
       ? Math.round((totalMarksObtained / totalMaxMarks) * 100)
       : 0;
-
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
-  const totalPaid = invoices.reduce((sum, inv) => sum + inv.paid_amount, 0);
-  const outstandingDues = totalInvoiced - totalPaid;
 
   const subjects = Array.from(new Set([
     ...lessonRecords.map((lr: any) => lr.lesson_plans?.subject).filter(Boolean),
@@ -231,6 +232,35 @@ export default function StudentReport() {
       toast.error("Failed to generate AI summary");
     },
   });
+
+  // Chapter Rating Calculations
+  const chapterRatingsBySubject = useMemo(() => {
+    const subjectMap = new Map<string, { totalRating: number; count: number; chapters: (StudentChapter & { lesson_plans: LessonPlan; recorded_by_teacher?: Tables<'teachers'> })[] }>();
+
+    lessonRecords.forEach((record: any) => {
+      if (record.lesson_plans?.subject && record.evaluation_rating !== null) {
+        const subject = record.lesson_plans.subject;
+        if (!subjectMap.has(subject)) {
+          subjectMap.set(subject, { totalRating: 0, count: 0, chapters: [] });
+        }
+        const entry = subjectMap.get(subject)!;
+        entry.totalRating += record.evaluation_rating;
+        entry.count += 1;
+        entry.chapters.push(record);
+      }
+    });
+
+    return Array.from(subjectMap.entries()).map(([subject, data]) => ({
+      subject,
+      averageRating: data.count > 0 ? (data.totalRating / data.count).toFixed(1) : 'N/A',
+      chapters: data.chapters.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime()),
+    }));
+  }, [lessonRecords]);
+
+  const getRatingStars = (rating: number | null) => {
+    if (rating === null) return "N/A";
+    return Array(rating).fill("⭐").join("");
+  };
 
   // Export CSV
   const exportToCSV = () => {
@@ -264,13 +294,16 @@ export default function StudentReport() {
       ]),
       [""],
       ["Lesson Records"],
-      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "File Link"],
+      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "Evaluation Rating", "Teacher Notes", "Recorded By", "File Link"],
       ...lessonRecords.map((lr: any) => [
         lr.lesson_plans?.subject,
         lr.lesson_plans?.chapter,
         lr.lesson_plans?.topic,
         safeFormatDate(lr.completed_at, "PPP"),
-        lr.notes || '', // Include session notes
+        lr.notes || '', // General session notes
+        lr.evaluation_rating || 'N/A', // Evaluation rating
+        lr.teacher_notes || '', // Teacher specific notes
+        lr.recorded_by_teacher?.name || 'N/A', // Teacher name
         lr.lesson_plans?.lesson_file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl : '',
       ]),
       [""],
@@ -523,47 +556,68 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
-          {/* Lesson Records */}
+          {/* Chapter Rating Report */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" /> Lesson Records
+                <Star className="h-5 w-5" /> Chapter Rating Report
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {lessonRecords.length === 0 ? (
-                <p className="text-muted-foreground">No lesson records found.</p>
+              {chapterRatingsBySubject.length === 0 ? (
+                <p className="text-muted-foreground">No chapter ratings available for the selected filters.</p>
               ) : (
-                <div className="overflow-x-auto max-h-80 border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="border px-2 py-1">Subject</th>
-                        <th className="border px-2 py-1">Chapter</th>
-                        <th className="border px-2 py-1">Topic</th>
-                        <th className="border px-2 py-1">Date Taught</th>
-                        <th className="border px-2 py-1">Session Notes</th>
-                        <th className="border px-2 py-1">Files</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lessonRecords.map((lr: any) => (
-                        <tr key={lr.id}>
-                          <td className="border px-2 py-1">{lr.lesson_plans?.subject}</td>
-                          <td className="border px-2 py-1">{lr.lesson_plans?.chapter}</td>
-                          <td className="border px-2 py-1">{lr.lesson_plans?.topic}</td>
-                          <td className="border px-2 py-1">{safeFormatDate(lr.date_completed, "PPP")}</td>
-                          <td className="border px-2 py-1">{lr.notes || "-"}</td>
-                          <td className="border px-2 py-1">
-                            {lr.lesson_plans?.lesson_file_url && (
-                              <a href={supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mr-2">File</a>
-                            )}
-                            {!lr.lesson_plans?.lesson_file_url && "-"}
-                          </td>
+                <div className="space-y-6">
+                  {/* Accumulated Subject-wise Rating */}
+                  <h3 className="font-semibold text-lg mb-2">Subject-wise Average Ratings</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {chapterRatingsBySubject.map((subjectData) => (
+                      <Card key={subjectData.subject} className="p-4">
+                        <h4 className="font-medium text-md">{subjectData.subject}</h4>
+                        <p className="text-2xl font-bold flex items-center gap-1">
+                          {subjectData.averageRating} <span className="text-yellow-500">⭐</span>
+                        </p>
+                        <p className="text-sm text-muted-foreground">{subjectData.chapters.length} chapters rated</p>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Individual Chapter Ratings */}
+                  <h3 className="font-semibold text-lg mb-2">Individual Chapter Ratings</h3>
+                  <div className="overflow-x-auto max-h-96 border rounded">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="border px-2 py-1">Subject</th>
+                          <th className="border px-2 py-1">Chapter</th>
+                          <th className="border px-2 py-1">Topic</th>
+                          <th className="border px-2 py-1">Date Completed</th>
+                          <th className="border px-2 py-1">Rating</th>
+                          <th className="border px-2 py-1">Teacher Notes</th>
+                          <th className="border px-2 py-1">Recorded By</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {chapterRatingsBySubject.flatMap(subjectData =>
+                          subjectData.chapters.map((record: any) => (
+                            <tr key={record.id}>
+                              <td className="border px-2 py-1">{record.lesson_plans?.subject || '-'}</td>
+                              <td className="border px-2 py-1">{record.lesson_plans?.chapter || '-'}</td>
+                              <td className="border px-2 py-1">{record.lesson_plans?.topic || '-'}</td>
+                              <td className="border px-2 py-1">{safeFormatDate(record.completed_at, "PPP")}</td>
+                              <td className="border px-2 py-1 flex items-center gap-1">
+                                {getRatingStars(record.evaluation_rating)}
+                              </td>
+                              <td className="border px-2 py-1">{record.teacher_notes || '-'}</td>
+                              <td className="border px-2 py-1 flex items-center gap-1">
+                                {record.recorded_by_teacher?.name || '-'}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </CardContent>

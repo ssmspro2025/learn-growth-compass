@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock, Star } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isPast } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
@@ -23,6 +24,8 @@ const queryClient = new QueryClient({
 
 type StudentHomeworkRecord = Tables<'student_homework_records'>;
 type DisciplineIssue = Tables<'discipline_issues'>;
+type LessonPlan = Tables<'lesson_plans'>;
+type StudentChapter = Tables<'student_chapters'>;
 
 const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSelectedMonth }) => {
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
@@ -30,11 +33,11 @@ const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSele
   const getAttendanceStatus = (date: string) => {
     const record = attendance.find((a: any) => safeFormatDate(a.date, 'yyyy-MM-dd') === date);
     if (!record) return 'none';
-    return record.status === 'Present' ? 'present' : 'absent';
+    return record.status === 'present' ? 'present' : 'absent';
   };
 
   const getTooltipData = (date: string) => {
-    const dayLessons = lessonRecords.filter((lr: any) => safeFormatDate(lr.date_completed, 'yyyy-MM-dd') === date);
+    const dayLessons = lessonRecords.filter((lr: any) => safeFormatDate(lr.completed_at, 'yyyy-MM-dd') === date);
     const dayTests = tests.filter(t => safeFormatDate(t.date_taken, 'yyyy-MM-dd') === date);
     return { dayLessons, dayTests };
   };
@@ -109,6 +112,7 @@ const ParentDashboardContent = () => {
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [dateRange, setDateRange] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [subjectFilter, setSubjectFilter] = useState<string>("all"); // New subject filter for parent dashboard
 
   if (!user || user.role !== 'parent' || !user.student_id) {
     navigate('/login-parent');
@@ -147,9 +151,19 @@ const ParentDashboardContent = () => {
 
   // Lesson Records (student_chapters now links to lesson_plans)
   const { data: lessonRecords = [] } = useQuery({
-    queryKey: ['student-lesson-records', user.student_id],
+    queryKey: ['student-lesson-records', user.student_id, subjectFilter], // Add subjectFilter
     queryFn: async () => {
-      const { data, error } = await supabase.from('student_chapters').select('*, lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url)').eq('student_id', user.student_id).order('date_completed', { ascending: false });
+      let query = supabase.from('student_chapters').select(`
+        *,
+        lesson_plans(id, subject, chapter, topic, lesson_date, file_url, media_url),
+        recorded_by_teacher:recorded_by_teacher_id(name)
+      `).eq('student_id', user.student_id).order('completed_at', { ascending: false });
+      
+      if (subjectFilter !== "all") {
+        query = query.eq('lesson_plans.subject', subjectFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -187,7 +201,7 @@ const ParentDashboardContent = () => {
 
   // Attendance summary
   const totalDays = attendance.length;
-  const presentDays = attendance.filter(a => a.status === 'Present').length;
+  const presentDays = attendance.filter(a => a.status === 'present').length;
   const absentDays = totalDays - presentDays;
   const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
@@ -274,6 +288,31 @@ const ParentDashboardContent = () => {
   const completedHomework = homeworkStatus.filter((hs: any) => hs.status === 'completed' || hs.status === 'checked');
   const todaysHomework = homeworkStatus.filter((hs: any) => safeFormatDate(hs.homework?.due_date, "yyyy-MM-dd") === today && hs.status !== 'completed' && hs.status !== 'checked');
 
+  // Chapter Rating Calculations for Parent Dashboard
+  const chapterRatingsBySubject = useMemo(() => {
+    const subjectMap = new Map<string, { totalRating: number; count: number; chapters: (StudentChapter & { lesson_plans: LessonPlan; recorded_by_teacher?: Tables<'teachers'> })[] }>();
+
+    lessonRecords.forEach((record: any) => {
+      if (record.lesson_plans?.subject && record.evaluation_rating !== null) {
+        const subject = record.lesson_plans.subject;
+        if (!subjectMap.has(subject)) {
+          subjectMap.set(subject, { totalRating: 0, count: 0, chapters: [] });
+        }
+        const entry = subjectMap.get(subject)!;
+        entry.totalRating += record.evaluation_rating;
+        entry.count += 1;
+        entry.chapters.push(record);
+      }
+    });
+
+    return Array.from(subjectMap.entries()).map(([subject, data]) => ({
+      subject,
+      averageRating: data.count > 0 ? (data.totalRating / data.count).toFixed(1) : 'N/A',
+      chapters: data.chapters.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime()),
+    }));
+  }, [lessonRecords]);
+
+  const allSubjects = Array.from(new Set(lessonRecords.map((lr: any) => lr.lesson_plans?.subject).filter(Boolean)));
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -483,7 +522,7 @@ const ParentDashboardContent = () => {
                   {filteredAttendance.map(a => (
                     <TableRow key={a.id}>
                       <TableCell>{safeFormatDate(a.date, "PPP")}</TableCell>
-                      <TableCell className={a.status === 'Present' ? 'text-green-600' : 'text-red-600'}>
+                      <TableCell className={a.status === 'present' ? 'text-green-600' : 'text-red-600'}>
                         {a.status}
                       </TableCell>
 
@@ -500,6 +539,86 @@ const ParentDashboardContent = () => {
                 </TableBody>
               </Table>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Chapter Rating Report */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5" /> Chapter Rating Report
+              </CardTitle>
+              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {allSubjects.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {chapterRatingsBySubject.length === 0 ? (
+              <p className="text-muted-foreground">No chapter ratings available for your child.</p>
+            ) : (
+              <div className="space-y-6">
+                {/* Accumulated Subject-wise Rating */}
+                <h3 className="font-semibold text-lg mb-2">Subject-wise Average Ratings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {chapterRatingsBySubject.map((subjectData) => (
+                    <Card key={subjectData.subject} className="p-4">
+                      <h4 className="font-medium text-md">{subjectData.subject}</h4>
+                      <p className="text-2xl font-bold flex items-center gap-1">
+                        {subjectData.averageRating} <span className="text-yellow-500">⭐</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">{subjectData.chapters.length} chapters rated</p>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Individual Chapter Ratings */}
+                <h3 className="font-semibold text-lg mb-2">Individual Chapter Ratings</h3>
+                <div className="overflow-x-auto max-h-96 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Chapter</th>
+                        <th className="border px-2 py-1">Topic</th>
+                        <th className="border px-2 py-1">Date Completed</th>
+                        <th className="border px-2 py-1">Rating</th>
+                        <th className="border px-2 py-1">Teacher Notes</th>
+                        <th className="border px-2 py-1">Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {chapterRatingsBySubject.flatMap(subjectData =>
+                        subjectData.chapters.map((record: any) => (
+                          <TableRow key={record.id}>
+                            <TableCell className="border px-2 py-1">{record.lesson_plans?.subject || '-'} </TableCell>
+                            <TableCell className="border px-2 py-1">{record.lesson_plans?.chapter || '-'}</TableCell>
+                            <TableCell className="border px-2 py-1">{record.lesson_plans?.topic || '-'}</TableCell>
+                            <TableCell className="border px-2 py-1">{safeFormatDate(record.completed_at, "PPP")}</TableCell>
+                            <TableCell className="border px-2 py-1 flex items-center gap-1">
+                              {getRatingStars(record.evaluation_rating)}
+                            </TableCell>
+                            <TableCell className="border px-2 py-1">{record.teacher_notes || '-'}</TableCell>
+                            <TableCell className="border px-2 py-1 flex items-center gap-1">
+                              {record.recorded_by_teacher?.name || '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
