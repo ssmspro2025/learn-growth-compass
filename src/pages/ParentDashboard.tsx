@@ -578,7 +578,7 @@ const ParentDashboardContent = () => {
                         <TableCell>{lr.lesson_plans?.subject || '-'}</TableCell>
                         <TableCell>{lr.lesson_plans?.chapter || '-'}</TableCell>
                         <TableCell>{lr.lesson_plans?.topic || '-'}</TableCell>
-                        <TableCell>{safeFormatDate(lr.date_completed, "PPP")}</TableCell>
+                        <TableCell>{safeFormatDate(lr.completed_at, "PPP")}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

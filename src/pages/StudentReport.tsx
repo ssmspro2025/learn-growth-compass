@@ -69,10 +69,10 @@ export default function StudentReport() {
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
       let query = supabase.from("student_chapters").select("*, lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url)").eq("student_id", selectedStudentId)
-        .gte("date_completed", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
-        .lte("date_completed", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
+        .gte("completed_at", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
+        .lte("completed_at", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("lesson_plans.subject", subjectFilter);
-      const { data, error } = await query.order("date_completed", { ascending: false });
+      const { data, error } = await query.order("completed_at", { ascending: false });
       if (error) throw error;
       return data;
     },
