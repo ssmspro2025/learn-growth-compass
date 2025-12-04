@@ -1,0 +1,55 @@
+-- Ensure RLS is enabled for the table (this command is idempotent)
+ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
+
+-- Update policy to allow center users to link parents to students within their center
+ALTER POLICY "Center users can link parents to students within their center"
+ON public.parent_students
+FOR INSERT
+WITH CHECK (
+    (SELECT u.role FROM public.users u WHERE u.id = auth.uid()) = 'center'
+    AND
+    (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid()) IS NOT NULL
+    AND
+    EXISTS (
+        SELECT 1
+        FROM public.users AS pu
+        WHERE pu.id = parent_user_id
+          AND pu.role = 'parent'
+          AND pu.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
+          AND pu.center_id = (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid())
+    )
+    AND
+    EXISTS (
+        SELECT 1
+        FROM public.students AS s
+        WHERE s.id = student_id
+          AND s.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
+          AND s.center_id = (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid())
+    )
+);
+
+-- Update policy to allow parents to view their linked students
+ALTER POLICY "Parents can view their linked students"
+ON public.parent_students
+FOR SELECT
+USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'parent'
+    AND
+    parent_user_id = auth.uid()
+);
+
+-- Update policy to allow center users to view all parent_students records within their center
+ALTER POLICY "Center users can view all parent_students within their center"
+ON public.parent_students
+FOR SELECT
+USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'center'
+    AND
+    EXISTS (
+        SELECT 1
+        FROM public.users AS cu
+        WHERE cu.id = auth.uid()
+          AND cu.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
+          AND cu.center_id = (SELECT center_id FROM public.students WHERE id = student_id)
+    )
+);
