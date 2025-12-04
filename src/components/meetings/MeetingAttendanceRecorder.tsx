@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Filter, Search } from "lucide-react"; // Added Search icon
+import { CheckCircle2, XCircle, Filter, Search } from "lucide-react";
 import { Tables, TablesInsert } from "@/integrations/supabase/types";
-import { Input } from "@/components/ui/input"; // Added Input component
+import { Input } from "@/components/ui/input";
 
 interface MeetingAttendanceRecorderProps {
   meetingId: string;
@@ -31,13 +31,15 @@ type MeetingAttendeeRow = Tables<'meeting_attendees'> & {
 };
 
 type DisplayParticipant = {
-  id: string; // This will be the meeting_attendees.id if existing, or a temporary key for new ones
+  meetingAttendeeId?: string; // ID of the existing meeting_attendees record
   userId: string; // The user.id of the parent or teacher
-  participantId: string; // The student.id or teacher.id
-  name: string; // Parent's username or Teacher's name
-  studentName?: string; // Only for parents
-  grade?: string | null; // Only for parents (student's grade)
+  participantId: string; // The student.id or teacher.id (e.g., student.id for parent meetings)
+  name: string; // Display name (e.g., parent's username or teacher's name)
+  studentName?: string; // Student's name (for parent meetings)
+  grade?: string | null; // Student's grade (for parent meetings)
   type: 'parent' | 'teacher';
+  initialStatus: AttendanceStatus; // Initial status from DB or 'pending'
+  initialNotes: string | null; // Initial notes from DB
 };
 
 export default function MeetingAttendanceRecorder({ meetingId, onClose }: MeetingAttendanceRecorderProps) {
@@ -94,7 +96,9 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
                 name: parentUser.username, // Parent's username
                 studentName: ps.students.name,
                 grade: ps.students.grade,
-                type: 'parent'
+                type: 'parent',
+                initialStatus: 'pending', // Will be overridden by existingAttendees
+                initialNotes: null, // Will be overridden by existingAttendees
               });
             }
           });
@@ -126,7 +130,9 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         participantId: teacher.id, // Teacher ID
         name: teacher.name,
         grade: null,
-        type: 'teacher'
+        type: 'teacher',
+        initialStatus: 'pending', // Will be overridden by existingAttendees
+        initialNotes: null, // Will be overridden by existingAttendees
       })) as DisplayParticipant[];
     },
     enabled: !!user?.center_id && meetingDetails?.meeting_type === 'teachers',
@@ -147,11 +153,24 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   });
 
   // Combine all potential attendees and apply filters
-  const displayParticipants = useMemo(() => {
+  const allPotentialParticipants = useMemo(() => {
     let participants: DisplayParticipant[] = [];
 
     if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
-      participants = allParents;
+      participants = allParents.map(p => {
+        const existing = existingAttendees.find(ea => ea.user_id === p.userId && ea.student_id === p.participantId);
+        return {
+          meetingAttendeeId: existing?.id,
+          userId: p.userId,
+          participantId: p.participantId,
+          name: p.name,
+          studentName: p.studentName,
+          grade: p.grade,
+          type: 'parent',
+          initialStatus: (existing?.attendance_status as AttendanceStatus) || "pending",
+          initialNotes: existing?.notes || null,
+        };
+      });
       if (gradeFilter !== "all") {
         participants = participants.filter(p => p.grade === gradeFilter);
       }
@@ -162,7 +181,19 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         );
       }
     } else if (meetingDetails?.meeting_type === 'teachers') {
-      participants = allTeachers;
+      participants = allTeachers.map(t => {
+        const existing = existingAttendees.find(ea => ea.user_id === t.userId && ea.teacher_id === t.participantId);
+        return {
+          meetingAttendeeId: existing?.id,
+          userId: t.userId,
+          participantId: t.participantId,
+          name: t.name,
+          grade: null,
+          type: 'teacher',
+          initialStatus: (existing?.attendance_status as AttendanceStatus) || "pending",
+          initialNotes: existing?.notes || null,
+        };
+      });
       if (searchQuery) {
         participants = participants.filter(p => 
           p.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -170,7 +201,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       }
     }
     return participants;
-  }, [allParents, allTeachers, meetingDetails?.meeting_type, gradeFilter, searchQuery]);
+  }, [allParents, allTeachers, existingAttendees, meetingDetails?.meeting_type, gradeFilter, searchQuery]);
 
   // Derive unique grades for the filter dropdown from all parents
   const uniqueGrades = useMemo(() => {
@@ -183,63 +214,47 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
     return Array.from(grades).sort();
   }, [allParents]);
 
-  // Initialize attendeeStatuses from existing records or default to 'pending'
+  // Initialize attendeeStatuses from initialStatus in allPotentialParticipants
   useEffect(() => {
     const initialStatuses: Record<string, AttendanceStatus> = {};
-    
-    // Initialize all currently displayed participants to 'pending'
-    displayParticipants.forEach(participant => {
-      initialStatuses[participant.userId] = "pending";
-    });
-
-    // Override with existing statuses from the database
-    existingAttendees.forEach((attendee) => {
-      const key = attendee.user_id; // Use user_id as the key for status tracking
-      if (key) {
-        initialStatuses[key] = (attendee.attendance_status as AttendanceStatus) || "pending";
-      }
+    allPotentialParticipants.forEach(participant => {
+      initialStatuses[participant.userId] = participant.initialStatus;
     });
     setAttendeeStatuses(initialStatuses);
-  }, [existingAttendees, displayParticipants]);
+  }, [allPotentialParticipants]); // Depend on allPotentialParticipants to re-initialize when filters change
 
   const updateAttendanceMutation = useMutation({
     mutationFn: async () => {
       const recordsToUpsert: TablesInsert<'meeting_attendees'>[] = [];
       
-      for (const participant of displayParticipants) {
-        const attendance_status = attendeeStatuses[participant.userId] ?? "pending";
-        const attended = attendance_status === "present";
+      for (const participant of allPotentialParticipants) { // Iterate over all potential participants
+        const statusToSave = attendeeStatuses[participant.userId] ?? "pending";
+        const attended = statusToSave === "present";
         
-        // Find if an existing record exists for this participant (user_id + student_id/teacher_id)
-        const existingAttendeeRecord = existingAttendees.find((ea) => 
-          ea.user_id === participant.userId &&
-          ((participant.type === 'student' && ea.student_id === participant.participantId) ||
-           (participant.type === 'teacher' && ea.teacher_id === participant.participantId))
-        );
-
-        const baseRecord: TablesInsert<'meeting_attendees'> = {
+        const record: TablesInsert<'meeting_attendees'> = {
           meeting_id: meetingId,
           attended,
-          attendance_status,
-          notes: existingAttendeeRecord?.notes || null, // Preserve existing notes if any
+          attendance_status: statusToSave,
+          notes: participant.initialNotes, // Keep initial notes, or add a way to edit them
           user_id: participant.userId,
         };
 
         if (participant.type === 'parent') {
-          Object.assign(baseRecord, { student_id: participant.participantId, teacher_id: null });
+          Object.assign(record, { student_id: participant.participantId, teacher_id: null });
         } else if (participant.type === 'teacher') {
-          Object.assign(baseRecord, { teacher_id: participant.participantId, student_id: null });
+          Object.assign(record, { teacher_id: participant.participantId, student_id: null });
         }
 
-        if (existingAttendeeRecord) {
-          recordsToUpsert.push({ id: existingAttendeeRecord.id, ...baseRecord });
-        } else {
-          recordsToUpsert.push(baseRecord);
+        if (participant.meetingAttendeeId) {
+          // If an existing record ID is present, include it for update
+          Object.assign(record, { id: participant.meetingAttendeeId });
         }
+        recordsToUpsert.push(record);
       }
 
       if (recordsToUpsert.length > 0) {
-        const { error: upsertError } = await supabase.from("meeting_attendees").upsert(recordsToUpsert, { onConflict: 'id' });
+        // Use upsert with onConflict on meeting_id and user_id to handle new entries and updates
+        const { error: upsertError } = await supabase.from("meeting_attendees").upsert(recordsToUpsert, { onConflict: 'meeting_id,user_id' });
         if (upsertError) throw upsertError;
       }
     },
@@ -260,7 +275,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
   const markAll = (status: AttendanceStatus) => {
     const newStatuses: Record<string, AttendanceStatus> = {};
-    displayParticipants.forEach(p => newStatuses[p.userId] = status);
+    allPotentialParticipants.forEach(p => newStatuses[p.userId] = status);
     setAttendeeStatuses(newStatuses);
   };
 
@@ -315,12 +330,12 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayParticipants.length === 0 ? (
+            {allPotentialParticipants.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? 3 : 2} className="text-center text-muted-foreground">No participants found</TableCell>
               </TableRow>
             ) : (
-              displayParticipants.map((participant) => (
+              allPotentialParticipants.map((participant) => (
                 <TableRow key={participant.userId}>
                   <TableCell className="font-medium">
                     {participant.type === 'parent'
