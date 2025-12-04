@@ -109,7 +109,7 @@ export default function RegisterStudent() {
   }, [parentStudentLinks]);
 
   // Fetch existing parent users for linking (filtered by search term)
-  const { data: existingParentUsers = [] } = useQuery({
+  const { data: existingParentUsers = [], isLoading: existingParentsLoading, error: existingParentsError } = useQuery({
     queryKey: ["existing-parent-users", user?.center_id, parentSearchTerm],
     queryFn: async () => {
       if (!user?.center_id) return [];
@@ -117,14 +117,18 @@ export default function RegisterStudent() {
         .from("users")
         .select("id, username, student_id, center_id") // Include center_id for debugging
         .eq("role", "parent")
-        .eq("center_id", user.center_id)
+        .eq("center_id", user.center_id) // This line is crucial
         .order("username");
 
       if (parentSearchTerm) {
         query = query.ilike("username", `%${parentSearchTerm}%`);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching existing parent users:", error);
+        throw error;
+      }
+      console.log("Fetched existing parent users:", data);
       return data;
     },
     enabled: !!user?.center_id && showLinkExistingParentDialog,
@@ -964,7 +968,9 @@ export default function RegisterStudent() {
                   <SelectValue placeholder="Select an existing parent" />
                 </SelectTrigger>
                 <SelectContent>
-                  {existingParentUsers.length === 0 ? (
+                  {existingParentsLoading ? (
+                    <SelectItem value="loading" disabled>Loading parents...</SelectItem>
+                  ) : existingParentUsers.length === 0 ? (
                     <SelectItem value="no-parents" disabled>No parent users found</SelectItem>
                   ) : (
                     existingParentUsers.map((parentUser: any) => (
