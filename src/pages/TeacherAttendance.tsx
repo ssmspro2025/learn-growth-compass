@@ -619,15 +619,15 @@ export default function TeacherAttendancePage() {
           setSelectedTeacherDetail(null);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="teacher-detail-title" aria-describedby="teacher-detail-description">
           <DialogHeader>
             <div className="flex justify-between items-center">
               <div>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle id="teacher-detail-title" className="flex items-center gap-2">
                   <User className="h-5 w-5" />
                   {selectedTeacherDetail?.name}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription id="teacher-detail-description">
                   Detailed attendance report for {selectedTeacherDetail?.name}.
                 </DialogDescription>
               </div>
