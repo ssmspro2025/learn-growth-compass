@@ -7,24 +7,28 @@ ON public.parent_students
 FOR INSERT
 TO authenticated
 WITH CHECK (
-    -- Check if the current user is a 'center' role
-    (SELECT role FROM public.users WHERE id = auth.uid()) = 'center'
+    -- Ensure the current user is a 'center' role and has a valid (non-NULL) center_id
+    (SELECT u.role FROM public.users u WHERE u.id = auth.uid()) = 'center'
     AND
-    -- Check if the parent_user_id belongs to a parent in the same center as the current user
+    (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid()) IS NOT NULL
+    AND
+    -- Ensure the parent_user_id being linked is a 'parent' role, has a valid center_id, and it matches the current user's center_id
     EXISTS (
         SELECT 1
         FROM public.users AS pu
         WHERE pu.id = parent_user_id
           AND pu.role = 'parent'
-          AND pu.center_id = (SELECT center_id FROM public.users WHERE id = auth.uid())
+          AND pu.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
+          AND pu.center_id = (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid())
     )
     AND
-    -- Check if the student_id belongs to a student in the same center as the current user
+    -- Ensure the student_id being linked has a valid center_id and it matches the current user's center_id
     EXISTS (
         SELECT 1
         FROM public.students AS s
         WHERE s.id = student_id
-          AND s.center_id = (SELECT center_id FROM public.users WHERE id = auth.uid())
+          AND s.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
+          AND s.center_id = (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid())
     )
 );
 
@@ -51,6 +55,7 @@ USING (
         SELECT 1
         FROM public.users AS cu
         WHERE cu.id = auth.uid()
+          AND cu.center_id IS NOT NULL -- Explicitly check for non-NULL center_id
           AND cu.center_id = (SELECT center_id FROM public.students WHERE id = student_id)
     )
 );

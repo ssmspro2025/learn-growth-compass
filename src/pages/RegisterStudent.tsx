@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/co
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, Link, Check } from "lucide-react"; // Added Check icon
+import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, Link, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import * as bcrypt from 'bcryptjs'; // Import bcryptjs for password hashing
 
@@ -63,11 +63,11 @@ export default function RegisterStudent() {
   const [parentSearchTerm, setParentSearchTerm] = useState("");
   const [selectedExistingParentUserId, setSelectedExistingParentUserId] = useState<string | null>(null);
 
-  // Fetch students
+  // Fetch students (without direct user join to avoid implicit filtering)
   const { data: students, isLoading } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      let query = supabase.from("students").select("*, users!students_id_fkey(id, username, role)").order("created_at", { ascending: false, });
+      let query = supabase.from("students").select("*").order("created_at", { ascending: false, });
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
@@ -77,14 +77,41 @@ export default function RegisterStudent() {
     },
   });
 
-  // Fetch existing parent users for linking
+  // Fetch all parent users for the current center to check for linked accounts
+  const { data: allParentUsers = [] } = useQuery({
+    queryKey: ["all-parent-users", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, username, student_id")
+        .eq("role", "parent")
+        .eq("center_id", user.center_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Map student IDs to their linked parent user (if any)
+  const studentToParentUserMap = useMemo(() => {
+    const map = new Map<string, { id: string; username: string }>();
+    allParentUsers.forEach(pu => {
+      if (pu.student_id) {
+        map.set(pu.student_id, { id: pu.id, username: pu.username });
+      }
+    });
+    return map;
+  }, [allParentUsers]);
+
+  // Fetch existing parent users for linking (filtered by search term)
   const { data: existingParentUsers = [] } = useQuery({
     queryKey: ["existing-parent-users", user?.center_id, parentSearchTerm],
     queryFn: async () => {
       if (!user?.center_id) return [];
       let query = supabase
         .from("users")
-        .select("id, username, student_id") // student_id is useful to see which student they are already linked to
+        .select("id, username, student_id")
         .eq("role", "parent")
         .eq("center_id", user.center_id)
         .order("username");
@@ -134,6 +161,30 @@ export default function RegisterStudent() {
     },
     onError: () => {
       toast.error("Failed to register student");
+    },
+  });
+
+  // Bulk Insert Mutation (CSV/Multiline)
+  const bulkInsertMutation = useMutation({
+    mutationFn: async (studentsToInsert: StudentInput[]) => {
+      if (!user?.center_id) throw new Error("Center ID not found");
+      const records = studentsToInsert.map(s => ({
+        ...s,
+        center_id: user.center_id,
+      }));
+      const { error } = await supabase.from("students").insert(records);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["students", user?.center_id] });
+      toast.success("Students bulk registered successfully!");
+      setShowPreviewDialog(false);
+      setCsvPreviewRows([]);
+      setCsvErrors([]);
+      setMultilineText("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to bulk register students");
     },
   });
 
@@ -203,6 +254,7 @@ export default function RegisterStudent() {
       setParentUsername("");
       setParentPassword("");
       queryClient.invalidateQueries({ queryKey: ["students", user?.center_id] }); // Refresh students to show linked parent
+      queryClient.invalidateQueries({ queryKey: ["all-parent-users", user?.center_id] }); // Refresh all parent users
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create parent account");
@@ -240,33 +292,9 @@ export default function RegisterStudent() {
       if (linkError) throw linkError;
 
       // Also update the student's parent_name and parent_phone if available from the parent user's linked student
-      const { data: parentUserData, error: parentUserFetchError } = await supabase
-        .from('users')
-        .select('student_id')
-        .eq('id', selectedExistingParentUserId)
-        .single();
-
-      if (parentUserFetchError) console.error("Error fetching parent user data for update:", parentUserFetchError);
-
-      if (parentUserData?.student_id) {
-        const { data: primaryStudentData, error: primaryStudentFetchError } = await supabase
-          .from('students')
-          .select('parent_name, parent_phone')
-          .eq('id', parentUserData.student_id)
-          .single();
-        
-        if (primaryStudentFetchError) console.error("Error fetching primary student data for update:", primaryStudentFetchError);
-
-        if (primaryStudentData) {
-          await supabase
-            .from('students')
-            .update({
-              parent_name: primaryStudentData.parent_name,
-              parent_phone: primaryStudentData.parent_phone,
-            })
-            .eq('id', selectedStudentForLink.id);
-        }
-      }
+      // This part is optional and depends on whether you want to sync parent_name/phone from the primary linked student
+      // For now, we'll keep it simple and just link in parent_students.
+      // The student's parent_name and parent_phone fields are primarily for initial registration data.
     },
     onSuccess: () => {
       toast.success("Student linked to existing parent successfully!");
@@ -275,6 +303,7 @@ export default function RegisterStudent() {
       setParentSearchTerm("");
       setSelectedExistingParentUserId(null);
       queryClient.invalidateQueries({ queryKey: ["students", user?.center_id] }); // Refresh students to show linked parent
+      queryClient.invalidateQueries({ queryKey: ["all-parent-users", user?.center_id] }); // Refresh all parent users
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to link student to parent");
@@ -637,7 +666,9 @@ export default function RegisterStudent() {
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleBulkInsertConfirm}>Insert All</Button>
+            <Button onClick={handleBulkInsertConfirm} disabled={bulkInsertMutation.isPending}>
+              {bulkInsertMutation.isPending ? "Inserting..." : "Insert All"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -690,7 +721,8 @@ export default function RegisterStudent() {
                 </TableRow>
               ) : filteredStudents && filteredStudents.length > 0 ? (
                 filteredStudents.map((student: any) => {
-                  const hasParentAccount = student.users && student.users.length > 0;
+                  const linkedParent = studentToParentUserMap.get(student.id);
+                  const hasParentAccount = !!linkedParent;
                   return (
                     <TableRow key={student.id}>
                       <TableCell>
@@ -766,7 +798,7 @@ export default function RegisterStudent() {
                       <TableCell>
                         {hasParentAccount ? (
                           <span className="text-green-600 flex items-center gap-1">
-                            <Check /> Linked ({student.users[0].username})
+                            <Check /> Linked ({linkedParent?.username})
                           </span>
                         ) : (
                           <span className="text-red-600 flex items-center gap-1">
