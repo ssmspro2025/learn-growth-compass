@@ -42,6 +42,9 @@ export default function MeetingAttendeesViewer({ meetingId }: MeetingAttendeesVi
     enabled: !!meetingId,
   });
 
+  // Add a console log here to inspect the fetched data
+  console.log("MeetingAttendeesViewer: Fetched attendees data:", attendees);
+
   const getStatusColorClass = (status: string | null) => {
     switch (status) {
       case "present": return "bg-green-100 text-green-800";
