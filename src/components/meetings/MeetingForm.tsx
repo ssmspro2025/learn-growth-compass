@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Users } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
+import { DialogContent } from "@/components/ui/dialog"; // Import DialogContent
 
 interface MeetingFormProps {
   meeting?: Tables<'meetings'> & { meeting_attendees?: Tables<'meeting_attendees'>[] };
@@ -215,139 +216,141 @@ export default function MeetingForm({ meeting, onSave, onCancel }: MeetingFormPr
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="title">Title *</Label>
-        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Meeting title" required />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Meeting details" />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="meeting-form-title" aria-describedby="meeting-form-description">
+      <form onSubmit={handleSubmit} className="space-y-4 py-4">
         <div className="space-y-2">
-          <Label htmlFor="meetingDate">Date & Time *</Label>
-          <Input id="meetingDate" type="datetime-local" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} required />
+          <Label htmlFor="title">Title *</Label>
+          <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Meeting title" required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="location">Location</Label>
-          <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Meeting location" />
+          <Label htmlFor="description">Description</Label>
+          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Meeting details" />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Meeting Type</Label>
-          <Select value={meetingType} onValueChange={setMeetingType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="general">General</SelectItem>
-              <SelectItem value="parents">Parents</SelectItem>
-              <SelectItem value="teachers">Teachers</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {meetingType === "parents" && (
-        <div className="space-y-3 border p-4 rounded-lg">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" /> Select Parent Attendees (via Students)
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Only parents of selected students will be linked to this meeting.
-          </p>
-          <Input
-            placeholder="Search students..."
-            value={studentSearch}
-            onChange={(e) => setStudentSearch(e.target.value)}
-            className="mb-2"
-          />
-          <div className="flex gap-2 mb-2">
-            <Button type="button" variant="outline" size="sm" onClick={selectAllStudents}>Select All Parents</Button>
-            <Button type="button" variant="ghost" size="sm" onClick={clearStudentSelection}>Clear Selection</Button>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="meetingDate">Date & Time *</Label>
+            <Input id="meetingDate" type="datetime-local" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} required />
           </div>
-          <ScrollArea className="h-48 border rounded-md p-2">
-            {studentsLoading ? (
-              <p className="text-muted-foreground">Loading students...</p>
-            ) : filteredStudents.length === 0 ? (
-              <p className="text-muted-foreground">No students found.</p>
-            ) : (
-              <div className="space-y-2">
-                {filteredStudents.map(student => (
-                  <div key={student.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`student-${student.id}`}
-                      checked={selectedStudentIds.includes(student.id)}
-                      onCheckedChange={() => toggleStudentSelection(student.id)}
-                    />
-                    <Label htmlFor={`student-${student.id}`} className="font-normal cursor-pointer">
-                      {student.name} (Grade {student.grade})
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-      )}
-
-      {meetingType === "teachers" && (
-        <div className="space-y-3 border p-4 rounded-lg">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" /> Select Teacher Attendees
-          </h3>
-          <Input
-            placeholder="Search teachers..."
-            value={teacherSearch}
-            onChange={(e) => setTeacherSearch(e.target.value)}
-            className="mb-2"
-          />
-          <div className="flex gap-2 mb-2">
-            <Button type="button" variant="outline" size="sm" onClick={selectAllTeachers}>Select All Teachers</Button>
-            <Button type="button" variant="ghost" size="sm" onClick={clearTeacherSelection}>Clear Selection</Button>
+          <div className="space-y-2">
+            <Label htmlFor="location">Location</Label>
+            <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Meeting location" />
           </div>
-          <ScrollArea className="h-48 border rounded-md p-2">
-            {teachersLoading ? (
-              <p className="text-muted-foreground">Loading teachers...</p>
-            ) : filteredTeachers.length === 0 ? (
-              <p className="text-muted-foreground">No teachers found.</p>
-            ) : (
-              <div className="space-y-2">
-                {filteredTeachers.map(teacher => (
-                  <div key={teacher.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`teacher-${teacher.id}`}
-                      checked={selectedTeacherIds.includes(teacher.id)}
-                      onCheckedChange={() => toggleTeacherSelection(teacher.id)}
-                    />
-                    <Label htmlFor={`teacher-${teacher.id}`} className="font-normal cursor-pointer">
-                      {teacher.name}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
         </div>
-      )}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Meeting Type</Label>
+            <Select value={meetingType} onValueChange={setMeetingType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="parents">Parents</SelectItem>
+                <SelectItem value="teachers">Teachers</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={!title || createMeetingMutation.isPending || updateMeetingMutation.isPending}>
-          {meeting ? "Update" : "Create"} Meeting
-        </Button>
-      </div>
-    </form>
+        {meetingType === "parents" && (
+          <div className="space-y-3 border p-4 rounded-lg">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" /> Select Parent Attendees (via Students)
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Only parents of selected students will be linked to this meeting.
+            </p>
+            <Input
+              placeholder="Search students..."
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              className="mb-2"
+            />
+            <div className="flex gap-2 mb-2">
+              <Button type="button" variant="outline" size="sm" onClick={selectAllStudents}>Select All Parents</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={clearStudentSelection}>Clear Selection</Button>
+            </div>
+            <ScrollArea className="h-48 border rounded-md p-2">
+              {studentsLoading ? (
+                <p className="text-muted-foreground">Loading students...</p>
+              ) : filteredStudents.length === 0 ? (
+                <p className="text-muted-foreground">No students found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredStudents.map(student => (
+                    <div key={student.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`student-${student.id}`}
+                        checked={selectedStudentIds.includes(student.id)}
+                        onCheckedChange={() => toggleStudentSelection(student.id)}
+                      />
+                      <Label htmlFor={`student-${student.id}`} className="font-normal cursor-pointer">
+                        {student.name} (Grade {student.grade})
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        )}
+
+        {meetingType === "teachers" && (
+          <div className="space-y-3 border p-4 rounded-lg">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" /> Select Teacher Attendees
+            </h3>
+            <Input
+              placeholder="Search teachers..."
+              value={teacherSearch}
+              onChange={(e) => setTeacherSearch(e.target.value)}
+              className="mb-2"
+            />
+            <div className="flex gap-2 mb-2">
+              <Button type="button" variant="outline" size="sm" onClick={selectAllTeachers}>Select All Teachers</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={clearTeacherSelection}>Clear Selection</Button>
+            </div>
+            <ScrollArea className="h-48 border rounded-md p-2">
+              {teachersLoading ? (
+                <p className="text-muted-foreground">Loading teachers...</p>
+              ) : filteredTeachers.length === 0 ? (
+                <p className="text-muted-foreground">No teachers found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredTeachers.map(teacher => (
+                    <div key={teacher.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`teacher-${teacher.id}`}
+                        checked={selectedTeacherIds.includes(teacher.id)}
+                        onCheckedChange={() => toggleTeacherSelection(teacher.id)}
+                      />
+                      <Label htmlFor={`teacher-${teacher.id}`} className="font-normal cursor-pointer">
+                        {teacher.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button type="submit" disabled={!title || createMeetingMutation.isPending || updateMeetingMutation.isPending}>
+            {meeting ? "Update" : "Create"} Meeting
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
   );
 }

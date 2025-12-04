@@ -88,27 +88,38 @@ export default function MeetingManagement() {
     const attendeesToInsert: TablesInsert<'meeting_attendees'>[] = [];
 
     if (meetingData.meeting_type === 'parents' && selectedStudentIds.length > 0) {
-      // Fetch parent user IDs for the selected students
-      const { data: parentUsers, error: parentUserError } = await supabase
-        .from('users')
-        .select('id, student_id')
-        .in('student_id', selectedStudentIds)
-        .eq('role', 'parent');
+      // Fetch parent_user_ids linked to the selected students via parent_students table
+      const { data: parentStudentLinks, error: linksError } = await supabase
+        .from('parent_students')
+        .select('parent_user_id, student_id')
+        .in('student_id', selectedStudentIds);
 
-      if (parentUserError) {
-        console.error("Error fetching parent users:", parentUserError);
+      if (linksError) {
+        console.error("Error fetching parent-student links:", linksError);
         toast.error("Failed to link parents to meeting.");
         return;
       }
 
-      parentUsers.forEach(pu => {
-        if (pu.student_id) {
+      // Create a map for quick lookup of parent_user_id by student_id
+      const studentToParentMap = new Map<string, string>();
+      parentStudentLinks.forEach(link => {
+        if (link.student_id && link.parent_user_id) {
+          studentToParentMap.set(link.student_id, link.parent_user_id);
+        }
+      });
+
+      // For each selected student, create an attendee record
+      selectedStudentIds.forEach(studentId => {
+        const parentUserId = studentToParentMap.get(studentId);
+        if (parentUserId) {
           attendeesToInsert.push({
             meeting_id: meetingData.id,
-            student_id: pu.student_id,
-            user_id: pu.id, // Link parent user ID
+            student_id: studentId,
+            user_id: parentUserId, // Link parent user ID
             attendance_status: 'pending',
           });
+        } else {
+          console.warn(`No parent user found for student ID: ${studentId}. Skipping attendee creation for this student.`);
         }
       });
 
@@ -187,19 +198,12 @@ export default function MeetingManagement() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> Create Meeting</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl" aria-labelledby="meeting-form-title" aria-describedby="meeting-form-description">
-            <DialogHeader>
-              <DialogTitle id="meeting-form-title">{editingMeeting ? "Edit Meeting" : "Create New Meeting"}</DialogTitle>
-              <DialogDescription id="meeting-form-description">
-                {editingMeeting ? "Update the details of this meeting." : "Schedule a new meeting for parents, teachers, or both."}
-              </DialogDescription>
-            </DialogHeader>
-            <MeetingForm
-              meeting={editingMeeting}
-              onSave={handleMeetingSave} // Pass the simplified handler
-              onCancel={() => setShowMeetingFormDialog(false)}
-            />
-          </DialogContent>
+          {/* DialogContent is now inside MeetingForm component */}
+          <MeetingForm
+            meeting={editingMeeting}
+            onSave={handleMeetingSave} // Pass the simplified handler
+            onCancel={() => setShowMeetingFormDialog(false)}
+          />
         </Dialog>
       </div>
 
