@@ -104,13 +104,25 @@ export default function Messaging() {
       if (!selectedConversation?.id) return [];
       const { data, error } = await supabase
         .from("chat_messages")
-        .select(`
-          *,
-          sender:sender_user_id(id, username, role)
-        `)
+        .select("*")
         .eq("conversation_id", selectedConversation.id)
         .order("sent_at", { ascending: true });
       if (error) throw error;
+
+      if (data && data.length > 0) {
+        const senderIds = data.map((m: any) => m.sender_user_id).filter(Boolean);
+        if (senderIds.length > 0) {
+          const { data: sendersData } = await supabase
+            .from("users")
+            .select("id, username, role")
+            .in("id", senderIds);
+
+          return data.map((msg: any) => ({
+            ...msg,
+            sender: (sendersData || []).find((u: any) => u.id === msg.sender_user_id)
+          }));
+        }
+      }
       return data;
     },
     enabled: !!selectedConversation?.id,
