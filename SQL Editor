@@ -1,12 +1,51 @@
--- Update policy to allow center users to link parents to students within their center (FOR INSERT)
-ALTER POLICY "Center users can link parents to students within their center"
+-- Ensure RLS is enabled for the users table (this command is idempotent)
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policy on users to avoid conflicts
+DROP POLICY IF EXISTS "Center users can view other users in their center" ON public.users;
+
+-- Policy: Allow center users to view other users in their center
+-- This is crucial for subqueries in other RLS policies to work correctly.
+CREATE POLICY "Center users can view other users in their center"
+ON public.users
+FOR SELECT
+USING (
+    auth.role() = 'center'
+    AND
+    center_id = (SELECT u.center_id FROM public.users u WHERE u.id = auth.uid())
+);
+
+-- Enable RLS for parent_students table (idempotent)
+ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies on parent_students to avoid conflicts
+DROP POLICY IF EXISTS "Center users can link parents to students within their center" ON public.parent_students;
+DROP POLICY IF EXISTS "Center users can view parent-student links within their center" ON public.parent_students;
+
+-- Policy: Allow center users to insert parent-student links for students and parents in their center
+CREATE POLICY "Center users can insert parent-student links within their center"
 ON public.parent_students
+FOR INSERT
 WITH CHECK (
     auth.role() = 'center'
     AND
-    (SELECT center_id FROM public.users WHERE id = auth.uid()) IS NOT NULL
-    AND
+    -- Ensure the current user's center_id matches the parent_user's center_id
     (SELECT center_id FROM public.users WHERE id = auth.uid()) = (SELECT center_id FROM public.users WHERE id = parent_user_id)
     AND
+    -- Ensure the current user's center_id matches the student's center_id
+    (SELECT center_id FROM public.users WHERE id = auth.uid()) = (SELECT center_id FROM public.students WHERE id = student_id)
+);
+
+-- Policy: Allow center users to view parent-student links within their center
+CREATE POLICY "Center users can view parent-student links within their center"
+ON public.parent_students
+FOR SELECT
+USING (
+    auth.role() = 'center'
+    AND
+    -- Ensure the current user's center_id matches the parent_user's center_id
+    (SELECT center_id FROM public.users WHERE id = auth.uid()) = (SELECT center_id FROM public.users WHERE id = parent_user_id)
+    AND
+    -- Ensure the current user's center_id matches the student's center_id
     (SELECT center_id FROM public.users WHERE id = auth.uid()) = (SELECT center_id FROM public.students WHERE id = student_id)
 );
