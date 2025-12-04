@@ -28,6 +28,14 @@ type MeetingAttendeeRow = Tables<'meeting_attendees'> & {
   users?: PartialUser;
 };
 
+type DisplayParticipant = {
+  id: string; // student_id or teacher_id
+  name: string; // Student name or Teacher name
+  parentName?: string; // Parent's username if applicable
+  grade: string | null;
+  type: 'student' | 'teacher';
+};
+
 export default function MeetingAttendanceRecorder({ meetingId, onClose }: MeetingAttendanceRecorderProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -67,14 +75,15 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   const displayParticipants = useMemo(() => {
     if (!meetingDetails || !existingAttendees) return [];
 
-    let filtered: Array<{ id: string; name: string; grade: string | null; type: 'student' | 'teacher' }> = [];
+    let filtered: DisplayParticipant[] = [];
 
     if (meetingDetails.meeting_type === "parents" || meetingDetails.meeting_type === "general") {
       filtered = existingAttendees
         .filter(att => att.student_id && att.students)
         .map(att => ({
           id: att.student_id!,
-          name: att.students!.name,
+          name: att.students!.name, // Student's name
+          parentName: att.users?.username, // Parent's username
           grade: att.students!.grade,
           type: 'student'
         }));
@@ -226,8 +235,8 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? <TableHead>Grade</TableHead> : null}
+              <TableHead>Participant</TableHead>
+              {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? <TableHead>Student Grade</TableHead> : null}
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -239,7 +248,11 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
             ) : (
               displayParticipants.map((participant) => (
                 <TableRow key={participant.id}>
-                  <TableCell className="font-medium">{participant.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {participant.type === 'student' && participant.parentName
+                      ? `${participant.parentName} (Parent of ${participant.name})`
+                      : participant.name}
+                  </TableCell>
                   {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? <TableCell>{participant.grade}</TableCell> : null}
                   <TableCell>
                     <Select
