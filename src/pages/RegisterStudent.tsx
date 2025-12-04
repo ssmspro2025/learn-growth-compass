@@ -67,7 +67,9 @@ export default function RegisterStudent() {
   const { data: students, isLoading } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      let query = supabase.from("students").select("*, users!students_id_fkey(id, username, role)").order("created_at", { ascending: false, });
+      // Changed to a standard select with a join to ensure all students are fetched,
+      // even if they don't have a linked user yet.
+      let query = supabase.from("students").select("*, users(id, username, role)").order("created_at", { ascending: false, });
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
@@ -690,6 +692,7 @@ export default function RegisterStudent() {
                 </TableRow>
               ) : filteredStudents && filteredStudents.length > 0 ? (
                 filteredStudents.map((student: any) => {
+                  // Check if student.users exists and has at least one entry
                   const hasParentAccount = student.users && student.users.length > 0;
                   return (
                     <TableRow key={student.id}>
