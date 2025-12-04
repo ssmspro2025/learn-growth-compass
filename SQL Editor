@@ -1,10 +1,10 @@
 -- Ensure RLS is enabled for the table (this command is idempotent)
 ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
 
--- Update policy to allow center users to link parents to students within their center
+-- Update policy to allow center users to link parents to students within their center (FOR INSERT)
+-- This policy already exists FOR INSERT, so we only need to update its WITH CHECK clause.
 ALTER POLICY "Center users can link parents to students within their center"
 ON public.parent_students
-FOR INSERT
 WITH CHECK (
     (SELECT u.role FROM public.users u WHERE u.id = auth.uid()) = 'center'
     AND
@@ -28,20 +28,20 @@ WITH CHECK (
     )
 );
 
--- Update policy to allow parents to view their linked students
+-- Update policy to allow parents to view their linked students (FOR SELECT)
+-- This policy already exists FOR SELECT, so we only need to update its USING clause.
 ALTER POLICY "Parents can view their linked students"
 ON public.parent_students
-FOR SELECT
 USING (
     (SELECT role FROM public.users WHERE id = auth.uid()) = 'parent'
     AND
     parent_user_id = auth.uid()
 );
 
--- Update policy to allow center users to view all parent_students records within their center
+-- Update policy to allow center users to view all parent_students records within their center (FOR SELECT)
+-- This policy already exists FOR SELECT, so we only need to update its USING clause.
 ALTER POLICY "Center users can view all parent_students within their center"
 ON public.parent_students
-FOR SELECT
 USING (
     (SELECT role FROM public.users WHERE id = auth.uid()) = 'center'
     AND
