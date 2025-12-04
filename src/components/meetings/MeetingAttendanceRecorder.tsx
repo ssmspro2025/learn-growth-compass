@@ -19,27 +19,21 @@ interface MeetingAttendanceRecorderProps {
 
 type AttendanceStatus = "pending" | "present" | "absent" | "excused" | "invite";
 
-// Define partial types for fetched data
-type PartialStudent = Pick<Tables<'students'>, 'id' | 'name' | 'grade'>;
-type PartialTeacher = Pick<Tables<'teachers'>, 'id' | 'name' | 'user_id'>;
-type PartialUser = Pick<Tables<'users'>, 'id' | 'username' | 'role'>;
-
-type MeetingAttendeeRow = Tables<'meeting_attendees'> & {
-  students?: PartialStudent;
-  teachers?: PartialTeacher;
-  users?: PartialUser;
-};
-
-type DisplayParticipant = {
-  meetingAttendeeId?: string; // ID of the existing meeting_attendees record
+// Define base participant type (without meeting-specific status)
+type BaseParticipant = {
   userId: string; // The user.id of the parent or teacher
-  participantId: string; // The student.id or teacher.id (e.g., student.id for parent meetings)
-  name: string; // Parent's username or Teacher's name
+  participantId: string; // The student.id or teacher.id
+  name: string; // Display name (e.g., parent's username or teacher's name)
   studentName?: string; // Student's name (for parent meetings)
   grade?: string | null; // Student's grade (for parent meetings)
   type: 'parent' | 'teacher';
-  initialStatus: AttendanceStatus; // Initial status from DB or 'pending'
-  initialNotes: string | null; // Initial notes from DB
+};
+
+// Define participant type with meeting-specific status
+type DisplayParticipantWithStatus = BaseParticipant & {
+  meetingAttendeeId?: string; // ID of the existing meeting_attendees record
+  currentStatus: AttendanceStatus; // Current status for THIS meeting
+  currentNotes: string | null; // Current notes for THIS meeting
 };
 
 export default function MeetingAttendanceRecorder({ meetingId, onClose }: MeetingAttendanceRecorderProps) {
@@ -84,21 +78,18 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       if (error) throw error;
       
       // Flatten the data to get a list of parent-student pairs
-      const parentsWithStudents: DisplayParticipant[] = [];
+      const parentsWithStudents: BaseParticipant[] = [];
       data.forEach(parentUser => {
         if (parentUser.parent_students && parentUser.parent_students.length > 0) {
           parentUser.parent_students.forEach(ps => {
             if (ps.students) {
               parentsWithStudents.push({
-                id: `${parentUser.id}-${ps.students.id}`, // Temporary unique ID for display
                 userId: parentUser.id,
                 participantId: ps.students.id, // Student ID
                 name: parentUser.username, // Parent's username
                 studentName: ps.students.name,
                 grade: ps.students.grade,
-                type: 'parent',
-                initialStatus: 'pending', // Will be overridden by existingAttendees
-                initialNotes: null, // Will be overridden by existingAttendees
+                type: 'parent'
               });
             }
           });
@@ -125,15 +116,12 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         .eq("is_active", true);
       if (error) throw error;
       return data.map(teacher => ({
-        id: teacher.id, // Temporary unique ID for display
         userId: teacher.user_id!,
         participantId: teacher.id, // Teacher ID
         name: teacher.name,
         grade: null,
-        type: 'teacher',
-        initialStatus: 'pending', // Will be overridden by existingAttendees
-        initialNotes: null, // Will be overridden by existingAttendees
-      })) as DisplayParticipant[];
+        type: 'teacher'
+      })) as BaseParticipant[];
     },
     enabled: !!user?.center_id && meetingDetails?.meeting_type === 'teachers',
   });
@@ -154,63 +142,44 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
   // Combine all potential attendees and apply filters
   const allPotentialParticipants = useMemo(() => {
-    let baseParticipants: DisplayParticipant[] = [];
+    let baseParticipants: BaseParticipant[] = [];
 
     if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
-      // Start with all parents from the center
-      baseParticipants = allParents.map(p => ({
-        id: `${p.userId}-${p.participantId}`, // Unique key for the list
-        userId: p.userId,
-        participantId: p.participantId, // Student ID
-        name: p.name, // Parent's username
-        studentName: p.studentName,
-        grade: p.grade,
-        type: 'parent',
-        initialStatus: 'pending', // Default, will be overridden
-        initialNotes: null, // Default, will be overridden
-      }));
+      baseParticipants = allParents;
     } else if (meetingDetails?.meeting_type === 'teachers') {
-      // Start with all teachers from the center
-      baseParticipants = allTeachers.map(t => ({
-        id: t.userId, // Use teacher's user_id as unique key
-        userId: t.userId,
-        participantId: t.participantId, // Teacher ID
-        name: t.name,
-        grade: null,
-        type: 'teacher',
-        initialStatus: 'pending', // Default, will be overridden
-        initialNotes: null, // Default, will be overridden
-      }));
+      baseParticipants = allTeachers;
     }
 
-    // Now, overlay existing attendance data onto these base participants
-    const participantsWithStatus = baseParticipants.map(p => {
+    // Now, merge with existing attendance data and apply filters
+    let participantsWithStatus: DisplayParticipantWithStatus[] = baseParticipants.map(p => {
       const existing = existingAttendees.find(ea => 
         ea.user_id === p.userId &&
         ((p.type === 'parent' && ea.student_id === p.participantId) ||
          (p.type === 'teacher' && ea.teacher_id === p.participantId))
       );
+
       return {
         ...p,
         meetingAttendeeId: existing?.id,
-        initialStatus: (existing?.attendance_status as AttendanceStatus) || p.initialStatus,
-        initialNotes: existing?.notes || p.initialNotes,
+        currentStatus: (existing?.attendance_status as AttendanceStatus) || "pending",
+        currentNotes: existing?.notes || null,
       };
     });
 
-    // Apply filters
-    let filtered = participantsWithStatus;
+    // Apply grade filter for parents/general meetings
     if ((meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') && gradeFilter !== "all") {
-      filtered = filtered.filter(p => p.grade === gradeFilter);
+      participantsWithStatus = participantsWithStatus.filter(p => p.grade === gradeFilter);
     }
+    
+    // Apply search filter
     if (searchQuery) {
-      filtered = filtered.filter(p => 
+      participantsWithStatus = participantsWithStatus.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.studentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.grade?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    return filtered;
+    return participantsWithStatus;
   }, [allParents, allTeachers, existingAttendees, meetingDetails, gradeFilter, searchQuery]);
 
   // Derive unique grades for the filter dropdown from all parents
@@ -228,7 +197,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   useEffect(() => {
     const initialStatuses: Record<string, AttendanceStatus> = {};
     allPotentialParticipants.forEach(participant => {
-      initialStatuses[participant.userId] = participant.initialStatus;
+      initialStatuses[participant.userId] = participant.currentStatus;
     });
     setAttendeeStatuses(initialStatuses);
   }, [allPotentialParticipants]); // Depend on allPotentialParticipants to re-initialize when filters change
@@ -237,15 +206,15 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
     mutationFn: async () => {
       const recordsToUpsert: TablesInsert<'meeting_attendees'>[] = [];
       
-      for (const participant of allPotentialParticipants) { // Iterate over all potential participants
-        const statusToSave = attendeeStatuses[participant.userId] ?? "pending";
-        const attended = statusToSave === "present";
+      for (const participant of allPotentialParticipants) {
+        const attendance_status = attendeeStatuses[participant.userId] ?? "pending";
+        const attended = attendance_status === "present";
         
         const record: TablesInsert<'meeting_attendees'> = {
           meeting_id: meetingId,
           attended,
-          attendance_status: statusToSave,
-          notes: participant.initialNotes, // Keep initial notes, or add a way to edit them
+          attendance_status,
+          notes: participant.currentNotes, // Keep initial notes, or add a way to edit them
           user_id: participant.userId,
         };
 
@@ -255,15 +224,11 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           Object.assign(record, { teacher_id: participant.participantId, student_id: null });
         }
 
-        if (participant.meetingAttendeeId) {
-          // If an existing record ID is present, include it for update
-          Object.assign(record, { id: participant.meetingAttendeeId });
-        }
+        // Use upsert with onConflict on meeting_id and user_id to handle new entries and updates
         recordsToUpsert.push(record);
       }
 
       if (recordsToUpsert.length > 0) {
-        // Use upsert with onConflict on meeting_id and user_id to handle new entries and updates
         const { error: upsertError } = await supabase.from("meeting_attendees").upsert(recordsToUpsert, { onConflict: 'meeting_id,user_id' });
         if (upsertError) throw upsertError;
       }
