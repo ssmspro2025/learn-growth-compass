@@ -111,7 +111,7 @@ export default function RegisterStudent() {
       if (!user?.center_id) return [];
       let query = supabase
         .from("users")
-        .select("id, username, student_id")
+        .select("id, username, student_id, center_id") // Include center_id for debugging
         .eq("role", "parent")
         .eq("center_id", user.center_id)
         .order("username");
@@ -264,9 +264,44 @@ export default function RegisterStudent() {
   // NEW: Link existing parent to student mutation
   const linkExistingParentMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedStudentForLink || !selectedExistingParentUserId) {
-        throw new Error("Student and Parent User must be selected.");
+      if (!selectedStudentForLink || !selectedExistingParentUserId || !user?.center_id) {
+        throw new Error("Student, Parent User, and Center ID must be selected.");
       }
+
+      // --- DEBUG LOGGING START ---
+      console.log("--- RLS Debugging for Link Existing Parent ---");
+      console.log("Current Auth User ID:", user.id);
+      console.log("Current Auth User Role:", user.role);
+      console.log("Current Auth User Center ID:", user.center_id);
+
+      // Fetch details of the parent user being linked
+      const { data: parentUserDetail, error: parentDetailError } = await supabase
+          .from('users')
+          .select('center_id, role')
+          .eq('id', selectedExistingParentUserId)
+          .single();
+      if (parentDetailError) {
+          console.error("Error fetching parent user detail:", parentDetailError);
+          throw new Error("Failed to verify parent user details.");
+      }
+      console.log("Selected Parent User ID:", selectedExistingParentUserId);
+      console.log("Selected Parent User Role:", parentUserDetail.role);
+      console.log("Selected Parent User Center ID:", parentUserDetail.center_id);
+
+      // Fetch details of the student being linked
+      const { data: studentDetail, error: studentDetailError } = await supabase
+          .from('students')
+          .select('center_id')
+          .eq('id', selectedStudentForLink.id)
+          .single();
+      if (studentDetailError) {
+          console.error("Error fetching student detail:", studentDetailError);
+          throw new Error("Failed to verify student details.");
+      }
+      console.log("Selected Student ID:", selectedStudentForLink.id);
+      console.log("Selected Student Center ID:", studentDetail.center_id);
+      console.log("--------------------------------------------");
+      // --- DEBUG LOGGING END ---
 
       // Check if this student is already linked to this parent
       const { data: existingLink, error: checkError } = await supabase
@@ -290,11 +325,6 @@ export default function RegisterStudent() {
         });
 
       if (linkError) throw linkError;
-
-      // Also update the student's parent_name and parent_phone if available from the parent user's linked student
-      // This part is optional and depends on whether you want to sync parent_name/phone from the primary linked student
-      // For now, we'll keep it simple and just link in parent_students.
-      // The student's parent_name and parent_phone fields are primarily for initial registration data.
     },
     onSuccess: () => {
       toast.success("Student linked to existing parent successfully!");
