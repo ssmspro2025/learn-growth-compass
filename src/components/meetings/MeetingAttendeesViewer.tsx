@@ -6,22 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
-import { Tables } from "@/integrations/supabase/types";
 
 interface MeetingAttendeesViewerProps {
   meetingId: string;
 }
-
-// Define partial types for fetched data
-type PartialStudent = Pick<Tables<'students'>, 'id' | 'name' | 'grade'>;
-type PartialTeacher = Pick<Tables<'teachers'>, 'id' | 'name' | 'user_id'>;
-type PartialUser = Pick<Tables<'users'>, 'id' | 'username' | 'role'>;
-
-type MeetingAttendeeWithDetails = Tables<'meeting_attendees'> & {
-  students?: PartialStudent;
-  teachers?: PartialTeacher;
-  users?: PartialUser;
-};
 
 export default function MeetingAttendeesViewer({ meetingId }: MeetingAttendeesViewerProps) {
   const { data: attendees = [], isLoading } = useQuery({
@@ -31,24 +19,23 @@ export default function MeetingAttendeesViewer({ meetingId }: MeetingAttendeesVi
         .from("meeting_attendees")
         .select(`
           attendance_status,
-          students(name, grade),
-          teachers(name),
-          users(username, role)
+          students(name, grade)
         `)
         .eq("meeting_id", meetingId);
       if (error) throw error;
-      return data as MeetingAttendeeWithDetails[];
+      return data;
     },
     enabled: !!meetingId,
   });
 
+  // Updated to include 'invite' and 'pending'
   const getStatusColorClass = (status: string | null) => {
     switch (status) {
       case "present": return "bg-green-100 text-green-800";
       case "absent": return "bg-red-100 text-red-800";
       case "excused": return "bg-yellow-100 text-yellow-800";
-      case "invite": return "bg-blue-100 text-blue-800";
-      case "pending": return "bg-gray-100 text-gray-800";
+      case "invite": return "bg-blue-100 text-blue-800"; // New color for invite
+      case "pending": return "bg-gray-100 text-gray-800"; // Color for pending
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -69,40 +56,23 @@ export default function MeetingAttendeesViewer({ meetingId }: MeetingAttendeesVi
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Student Name</TableHead>
                 <TableHead>Grade</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendees.map((attendee, index) => {
-                const participantName = attendee.students?.name || attendee.teachers?.name || attendee.users?.username || 'Unknown';
-                const participantType = attendee.students ? 'Student' : (attendee.teachers ? 'Teacher' : (attendee.users ? attendee.users.role : 'Unknown'));
-                const participantGrade = attendee.students?.grade || '-'; // Only students have grades
-
-                let displayName = participantName;
-                if (attendee.students && attendee.users?.username && attendee.users.role === 'parent') {
-                  displayName = `${attendee.users.username} (Parent of ${attendee.students.name})`;
-                } else if (attendee.teachers?.name) {
-                  displayName = attendee.teachers.name;
-                } else if (attendee.users?.username) {
-                  displayName = attendee.users.username;
-                }
-
-                return (
-                  <TableRow key={index}> {/* Using index as key, assuming order is stable for display */}
-                    <TableCell className="font-medium">{displayName}</TableCell>
-                    <TableCell>{participantType}</TableCell>
-                    <TableCell>{participantGrade}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColorClass(attendee.attendance_status)}>
-                        {attendee.attendance_status ? attendee.attendance_status.charAt(0).toUpperCase() + attendee.attendance_status.slice(1) : 'Pending'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {attendees.map((attendee: any) => (
+                <TableRow key={attendee.students?.name}>
+                  <TableCell className="font-medium">{attendee.students?.name || 'N/A'}</TableCell>
+                  <TableCell>{attendee.students?.grade || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColorClass(attendee.attendance_status)}>
+                      {attendee.attendance_status ? attendee.attendance_status.charAt(0).toUpperCase() + attendee.attendance_status.slice(1) : 'Pending'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>

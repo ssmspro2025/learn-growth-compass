@@ -125,7 +125,7 @@ export default function TeacherAttendancePage() {
     if (showTeacherDetailDialog && selectedTeacherDetail?.id) {
       refetchTeacherDetailAttendance();
     }
-  }, [showTeacherDetailDialog, selectedTeacherDetail?.id, detailMonthFilter]);
+  }, [showTeacherDetailDialog, selectedTeacherDetail?.id, detailMonthFilter, refetchTeacherDetailAttendance]);
 
   // Initialize attendance state when teachers or existing attendance changes
   useEffect(() => {
@@ -447,6 +447,7 @@ export default function TeacherAttendancePage() {
                 mode="single"
                 selected={selectedDate}
                 onSelect={date => date && setSelectedDate(date)}
+                initialFocus
               />
             </PopoverContent>
           </Popover>
@@ -618,15 +619,15 @@ export default function TeacherAttendancePage() {
           setSelectedTeacherDetail(null);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-labelledby="teacher-detail-title" aria-describedby="teacher-detail-description">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex justify-between items-center">
               <div>
-                <DialogTitle id="teacher-detail-title" className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
                   {selectedTeacherDetail?.name}
                 </DialogTitle>
-                <DialogDescription id="teacher-detail-description">
+                <DialogDescription>
                   Detailed attendance report for {selectedTeacherDetail?.name}.
                 </DialogDescription>
               </div>

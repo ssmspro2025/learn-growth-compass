@@ -141,11 +141,6 @@ export default function PreschoolActivities() {
         center_id: user.center_id,
         name: title,
         description,
-        activity_date: activityDate,
-        activity_type_id: activityTypeId,
-        title: title,
-        photo_url: photoUrl,
-        video_url: videoUrl,
       }).select().single();
       if (activityError) throw activityError;
 
@@ -154,7 +149,7 @@ export default function PreschoolActivities() {
         student_id: studentId,
         activity_id: activity.id,
         activity_type_id: activityTypeId,
-        involvement_score: involvementRating,
+        rating: involvementRating,
       });
       if (saError) throw saError;
     },

@@ -38,26 +38,14 @@ export default function Messaging() {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("chat_conversations")
-        .select("*")
+        .select(`
+          *,
+          students:student_id(id, name, grade),
+          parent_user:parent_user_id(id, username)
+        `)
         .eq("center_id", user.center_id)
         .order("updated_at", { ascending: false });
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        const studentIds = data.map((c: any) => c.student_id).filter(Boolean);
-        const userIds = data.map((c: any) => c.parent_user_id).filter(Boolean);
-
-        const [studentsData, usersData] = await Promise.all([
-          studentIds.length > 0 ? supabase.from("students").select("id, name, grade").in("id", studentIds) : Promise.resolve({ data: [] }),
-          userIds.length > 0 ? supabase.from("users").select("id, username").in("id", userIds) : Promise.resolve({ data: [] })
-        ]);
-
-        return data.map((conv: any) => ({
-          ...conv,
-          students: (studentsData.data || []).find((s: any) => s.id === conv.student_id),
-          parent_user: (usersData.data || []).find((u: any) => u.id === conv.parent_user_id)
-        }));
-      }
       return data;
     },
     enabled: !!user?.center_id && user?.role === "center",
@@ -70,26 +58,14 @@ export default function Messaging() {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from("chat_conversations")
-        .select("*")
+        .select(`
+          *,
+          students:student_id(id, name, grade),
+          centers:center_id(id, name)
+        `)
         .eq("parent_user_id", user.id)
         .order("updated_at", { ascending: false });
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        const studentIds = data.map((c: any) => c.student_id).filter(Boolean);
-        const centerIds = data.map((c: any) => c.center_id).filter(Boolean);
-
-        const [studentsData, centersData] = await Promise.all([
-          studentIds.length > 0 ? supabase.from("students").select("id, name, grade").in("id", studentIds) : Promise.resolve({ data: [] }),
-          centerIds.length > 0 ? supabase.from("centers").select("id, name").in("id", centerIds) : Promise.resolve({ data: [] })
-        ]);
-
-        return data.map((conv: any) => ({
-          ...conv,
-          students: (studentsData.data || []).find((s: any) => s.id === conv.student_id),
-          centers: (centersData.data || []).find((c: any) => c.id === conv.center_id)
-        }));
-      }
       return data;
     },
     enabled: !!user?.id && user?.role === "parent",
@@ -104,25 +80,13 @@ export default function Messaging() {
       if (!selectedConversation?.id) return [];
       const { data, error } = await supabase
         .from("chat_messages")
-        .select("*")
+        .select(`
+          *,
+          sender:sender_user_id(id, username, role)
+        `)
         .eq("conversation_id", selectedConversation.id)
         .order("sent_at", { ascending: true });
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        const senderIds = data.map((m: any) => m.sender_user_id).filter(Boolean);
-        if (senderIds.length > 0) {
-          const { data: sendersData } = await supabase
-            .from("users")
-            .select("id, username, role")
-            .in("id", senderIds);
-
-          return data.map((msg: any) => ({
-            ...msg,
-            sender: (sendersData || []).find((u: any) => u.id === msg.sender_user_id)
-          }));
-        }
-      }
       return data;
     },
     enabled: !!selectedConversation?.id,

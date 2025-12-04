@@ -78,24 +78,74 @@ export default function MeetingManagement() {
   });
 
   const handleMeetingSave = async (meetingData: Tables<'meetings'>, selectedStudentIds: string[], selectedTeacherIds: string[]) => {
-    // Call the new Edge Function to handle attendee linking
-    const { data, error } = await supabase.functions.invoke('link-meeting-attendees', {
-      body: {
-        meetingId: meetingData.id,
-        meetingType: meetingData.meeting_type,
-        selectedStudentIds,
-        selectedTeacherIds,
-      },
-    });
+    // This function is called by MeetingForm after meeting is created/updated
+    // meetingData is the newly created or updated meeting object from the DB.
 
-    if (error) {
-      console.error("Error invoking link-meeting-attendees Edge Function:", error);
-      toast.error(error.message || "Failed to link meeting attendees via Edge Function.");
-    } else if (!data.success) {
-      console.error("Edge Function reported failure:", data.error);
-      toast.error(data.error || "Failed to link meeting attendees.");
-    } else {
-      toast.success(data.message || "Meeting attendees linked successfully!");
+    // First, clear all existing attendees for this meeting to ensure a clean slate
+    // This simplifies logic by not having to figure out which ones to remove vs update
+    await supabase.from('meeting_attendees').delete().eq('meeting_id', meetingData.id);
+
+    const attendeesToInsert: TablesInsert<'meeting_attendees'>[] = [];
+
+    if (meetingData.meeting_type === 'parents' && selectedStudentIds.length > 0) {
+      // Fetch parent user IDs for the selected students
+      const { data: parentUsers, error: parentUserError } = await supabase
+        .from('users')
+        .select('id, student_id')
+        .in('student_id', selectedStudentIds)
+        .eq('role', 'parent');
+
+      if (parentUserError) {
+        console.error("Error fetching parent users:", parentUserError);
+        toast.error("Failed to link parents to meeting.");
+        return;
+      }
+
+      parentUsers.forEach(pu => {
+        if (pu.student_id) {
+          attendeesToInsert.push({
+            meeting_id: meetingData.id,
+            student_id: pu.student_id,
+            user_id: pu.id, // Link parent user ID
+            attendance_status: 'pending',
+          });
+        }
+      });
+
+    } else if (meetingData.meeting_type === 'teachers' && selectedTeacherIds.length > 0) {
+      // Fetch teacher user IDs for the selected teachers
+      const { data: teacherUsers, error: teacherUserError } = await supabase
+        .from('users')
+        .select('id, teacher_id')
+        .in('teacher_id', selectedTeacherIds)
+        .eq('role', 'teacher');
+
+      if (teacherUserError) {
+        console.error("Error fetching teacher users:", teacherUserError);
+        toast.error("Failed to link teachers to meeting.");
+        return;
+      }
+
+      teacherUsers.forEach(tu => {
+        if (tu.teacher_id) {
+          attendeesToInsert.push({
+            meeting_id: meetingData.id,
+            teacher_id: tu.teacher_id,
+            user_id: tu.id, // Link teacher user ID
+            attendance_status: 'pending',
+          });
+        }
+      });
+    }
+    // For 'general' meetings, no specific attendees are added via this form.
+
+    // Insert all new attendees
+    if (attendeesToInsert.length > 0) {
+      const { error: attendeeInsertError } = await supabase.from('meeting_attendees').insert(attendeesToInsert);
+      if (attendeeInsertError) {
+        console.error("Error inserting meeting attendees:", attendeeInsertError);
+        toast.error("Failed to save meeting attendees.");
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ["meetings"] });
@@ -137,12 +187,19 @@ export default function MeetingManagement() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> Create Meeting</Button>
           </DialogTrigger>
-          {/* DialogContent is now inside MeetingForm component */}
-          <MeetingForm
-            meeting={editingMeeting}
-            onSave={handleMeetingSave} // Pass the simplified handler
-            onCancel={() => setShowMeetingFormDialog(false)}
-          />
+          <DialogContent className="max-w-2xl" aria-labelledby="meeting-form-title" aria-describedby="meeting-form-description">
+            <DialogHeader>
+              <DialogTitle id="meeting-form-title">{editingMeeting ? "Edit Meeting" : "Create New Meeting"}</DialogTitle>
+              <DialogDescription id="meeting-form-description">
+                {editingMeeting ? "Update the details of this meeting." : "Schedule a new meeting for parents, teachers, or both."}
+              </DialogDescription>
+            </DialogHeader>
+            <MeetingForm
+              meeting={editingMeeting}
+              onSave={handleMeetingSave} // Pass the simplified handler
+              onCancel={() => setShowMeetingFormDialog(false)}
+            />
+          </DialogContent>
         </Dialog>
       </div>
 
