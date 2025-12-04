@@ -1,4 +1,4 @@
-import { serve } "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
 import * as bcrypt from "https://esm.sh/bcryptjs"; // Import bcryptjs
 
@@ -93,7 +93,7 @@ serve(async (req) => {
         username,
         password_hash: passwordHash,
         role: 'parent',
-        center_id: centerId, // <--- This is the crucial line
+        center_id: centerId,
         student_id: studentId, // Keep for backwards compatibility
         is_active: true
       })
@@ -105,7 +105,20 @@ serve(async (req) => {
       throw error;
     }
 
-    console.log('Parent user created successfully:', { userId: parentUser.id, username: parentUser.username, studentId, centerId: parentUser.center_id });
+    // Also insert into parent_students junction table for multi-child support
+    const { error: junctionError } = await supabase
+      .from('parent_students')
+      .insert({
+        parent_user_id: parentUser.id,
+        student_id: studentId
+      });
+
+    if (junctionError) {
+      console.error('Failed to create parent-student link:', junctionError);
+      // Don't fail the whole operation, just log
+    }
+
+    console.log('Parent user created successfully:', { userId: parentUser.id, username: parentUser.username, studentId });
 
     return new Response(
       JSON.stringify({ 
