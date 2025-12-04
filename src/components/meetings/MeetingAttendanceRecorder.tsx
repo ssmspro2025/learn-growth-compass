@@ -250,7 +250,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
                 <TableRow key={participant.id}>
                   <TableCell className="font-medium">
                     {participant.type === 'student' && participant.parentName
-                      ? `${participant.parentName} (Parent of ${participant.name})`
+                      ? participant.parentName // Display only parent's username
                       : participant.name}
                   </TableCell>
                   {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? <TableCell>{participant.grade}</TableCell> : null}
