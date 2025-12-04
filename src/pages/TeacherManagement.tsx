@@ -44,10 +44,29 @@ export default function TeacherManagement() {
       if (!user?.center_id) return [];
       const { data, error } = await supabase
         .from("teachers")
-        .select("*, users!teachers_user_id_fkey(id, username, is_active)") // Specify FK relationship
+        .select("*")
         .eq("center_id", user.center_id)
         .order("name");
       if (error) throw error;
+
+      // Fetch users separately to avoid RLS issues
+      if (data && data.length > 0) {
+        const userIds = data.map((t: any) => t.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: usersData } = await supabase
+            .from("users")
+            .select("id, username, is_active")
+            .in("id", userIds);
+
+          // Map users back to teachers
+          if (usersData) {
+            return data.map((teacher: any) => ({
+              ...teacher,
+              users: usersData.filter((u: any) => u.id === teacher.user_id)
+            }));
+          }
+        }
+      }
       return data;
     },
     enabled: !!user?.center_id,
