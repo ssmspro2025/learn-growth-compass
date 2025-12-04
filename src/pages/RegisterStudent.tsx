@@ -77,32 +77,36 @@ export default function RegisterStudent() {
     },
   });
 
-  // Fetch all parent users for the current center to check for linked accounts
-  const { data: allParentUsers = [] } = useQuery({
-    queryKey: ["all-parent-users", user?.center_id],
+  // Fetch all parent-student links for the current center
+  const { data: parentStudentLinks = [] } = useQuery({
+    queryKey: ["parent-student-links", user?.center_id],
     queryFn: async () => {
-      if (!user?.center_id) return [];
+      if (!user?.center_id || !students?.length) return [];
+      const studentIdsInCenter = students.map(s => s.id);
       const { data, error } = await supabase
-        .from("users")
-        .select("id, username, student_id")
-        .eq("role", "parent")
-        .eq("center_id", user.center_id);
+        .from("parent_students")
+        .select("student_id, parent_user_id, users(username)") // Also fetch parent username
+        .in('student_id', studentIdsInCenter); // Only for students in this center
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.center_id,
+    enabled: !!user?.center_id && !!students?.length,
   });
 
   // Map student IDs to their linked parent user (if any)
   const studentToParentUserMap = useMemo(() => {
-    const map = new Map<string, { id: string; username: string }>();
-    allParentUsers.forEach(pu => {
-      if (pu.student_id) {
-        map.set(pu.student_id, { id: pu.id, username: pu.username });
+    const map = new Map<string, { id: string; username: string }[]>(); // A student can have multiple parents
+    parentStudentLinks.forEach(link => {
+      if (link.student_id && link.parent_user_id && link.users) {
+        const parentInfo = { id: link.parent_user_id, username: (link.users as any).username };
+        if (!map.has(link.student_id)) {
+          map.set(link.student_id, []);
+        }
+        map.get(link.student_id)?.push(parentInfo);
       }
     });
     return map;
-  }, [allParentUsers]);
+  }, [parentStudentLinks]);
 
   // Fetch existing parent users for linking (filtered by search term)
   const { data: existingParentUsers = [] } = useQuery({
@@ -254,7 +258,7 @@ export default function RegisterStudent() {
       setParentUsername("");
       setParentPassword("");
       queryClient.invalidateQueries({ queryKey: ["students", user?.center_id] }); // Refresh students to show linked parent
-      queryClient.invalidateQueries({ queryKey: ["all-parent-users", user?.center_id] }); // Refresh all parent users
+      queryClient.invalidateQueries({ queryKey: ["parent-student-links", user?.center_id] }); // Refresh parent-student links
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create parent account");
@@ -333,7 +337,7 @@ export default function RegisterStudent() {
       setParentSearchTerm("");
       setSelectedExistingParentUserId(null);
       queryClient.invalidateQueries({ queryKey: ["students", user?.center_id] }); // Refresh students to show linked parent
-      queryClient.invalidateQueries({ queryKey: ["all-parent-users", user?.center_id] }); // Refresh all parent users
+      queryClient.invalidateQueries({ queryKey: ["parent-student-links", user?.center_id] }); // Refresh parent-student links
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to link student to parent");
@@ -751,8 +755,8 @@ export default function RegisterStudent() {
                 </TableRow>
               ) : filteredStudents && filteredStudents.length > 0 ? (
                 filteredStudents.map((student: any) => {
-                  const linkedParent = studentToParentUserMap.get(student.id);
-                  const hasParentAccount = !!linkedParent;
+                  const linkedParents = studentToParentUserMap.get(student.id);
+                  const hasParentAccount = !!linkedParents && linkedParents.length > 0;
                   return (
                     <TableRow key={student.id}>
                       <TableCell>
@@ -828,7 +832,7 @@ export default function RegisterStudent() {
                       <TableCell>
                         {hasParentAccount ? (
                           <span className="text-green-600 flex items-center gap-1">
-                            <Check /> Linked ({linkedParent?.username})
+                            <Check /> Linked ({linkedParents?.[0]?.username})
                           </span>
                         ) : (
                           <span className="text-red-600 flex items-center gap-1">
