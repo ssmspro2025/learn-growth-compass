@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Filter } from "lucide-react";
+import { CheckCircle2, XCircle, Filter, Search } from "lucide-react"; // Added Search icon
 import { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { Input } from "@/components/ui/input"; // Added Input component
 
 interface MeetingAttendanceRecorderProps {
   meetingId: string;
@@ -17,6 +18,7 @@ interface MeetingAttendanceRecorderProps {
 }
 
 type AttendanceStatus = "pending" | "present" | "absent" | "excused" | "invite";
+
 // Define partial types for fetched data
 type PartialStudent = Pick<Tables<'students'>, 'id' | 'name' | 'grade'>;
 type PartialTeacher = Pick<Tables<'teachers'>, 'id' | 'name' | 'user_id'>;
@@ -29,11 +31,13 @@ type MeetingAttendeeRow = Tables<'meeting_attendees'> & {
 };
 
 type DisplayParticipant = {
-  id: string; // student_id or teacher_id
-  name: string; // Student name or Teacher name
-  parentName?: string; // Parent's username if applicable
-  grade: string | null;
-  type: 'student' | 'teacher';
+  id: string; // This will be the meeting_attendees.id if existing, or a temporary key for new ones
+  userId: string; // The user.id of the parent or teacher
+  participantId: string; // The student.id or teacher.id
+  name: string; // Parent's username or Teacher's name
+  studentName?: string; // Only for parents
+  grade?: string | null; // Only for parents (student's grade)
+  type: 'parent' | 'teacher';
 };
 
 export default function MeetingAttendanceRecorder({ meetingId, onClose }: MeetingAttendanceRecorderProps) {
@@ -41,8 +45,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   const { user } = useAuth();
   const [attendeeStatuses, setAttendeeStatuses] = useState<Record<string, AttendanceStatus>>({});
   const [gradeFilter, setGradeFilter] = useState("all");
-
-  console.log("MeetingAttendanceRecorder: Component rendered for meetingId:", meetingId);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch meeting details to determine its type
   const { data: meetingDetails, isLoading: meetingDetailsLoading } = useQuery({
@@ -57,100 +60,146 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         console.error("MeetingAttendanceRecorder: Error fetching meeting details:", error);
         throw error;
       }
-      console.log("MeetingAttendanceRecorder: Fetched meetingDetails:", data);
       return data;
     },
     enabled: !!meetingId,
   });
 
-  // Fetch existing attendees for this meeting
+  // Fetch all potential parent attendees for the center
+  const { data: allParents = [], isLoading: parentsLoading } = useQuery({
+    queryKey: ["all-parents-for-center", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("users")
+        .select(`
+          id,
+          username,
+          parent_students(student_id, students(id, name, grade))
+        `)
+        .eq("role", "parent")
+        .eq("center_id", user.center_id);
+      if (error) throw error;
+      
+      // Flatten the data to get a list of parent-student pairs
+      const parentsWithStudents: DisplayParticipant[] = [];
+      data.forEach(parentUser => {
+        if (parentUser.parent_students && parentUser.parent_students.length > 0) {
+          parentUser.parent_students.forEach(ps => {
+            if (ps.students) {
+              parentsWithStudents.push({
+                id: `${parentUser.id}-${ps.students.id}`, // Temporary unique ID for display
+                userId: parentUser.id,
+                participantId: ps.students.id, // Student ID
+                name: parentUser.username, // Parent's username
+                studentName: ps.students.name,
+                grade: ps.students.grade,
+                type: 'parent'
+              });
+            }
+          });
+        }
+      });
+      return parentsWithStudents;
+    },
+    enabled: !!user?.center_id && (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general'),
+  });
+
+  // Fetch all potential teacher attendees for the center
+  const { data: allTeachers = [], isLoading: teachersLoading } = useQuery({
+    queryKey: ["all-teachers-for-center", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("teachers")
+        .select(`
+          id,
+          name,
+          user_id
+        `)
+        .eq("center_id", user.center_id)
+        .eq("is_active", true);
+      if (error) throw error;
+      return data.map(teacher => ({
+        id: teacher.id, // Temporary unique ID for display
+        userId: teacher.user_id!,
+        participantId: teacher.id, // Teacher ID
+        name: teacher.name,
+        grade: null,
+        type: 'teacher'
+      })) as DisplayParticipant[];
+    },
+    enabled: !!user?.center_id && meetingDetails?.meeting_type === 'teachers',
+  });
+
+  // Fetch existing attendees for this meeting to get current statuses
   const { data: existingAttendees = [], isLoading: existingAttendeesLoading } = useQuery({
-    queryKey: ["meeting-attendees", meetingId],
+    queryKey: ["meeting-attendees-current-status", meetingId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meeting_attendees")
-        .select("*, students(id, name, grade), users(id, username, role), teachers(id, name, user_id)")
+        .select("id, student_id, teacher_id, user_id, attendance_status, notes")
         .eq("meeting_id", meetingId);
-      if (error) {
-        console.error("MeetingAttendanceRecorder: Error fetching existing attendees:", error);
-        throw error;
-      }
-      console.log("MeetingAttendanceRecorder: Fetched existingAttendees:", data);
+      if (error) throw error;
       return data;
     },
     enabled: !!meetingId,
   });
 
-  // Derive the list of participants to display from existing attendees
+  // Combine all potential attendees and apply filters
   const displayParticipants = useMemo(() => {
-    if (!meetingDetails || !existingAttendees) {
-      console.log("MeetingAttendanceRecorder: Skipping displayParticipants memo, missing details or attendees.");
-      return [];
+    let participants: DisplayParticipant[] = [];
+
+    if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
+      participants = allParents;
+      if (gradeFilter !== "all") {
+        participants = participants.filter(p => p.grade === gradeFilter);
+      }
+      if (searchQuery) {
+        participants = participants.filter(p => 
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.studentName?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
+    } else if (meetingDetails?.meeting_type === 'teachers') {
+      participants = allTeachers;
+      if (searchQuery) {
+        participants = participants.filter(p => 
+          p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
     }
+    return participants;
+  }, [allParents, allTeachers, meetingDetails?.meeting_type, gradeFilter, searchQuery]);
 
-    let filtered: DisplayParticipant[] = [];
-
-    if (meetingDetails.meeting_type === "parents" || meetingDetails.meeting_type === "general") {
-      filtered = existingAttendees
-        .filter(att => att.student_id && att.students)
-        .map(att => ({
-          id: att.student_id!,
-          name: att.students!.name, // Student's name
-          parentName: att.users?.username, // Parent's username
-          grade: att.students!.grade,
-          type: 'student'
-        }));
-    } else if (meetingDetails.meeting_type === "teachers") {
-      filtered = existingAttendees
-        .filter(att => att.teacher_id && att.teachers)
-        .map(att => ({
-          id: att.teacher_id!,
-          name: att.teachers!.name,
-          grade: null, // Teachers don't have grades in this context
-          type: 'teacher'
-        }));
-    }
-
-    // Apply grade filter if it's a student-related meeting type
-    if ((meetingDetails.meeting_type === "parents" || meetingDetails.meeting_type === "general") && gradeFilter !== "all") {
-      filtered = filtered.filter(p => p.grade === gradeFilter);
-    }
-
-    console.log("MeetingAttendanceRecorder: Computed displayParticipants:", filtered);
-    return filtered;
-  }, [existingAttendees, meetingDetails, gradeFilter]);
-
-  // Derive unique grades for the filter dropdown from existing attendees
+  // Derive unique grades for the filter dropdown from all parents
   const uniqueGrades = useMemo(() => {
     const grades = new Set<string>();
-    existingAttendees.forEach(att => {
-      if (att.students?.grade) {
-        grades.add(att.students.grade);
+    allParents.forEach(p => {
+      if (p.grade) {
+        grades.add(p.grade);
       }
     });
     return Array.from(grades).sort();
-  }, [existingAttendees]);
+  }, [allParents]);
 
+  // Initialize attendeeStatuses from existing records or default to 'pending'
   useEffect(() => {
     const initialStatuses: Record<string, AttendanceStatus> = {};
     
-    // First, initialize all display participants with 'pending'
+    // Initialize all currently displayed participants to 'pending'
     displayParticipants.forEach(participant => {
-      initialStatuses[participant.id] = "pending";
+      initialStatuses[participant.userId] = "pending";
     });
 
-    // Then, override with actual attendance status from existing records
+    // Override with existing statuses from the database
     existingAttendees.forEach((attendee) => {
-      let participantId: string | undefined;
-      if (attendee.student_id) participantId = attendee.student_id;
-      else if (attendee.teacher_id) participantId = attendee.teacher_id;
-
-      if (participantId && initialStatuses[participantId]) {
-        initialStatuses[participantId] = (attendee.attendance_status as AttendanceStatus) || "pending";
+      const key = attendee.user_id; // Use user_id as the key for status tracking
+      if (key) {
+        initialStatuses[key] = (attendee.attendance_status as AttendanceStatus) || "pending";
       }
     });
     setAttendeeStatuses(initialStatuses);
-    console.log("MeetingAttendanceRecorder: Initialized attendeeStatuses:", initialStatuses);
   }, [existingAttendees, displayParticipants]);
 
   const updateAttendanceMutation = useMutation({
@@ -158,12 +207,14 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       const recordsToUpsert: TablesInsert<'meeting_attendees'>[] = [];
       
       for (const participant of displayParticipants) {
-        const attendance_status = attendeeStatuses[participant.id] ?? "pending";
+        const attendance_status = attendeeStatuses[participant.userId] ?? "pending";
         const attended = attendance_status === "present";
         
+        // Find if an existing record exists for this participant (user_id + student_id/teacher_id)
         const existingAttendeeRecord = existingAttendees.find((ea) => 
-          (participant.type === 'student' && ea.student_id === participant.id) ||
-          (participant.type === 'teacher' && ea.teacher_id === participant.id)
+          ea.user_id === participant.userId &&
+          ((participant.type === 'student' && ea.student_id === participant.participantId) ||
+           (participant.type === 'teacher' && ea.teacher_id === participant.participantId))
         );
 
         const baseRecord: TablesInsert<'meeting_attendees'> = {
@@ -171,14 +222,13 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           attended,
           attendance_status,
           notes: existingAttendeeRecord?.notes || null, // Preserve existing notes if any
+          user_id: participant.userId,
         };
 
-        if (participant.type === 'student') {
-          const parentUser = existingAttendeeRecord?.users;
-          Object.assign(baseRecord, { student_id: participant.id, user_id: parentUser?.id || null, teacher_id: null });
+        if (participant.type === 'parent') {
+          Object.assign(baseRecord, { student_id: participant.participantId, teacher_id: null });
         } else if (participant.type === 'teacher') {
-          const teacherUser = existingAttendeeRecord?.users;
-          Object.assign(baseRecord, { teacher_id: participant.id, user_id: teacherUser?.id || null, student_id: null });
+          Object.assign(baseRecord, { teacher_id: participant.participantId, student_id: null });
         }
 
         if (existingAttendeeRecord) {
@@ -194,7 +244,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meeting-attendees", meetingId] });
+      queryClient.invalidateQueries({ queryKey: ["meeting-attendees-current-status", meetingId] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("Attendance updated successfully!");
       onClose();
@@ -204,17 +254,17 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
     },
   });
 
-  const handleStatusChange = (id: string, status: AttendanceStatus) => {
-    setAttendeeStatuses(prev => ({ ...prev, [id]: status }));
+  const handleStatusChange = (userId: string, status: AttendanceStatus) => {
+    setAttendeeStatuses(prev => ({ ...prev, [userId]: status }));
   };
 
   const markAll = (status: AttendanceStatus) => {
     const newStatuses: Record<string, AttendanceStatus> = {};
-    displayParticipants.forEach(p => newStatuses[p.id] = status);
+    displayParticipants.forEach(p => newStatuses[p.userId] = status);
     setAttendeeStatuses(newStatuses);
   };
 
-  if (meetingDetailsLoading || existingAttendeesLoading) {
+  if (meetingDetailsLoading || parentsLoading || teachersLoading || existingAttendeesLoading) {
     return <p>Loading attendees...</p>;
   }
 
@@ -229,22 +279,31 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         </Button>
       </div>
 
-      {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') && (
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={gradeFilter} onValueChange={setGradeFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Filter by Grade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Grades</SelectItem>
-              {uniqueGrades.map((g) => (
-                <SelectItem key={g} value={g}>{g}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1"
+        />
+        {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') && (
+          <>
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={gradeFilter} onValueChange={setGradeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Filter by Grade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Grades</SelectItem>
+                {uniqueGrades.map((g) => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </div>
 
       <div className="overflow-x-auto max-h-96 border rounded">
         <Table>
@@ -262,17 +321,17 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
               </TableRow>
             ) : (
               displayParticipants.map((participant) => (
-                <TableRow key={participant.id}>
+                <TableRow key={participant.userId}>
                   <TableCell className="font-medium">
-                    {participant.type === 'student' && participant.parentName
-                      ? participant.parentName // Display only parent's username
+                    {participant.type === 'parent'
+                      ? `${participant.name} (Parent of ${participant.studentName})`
                       : participant.name}
                   </TableCell>
                   {(meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') ? <TableCell>{participant.grade}</TableCell> : null}
                   <TableCell>
                     <Select
-                      value={attendeeStatuses[participant.id] || "pending"}
-                      onValueChange={(value) => handleStatusChange(participant.id, value as AttendanceStatus)}
+                      value={attendeeStatuses[participant.userId] || "pending"}
+                      onValueChange={(value) => handleStatusChange(participant.userId, value as AttendanceStatus)}
                     >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue />
