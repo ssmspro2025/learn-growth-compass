@@ -38,29 +38,28 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     navigate('/login'); // Teachers also log in via the main login page
   };
 
-  // Fetch unread message count for teacher
+  // Fetch unread message count for teacher across ALL conversations
   const { data: unreadMessageCount = 0 } = useQuery({
     queryKey: ["unread-messages-teacher", user?.id, user?.center_id],
     queryFn: async () => {
       if (!user?.id || !user?.center_id) return 0;
-      // Find conversation where this teacher's user ID is the 'parent_user_id' and center is their center
-      // This is a workaround given the current schema, treating teacher's user as a 'parent' in a conversation with the center.
-      const { data: conversation, error: convError } = await supabase
+      // Fetch ALL conversations where this teacher's user ID is the 'parent_user_id' and center is their center
+      const { data: conversations, error: convError } = await supabase
         .from('chat_conversations')
         .select('id')
         .eq('parent_user_id', user.id)
-        .eq('center_id', user.center_id)
-        .maybeSingle();
+        .eq('center_id', user.center_id); // Removed .maybeSingle() to fetch all conversations
       
-      if (convError || !conversation) {
-        // console.log("No conversation found for teacher with center:", user.id, convError);
+      if (convError || !conversations || conversations.length === 0) {
         return 0;
       }
+
+      const conversationIds = conversations.map(c => c.id);
 
       const { count, error } = await supabase
         .from('chat_messages')
         .select('id', { count: 'exact' })
-        .eq('conversation_id', conversation.id)
+        .in('conversation_id', conversationIds) // Check across all conversations
         .eq('is_read', false)
         .neq('sender_user_id', user.id); // Messages NOT sent by the current teacher user
       if (error) {

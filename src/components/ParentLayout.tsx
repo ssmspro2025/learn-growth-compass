@@ -36,26 +36,27 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     navigate('/login-parent');
   };
 
-  // Fetch unread message count for parent
+  // Fetch unread message count for parent across ALL conversations
   const { data: unreadMessageCount = 0 } = useQuery({
     queryKey: ["unread-messages-parent", user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-      const { data: conversation, error: convError } = await supabase
+      // Fetch ALL conversations for the parent
+      const { data: conversations, error: convError } = await supabase
         .from('chat_conversations')
         .select('id')
-        .eq('parent_user_id', user.id)
-        .maybeSingle();
+        .eq('parent_user_id', user.id); // Removed .maybeSingle() to fetch all conversations
       
-      if (convError || !conversation) {
-        // console.log("No conversation found for parent:", user.id, convError);
+      if (convError || !conversations || conversations.length === 0) {
         return 0;
       }
+
+      const conversationIds = conversations.map(c => c.id);
 
       const { count, error } = await supabase
         .from('chat_messages')
         .select('id', { count: 'exact' })
-        .eq('conversation_id', conversation.id)
+        .in('conversation_id', conversationIds) // Check across all conversations
         .eq('is_read', false)
         .neq('sender_user_id', user.id); // Messages NOT sent by the current parent user
       if (error) {
