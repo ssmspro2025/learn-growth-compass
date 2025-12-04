@@ -42,6 +42,8 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   const [attendeeStatuses, setAttendeeStatuses] = useState<Record<string, AttendanceStatus>>({});
   const [gradeFilter, setGradeFilter] = useState("all");
 
+  console.log("MeetingAttendanceRecorder: Component rendered for meetingId:", meetingId);
+
   // Fetch meeting details to determine its type
   const { data: meetingDetails, isLoading: meetingDetailsLoading } = useQuery({
     queryKey: ["meeting-details-for-attendance", meetingId],
@@ -51,7 +53,11 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         .select("meeting_type")
         .eq("id", meetingId)
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error("MeetingAttendanceRecorder: Error fetching meeting details:", error);
+        throw error;
+      }
+      console.log("MeetingAttendanceRecorder: Fetched meetingDetails:", data);
       return data;
     },
     enabled: !!meetingId,
@@ -65,7 +71,11 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         .from("meeting_attendees")
         .select("*, students(id, name, grade), users(id, username, role), teachers(id, name, user_id)")
         .eq("meeting_id", meetingId);
-      if (error) throw error;
+      if (error) {
+        console.error("MeetingAttendanceRecorder: Error fetching existing attendees:", error);
+        throw error;
+      }
+      console.log("MeetingAttendanceRecorder: Fetched existingAttendees:", data);
       return data;
     },
     enabled: !!meetingId,
@@ -73,7 +83,10 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
   // Derive the list of participants to display from existing attendees
   const displayParticipants = useMemo(() => {
-    if (!meetingDetails || !existingAttendees) return [];
+    if (!meetingDetails || !existingAttendees) {
+      console.log("MeetingAttendanceRecorder: Skipping displayParticipants memo, missing details or attendees.");
+      return [];
+    }
 
     let filtered: DisplayParticipant[] = [];
 
@@ -103,6 +116,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       filtered = filtered.filter(p => p.grade === gradeFilter);
     }
 
+    console.log("MeetingAttendanceRecorder: Computed displayParticipants:", filtered);
     return filtered;
   }, [existingAttendees, meetingDetails, gradeFilter]);
 
@@ -136,6 +150,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
       }
     });
     setAttendeeStatuses(initialStatuses);
+    console.log("MeetingAttendanceRecorder: Initialized attendeeStatuses:", initialStatuses);
   }, [existingAttendees, displayParticipants]);
 
   const updateAttendanceMutation = useMutation({
