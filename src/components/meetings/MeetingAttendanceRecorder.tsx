@@ -34,7 +34,7 @@ type DisplayParticipant = {
   meetingAttendeeId?: string; // ID of the existing meeting_attendees record
   userId: string; // The user.id of the parent or teacher
   participantId: string; // The student.id or teacher.id (e.g., student.id for parent meetings)
-  name: string; // Display name (e.g., parent's username or teacher's name)
+  name: string; // Parent's username or Teacher's name
   studentName?: string; // Student's name (for parent meetings)
   grade?: string | null; // Student's grade (for parent meetings)
   type: 'parent' | 'teacher';
@@ -154,54 +154,64 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
 
   // Combine all potential attendees and apply filters
   const allPotentialParticipants = useMemo(() => {
-    let participants: DisplayParticipant[] = [];
+    let baseParticipants: DisplayParticipant[] = [];
 
     if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
-      participants = allParents.map(p => {
-        const existing = existingAttendees.find(ea => ea.user_id === p.userId && ea.student_id === p.participantId);
-        return {
-          meetingAttendeeId: existing?.id,
-          userId: p.userId,
-          participantId: p.participantId,
-          name: p.name,
-          studentName: p.studentName,
-          grade: p.grade,
-          type: 'parent',
-          initialStatus: (existing?.attendance_status as AttendanceStatus) || "pending",
-          initialNotes: existing?.notes || null,
-        };
-      });
-      if (gradeFilter !== "all") {
-        participants = participants.filter(p => p.grade === gradeFilter);
-      }
-      if (searchQuery) {
-        participants = participants.filter(p => 
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.studentName?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
+      // Start with all parents from the center
+      baseParticipants = allParents.map(p => ({
+        id: `${p.userId}-${p.participantId}`, // Unique key for the list
+        userId: p.userId,
+        participantId: p.participantId, // Student ID
+        name: p.name, // Parent's username
+        studentName: p.studentName,
+        grade: p.grade,
+        type: 'parent',
+        initialStatus: 'pending', // Default, will be overridden
+        initialNotes: null, // Default, will be overridden
+      }));
     } else if (meetingDetails?.meeting_type === 'teachers') {
-      participants = allTeachers.map(t => {
-        const existing = existingAttendees.find(ea => ea.user_id === t.userId && ea.teacher_id === t.participantId);
-        return {
-          meetingAttendeeId: existing?.id,
-          userId: t.userId,
-          participantId: t.participantId,
-          name: t.name,
-          grade: null,
-          type: 'teacher',
-          initialStatus: (existing?.attendance_status as AttendanceStatus) || "pending",
-          initialNotes: existing?.notes || null,
-        };
-      });
-      if (searchQuery) {
-        participants = participants.filter(p => 
-          p.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
+      // Start with all teachers from the center
+      baseParticipants = allTeachers.map(t => ({
+        id: t.userId, // Use teacher's user_id as unique key
+        userId: t.userId,
+        participantId: t.participantId, // Teacher ID
+        name: t.name,
+        grade: null,
+        type: 'teacher',
+        initialStatus: 'pending', // Default, will be overridden
+        initialNotes: null, // Default, will be overridden
+      }));
     }
-    return participants;
-  }, [allParents, allTeachers, existingAttendees, meetingDetails?.meeting_type, gradeFilter, searchQuery]);
+
+    // Now, overlay existing attendance data onto these base participants
+    const participantsWithStatus = baseParticipants.map(p => {
+      const existing = existingAttendees.find(ea => 
+        ea.user_id === p.userId &&
+        ((p.type === 'parent' && ea.student_id === p.participantId) ||
+         (p.type === 'teacher' && ea.teacher_id === p.participantId))
+      );
+      return {
+        ...p,
+        meetingAttendeeId: existing?.id,
+        initialStatus: (existing?.attendance_status as AttendanceStatus) || p.initialStatus,
+        initialNotes: existing?.notes || p.initialNotes,
+      };
+    });
+
+    // Apply filters
+    let filtered = participantsWithStatus;
+    if ((meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') && gradeFilter !== "all") {
+      filtered = filtered.filter(p => p.grade === gradeFilter);
+    }
+    if (searchQuery) {
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.studentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.grade?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [allParents, allTeachers, existingAttendees, meetingDetails, gradeFilter, searchQuery]);
 
   // Derive unique grades for the filter dropdown from all parents
   const uniqueGrades = useMemo(() => {
