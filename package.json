@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run deploy-functions && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy-functions": "supabase functions deploy --no-verify-jwt"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
