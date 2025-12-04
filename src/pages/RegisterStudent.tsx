@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/co
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, Link } from "lucide-react"; // Added Link icon
+import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, Link, Check } from "lucide-react"; // Added Check icon
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import * as bcrypt from 'bcryptjs'; // Import bcryptjs for password hashing
 
@@ -67,9 +67,7 @@ export default function RegisterStudent() {
   const { data: students, isLoading } = useQuery({
     queryKey: ["students", user?.center_id],
     queryFn: async () => {
-      // Changed to a standard select with a join to ensure all students are fetched,
-      // even if they don't have a linked user yet.
-      let query = supabase.from("students").select("*, users(id, username, role)").order("created_at", { ascending: false, });
+      let query = supabase.from("students").select("*, users!students_id_fkey(id, username, role)").order("created_at", { ascending: false, });
       if (user?.role !== "admin" && user?.center_id) {
         query = query.eq("center_id", user.center_id);
       }
@@ -692,7 +690,6 @@ export default function RegisterStudent() {
                 </TableRow>
               ) : filteredStudents && filteredStudents.length > 0 ? (
                 filteredStudents.map((student: any) => {
-                  // Check if student.users exists and has at least one entry
                   const hasParentAccount = student.users && student.users.length > 0;
                   return (
                     <TableRow key={student.id}>
