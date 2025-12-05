@@ -362,7 +362,7 @@ export default function LessonTracking() {
                 {recordLessonMutation.isPending ? "Recording..." : `Record Lesson for ${selectedStudentIds.length} Student(s)`}
               </Button>
             </div>
-          </DialogContent>
+</DialogContent>
         </Dialog>
       </div>
 
@@ -445,10 +445,16 @@ export default function LessonTracking() {
                     <h4 className="font-semibold text-md">Students Attended:</h4>
                     {group.students.map((record) => {
                       // NEW: Filter relevant test results for this student and lesson plan
-                      const relevantTestResults = allTestResults.filter(tr =>
-                        tr.student_id === record.students?.id &&
-                        (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id
-                      );
+                      const relevantTestResults = allTestResults.filter(tr => {
+                        const isStudentMatch = tr.student_id === record.students?.id;
+                        const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
+                        
+                        console.log(`Filtering test result ${tr.id} for student ${record.students?.name} (LP: ${record.lesson_plan_id}):`);
+                        console.log(`  Student match: ${isStudentMatch} (TR student: ${tr.student_id}, Record student: ${record.students?.id})`);
+                        console.log(`  Lesson Plan match: ${isLessonPlanMatch} (TR test LP: ${(tr.tests as Test)?.lesson_plan_id}, Record LP: ${record.lesson_plan_id})`);
+                        
+                        return isStudentMatch && isLessonPlanMatch;
+                      });
 
                       return (
                         <div key={record.id} className="flex flex-col gap-2 p-2 bg-muted/20 rounded">
