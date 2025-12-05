@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, Printer, DollarSign, BookOpen, Book, Paintbrush, AlertTriangle, FileText, CheckCircle, XCircle, Clock, Star, User } from "lucide-react";
-import { format, startOfMonth, endOfMonth, subYears } from "date-fns"; // Added subYears
+import { format, startOfMonth, endOfMonth, subYears, isPast } from "date-fns"; // Added subYears, isPast
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
 import { Invoice, Payment } from "@/integrations/supabase/finance-types";
@@ -94,7 +94,7 @@ export default function StudentReport() {
   const { data: studentChapters = [] } = useQuery({
     queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       let query = supabase.from("student_chapters").select(`
         *,
         lesson_plans(id, subject, chapter, topic, lesson_date, lesson_file_url),
@@ -107,14 +107,14 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch test results
   const { data: testResults = [] } = useQuery({
     queryKey: ["student-test-results", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       let query = supabase.from("test_results").select("*, tests(id, name, subject, total_marks, lesson_plan_id, questions)").eq("student_id", selectedStudentId)
         .gte("date_taken", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("date_taken", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
@@ -123,14 +123,14 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch homework status
   const { data: homeworkStatus = [] } = useQuery({
     queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       let query = supabase.from("student_homework_records").select("*, homework(id, title, subject, due_date, lesson_plan_id)")
         .eq("student_id", selectedStudentId)
         .gte("homework.due_date", safeFormatDate(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
@@ -140,55 +140,55 @@ export default function StudentReport() {
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch preschool activities
   const { data: preschoolActivities = [] } = useQuery({
     queryKey: ["student-preschool-activities-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       const { data, error } = await supabase.from("student_activities").select("*, activities(title, description, activity_date, photo_url, video_url, activity_type_id, activity_types(name))").eq("student_id", selectedStudentId)
         .gte("created_at", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("created_at", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch discipline issues
   const { data: disciplineIssues = [] } = useQuery({
     queryKey: ["student-discipline-issues-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       const { data, error } = await supabase.from("discipline_issues").select("*, discipline_categories(name)").eq("student_id", selectedStudentId)
         .gte("issue_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("issue_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Fetch finance data
   const { data: invoices = [] } = useQuery({
     queryKey: ["student-invoices-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
         .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
       return data as Invoice[];
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   const { data: payments = [] } = useQuery({
     queryKey: ["student-payments-report", selectedStudentId, dateRange],
     queryFn: async () => {
-      if (!selectedStudentId || selectedStudentId === "none") return [];
+      if (!selectedStudentId || selectedStudentId === "none") return []; // Added check for "none"
       // Get invoices for this student first
       const { data: invoices, error: invError } = await supabase
         .from('invoices')
@@ -206,7 +206,7 @@ export default function StudentReport() {
       if (error) throw error;
       return data as Payment[];
     },
-    enabled: !!selectedStudentId && selectedStudentId !== "none",
+    enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
   // Calculate finance summary
@@ -340,6 +340,37 @@ export default function StudentReport() {
     );
   }, [studentChapters, testResults, homeworkStatus, allLessonPlans]);
 
+  // NEW: Calculate Missed Chapters
+  const missedChapters = useMemo(() => {
+    if (!selectedStudent || !selectedStudent.grade) return [];
+    const studentGrade = selectedStudent.grade;
+
+    const completedLessonPlanIds = new Set(studentChapters.map(sc => sc.lesson_plan_id));
+
+    return allLessonPlans.filter(lp => 
+      lp.grade === studentGrade && // Filter by student's grade
+      !completedLessonPlanIds.has(lp.id) &&
+      new Date(lp.lesson_date) >= dateRange.from &&
+      new Date(lp.lesson_date) <= dateRange.to
+    ).sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime());
+  }, [selectedStudent, studentChapters, allLessonPlans, dateRange]);
+
+  // NEW: Calculate Overdue Homework
+  const overdueHomeworks = useMemo(() => {
+    if (!selectedStudent || !selectedStudent.grade) return [];
+    const studentGrade = selectedStudent.grade;
+
+    const studentHomeworkIds = new Set(homeworkStatus.map(hs => hs.homework_id));
+
+    return allLessonPlans.filter(lp => 
+      lp.grade === studentGrade && // Filter by student's grade
+      !studentHomeworkIds.has(lp.id) && // Check if there's no record for this homework
+      new Date(lp.lesson_date) >= dateRange.from &&
+      new Date(lp.lesson_date) <= dateRange.to
+    ).sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime());
+  }, [selectedStudent, homeworkStatus, allLessonPlans, dateRange]);
+
+
   const getRatingStars = (rating: number | null) => {
     if (rating === null) return "N/A";
     return Array(rating).fill("⭐").join("");
@@ -400,6 +431,32 @@ export default function StudentReport() {
       } else {
         csvRows.push([...baseRow, '', '', '', '']); // Add empty columns if no tests/homework
       }
+    });
+    csvRows.push([]);
+
+    // NEW: Missed Chapters to CSV
+    csvRows.push(["Missed Chapters"]);
+    csvRows.push(["Subject", "Chapter", "Topic", "Lesson Date"]);
+    missedChapters.forEach(lp => {
+      csvRows.push([
+        lp.subject || '',
+        lp.chapter || '',
+        lp.topic || '',
+        safeFormatDate(lp.lesson_date, "PPP"),
+      ]);
+    });
+    csvRows.push([]);
+
+    // NEW: Overdue Homework to CSV
+    csvRows.push(["Overdue Homework"]);
+    csvRows.push(["Title", "Subject", "Grade", "Due Date"]);
+    overdueHomeworks.forEach(hw => {
+      csvRows.push([
+        hw.title || '',
+        hw.subject || '',
+        hw.grade || '',
+        safeFormatDate(hw.lesson_date, "PPP"), // Using lesson_date as due_date for homework
+      ]);
     });
     csvRows.push([]);
 
@@ -731,6 +788,80 @@ export default function StudentReport() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* NEW: Missed Chapters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-red-600" /> Missed Chapters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {missedChapters.length === 0 ? (
+                <p className="text-muted-foreground">No missed chapters found for the selected period.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Chapter</th>
+                        <th className="border px-2 py-1">Topic</th>
+                        <th className="border px-2 py-1">Lesson Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missedChapters.map((lp) => (
+                        <tr key={lp.id}>
+                          <td className="border px-2 py-1">{lp.subject}</td>
+                          <td className="border px-2 py-1">{lp.chapter}</td>
+                          <td className="border px-2 py-1">{lp.topic}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(lp.lesson_date, "PPP")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* NEW: Overdue Homework */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" /> Overdue Homework
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {overdueHomeworks.length === 0 ? (
+                <p className="text-muted-foreground">No overdue homework found for the selected period.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-80 border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border px-2 py-1">Title</th>
+                        <th className="border px-2 py-1">Subject</th>
+                        <th className="border px-2 py-1">Grade</th>
+                        <th className="border px-2 py-1">Due Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overdueHomeworks.map((hw) => (
+                        <tr key={hw.id}>
+                          <td className="border px-2 py-1">{hw.title}</td>
+                          <td className="border px-2 py-1">{hw.subject}</td>
+                          <td className="border px-2 py-1">{hw.grade}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(hw.lesson_date, "PPP")}</td> {/* Using lesson_date as due_date for homework */}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>

@@ -275,7 +275,7 @@ const ParentDashboardContent = () => {
     enabled: !!activeStudentId,
   });
 
-  // Fetch all lesson plans for the center (explicitly for chapterPerformanceData)
+  // Fetch all lesson plans for the center (explicitly for chapterPerformanceData and missed chapters)
   const { data: allLessonPlans = [] } = useQuery({
     queryKey: ["all-lesson-plans-for-report", user?.center_id],
     queryFn: async () => {
@@ -320,12 +320,6 @@ const ParentDashboardContent = () => {
   const formatTimeValue = (timeVal: string | null, dateVal: string | null) => {
     if (!timeVal) return '-';
 
-    // Try parsing directly as a Date object (e.g., if it's an ISO string)
-    let d = new Date(timeVal);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
     // If timeVal is just "HH:mm" or "HH:mm:ss", combine with dateVal
     if (typeof timeVal === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(timeVal)) {
       let datePart = null;
@@ -345,12 +339,11 @@ const ParentDashboardContent = () => {
       }
 
       // Try combining date and time
-      d = new Date(`${datePart}T${timeVal}`);
+      const d = new Date(`${datePart}T${timeVal}`);
       if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-
-    // If all parsing fails, return placeholder
-    return '-';
+    // If direct parsing or combining fails, return original value or placeholder
+    return timeVal;
   };
 
   // --- New Dashboard Card Data Calculations ---
@@ -362,13 +355,12 @@ const ParentDashboardContent = () => {
   );
 
   // Missed or Due Homeworks (excluding today's)
-  const missedOrDueHomeworks = homeworkStatus.filter((hs: any) => {
+  const overdueHomeworksOnly = homeworkStatus.filter((hs: any) => {
     if (!hs.homework?.due_date) return false;
     const dueDate = new Date(hs.homework.due_date);
     const isNotCompleted = !['completed', 'checked'].includes(hs.status);
     const isOverdue = isPast(dueDate) && !isToday(dueDate);
-    const isUpcoming = !isPast(dueDate) && !isToday(dueDate);
-    return isNotCompleted && (isOverdue || isUpcoming);
+    return isNotCompleted && isOverdue;
   });
 
   // Today's Attendance
@@ -383,6 +375,22 @@ const ParentDashboardContent = () => {
   const todaysDisciplineIssues = disciplineIssues.filter(di => 
     di.issue_date && isToday(new Date(di.issue_date))
   );
+
+  // NEW: Calculate Missed Chapters for Dashboard
+  const missedChaptersCount = useMemo(() => {
+    if (!student?.grade) return 0;
+    const studentGrade = student.grade;
+
+    const completedLessonPlanIds = new Set(lessonRecords.map(sc => sc.lesson_plan_id));
+
+    const missed = allLessonPlans.filter(lp => 
+      lp.grade === studentGrade && // Filter by student's grade
+      !completedLessonPlanIds.has(lp.id) &&
+      new Date(lp.lesson_date) <= today // Only count lessons that should have been taught by now
+    );
+    return missed.length;
+  }, [student, lessonRecords, allLessonPlans, today]);
+
 
   // NEW: Chapter-wise Performance Data Grouping for Parent Dashboard
   const chapterPerformanceData: ChapterPerformanceGroup[] = useMemo(() => {
@@ -581,15 +589,15 @@ const ParentDashboardContent = () => {
             </CardContent>
           </Card>
 
-          {/* Missed/Due Homeworks */}
+          {/* NEW: Overdue Homework */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Homework</CardTitle>
+              <CardTitle className="text-sm font-medium">Overdue Homework</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{missedOrDueHomeworks.length}</div>
-              <p className="text-xs text-muted-foreground">missed or upcoming</p>
+              <div className="text-2xl font-bold">{overdueHomeworksOnly.length}</div>
+              <p className="text-xs text-muted-foreground">past due date</p>
             </CardContent>
           </Card>
 
@@ -631,6 +639,18 @@ const ParentDashboardContent = () => {
             <CardContent>
               <div className="text-2xl font-bold">{todaysLessonsStudied.length}</div>
               <p className="text-xs text-muted-foreground">chapters studied</p>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Missed Chapters */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Missed Chapters</CardTitle>
+              <XCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{missedChaptersCount}</div>
+              <p className="text-xs text-muted-foreground">not yet covered</p>
             </CardContent>
           </Card>
 
