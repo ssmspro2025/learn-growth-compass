@@ -25,7 +25,7 @@ const DAYS_OF_WEEK = [
   { value: 6, label: "Saturday" },
 ];
 
-const GRADES = ["8", "9", "10"];
+const DEFAULT_GRADES = ["8", "9", "10"];
 
 export default function ClassRoutine() {
   const { user } = useAuth();
@@ -35,6 +35,20 @@ export default function ClassRoutine() {
   const [editingPeriod, setEditingPeriod] = useState<any>(null);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [selectedGrade, setSelectedGrade] = useState("8");
+  const [customGrades, setCustomGrades] = useState<string[]>([]);
+  const [newGrade, setNewGrade] = useState("");
+  const [showAddGradeDialog, setShowAddGradeDialog] = useState(false);
+
+  // Load custom grades from localStorage on mount
+  React.useEffect(() => {
+    const savedGrades = localStorage.getItem(`custom_grades_${user?.center_id}`);
+    if (savedGrades) {
+      setCustomGrades(JSON.parse(savedGrades));
+    }
+  }, [user?.center_id]);
+
+  // Combined grades list
+  const allGrades = [...new Set([...DEFAULT_GRADES, ...customGrades])].sort();
 
   // Period form state
   const [periodNumber, setPeriodNumber] = useState("");
@@ -303,11 +317,55 @@ export default function ClassRoutine() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {GRADES.map(grade => (
+                  {allGrades.map(grade => (
                     <SelectItem key={grade} value={grade}>Grade {grade}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <Dialog open={showAddGradeDialog} onOpenChange={setShowAddGradeDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-1" /> Add Grade
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Grade</DialogTitle>
+                    <DialogDescription>Enter a new grade to add to the list.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Grade Name</Label>
+                      <Input 
+                        value={newGrade} 
+                        onChange={(e) => setNewGrade(e.target.value)} 
+                        placeholder="e.g., 11, Nursery, KG"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowAddGradeDialog(false)}>Cancel</Button>
+                      <Button 
+                        onClick={() => {
+                          if (newGrade.trim() && !allGrades.includes(newGrade.trim())) {
+                            const updatedGrades = [...customGrades, newGrade.trim()];
+                            setCustomGrades(updatedGrades);
+                            localStorage.setItem(`custom_grades_${user?.center_id}`, JSON.stringify(updatedGrades));
+                            setSelectedGrade(newGrade.trim());
+                            toast.success(`Grade "${newGrade.trim()}" added!`);
+                            setNewGrade("");
+                            setShowAddGradeDialog(false);
+                          } else if (allGrades.includes(newGrade.trim())) {
+                            toast.error("Grade already exists");
+                          }
+                        }}
+                        disabled={!newGrade.trim()}
+                      >
+                        Add Grade
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <Dialog open={showScheduleDialog} onOpenChange={(open) => {
@@ -329,7 +387,7 @@ export default function ClassRoutine() {
                       <Select value={scheduleGrade} onValueChange={setScheduleGrade}>
                         <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
                         <SelectContent>
-                          {GRADES.map(grade => (
+                          {allGrades.map(grade => (
                             <SelectItem key={grade} value={grade}>Grade {grade}</SelectItem>
                           ))}
                         </SelectContent>
