@@ -449,10 +449,10 @@ export default function LessonTracking() {
                         const isStudentMatch = tr.student_id === record.students?.id;
                         const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
                         
-                        console.log(`Filtering test result ${tr.id} for student ${record.students?.name} (LP: ${record.lesson_plan_id}):`);
-                        console.log(`  Student match: ${isStudentMatch} (TR student: ${tr.student_id}, Record student: ${record.students?.id})`);
-                        console.log(`  Lesson Plan match: ${isLessonPlanMatch} (TR test LP: ${(tr.tests as Test)?.lesson_plan_id}, Record LP: ${record.lesson_plan_id})`);
-                        
+                        console.log(`DEBUG: Comparing Test Result (ID: ${tr.id})`);
+                        console.log(`  TR Student ID: ${tr.student_id}, TR Lesson Plan ID: ${(tr.tests as Test)?.lesson_plan_id}`);
+                        console.log(`  Record Student ID: ${record.students?.id}, Record Lesson Plan ID: ${record.lesson_plan_id}`);
+
                         return isStudentMatch && isLessonPlanMatch;
                       });
 
