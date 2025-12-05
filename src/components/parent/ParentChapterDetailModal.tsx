@@ -20,7 +20,7 @@ interface ChapterPerformanceGroup {
   lessonPlan: LessonPlan;
   studentChapters: (StudentChapter & { recorded_by_teacher?: Tables<'teachers'> })[];
   testResults: (TestResult & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
-  homeworkRecords: (StudentHomeworkRecord & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date' | 'lesson_plan_id'> })[];
+  homeworkRecords: (StudentHomeworkRecord & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date'> })[];
 }
 
 interface ParentChapterDetailModalProps {

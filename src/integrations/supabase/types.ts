@@ -739,6 +739,7 @@ export type Database = {
           due_date: string | null
           grade: string | null
           id: string
+          lesson_plan_id: string | null
           section: string | null
           subject: string
           teacher_id: string | null
@@ -755,6 +756,7 @@ export type Database = {
           due_date?: string | null
           grade?: string | null
           id?: string
+          lesson_plan_id?: string | null
           section?: string | null
           subject: string
           teacher_id?: string | null
@@ -771,6 +773,7 @@ export type Database = {
           due_date?: string | null
           grade?: string | null
           id?: string
+          lesson_plan_id?: string | null
           section?: string | null
           subject?: string
           teacher_id?: string | null
@@ -783,6 +786,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_lesson_plan_id_fkey"
+            columns: ["lesson_plan_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_plans"
             referencedColumns: ["id"]
           },
           {
@@ -1729,8 +1739,11 @@ export type Database = {
           hire_date: string | null
           id: string
           is_active: boolean | null
+          monthly_salary: number | null
           name: string
           phone: string | null
+          regular_in_time: string | null
+          regular_out_time: string | null
           subject: string | null
           updated_at: string
           user_id: string | null
@@ -1743,8 +1756,11 @@ export type Database = {
           hire_date?: string | null
           id?: string
           is_active?: boolean | null
+          monthly_salary?: number | null
           name: string
           phone?: string | null
+          regular_in_time?: string | null
+          regular_out_time?: string | null
           subject?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1757,8 +1773,11 @@ export type Database = {
           hire_date?: string | null
           id?: string
           is_active?: boolean | null
+          monthly_salary?: number | null
           name?: string
           phone?: string | null
+          regular_in_time?: string | null
+          regular_out_time?: string | null
           subject?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2023,7 +2042,8 @@ export type Database = {
       is_same_center: { Args: { target_center_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "center" | "parent" | "teacher"
+      chat_message_status: "sent" | "delivered" | "seen"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2150,6 +2170,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "center", "parent", "teacher"],
+      chat_message_status: ["sent", "delivered", "seen"],
+    },
   },
 } as const

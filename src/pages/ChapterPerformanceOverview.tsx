@@ -31,7 +31,7 @@ interface CombinedChapterRecord {
   evaluationRating: number | null;
   teacherNotes: string | null;
   recordedByTeacherName: string | null;
-  associatedTests: (TestResult & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
+  associatedTests: any[];
 }
 
 export default function ChapterPerformanceOverview() {

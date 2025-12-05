@@ -27,7 +27,7 @@ interface ChapterPerformance {
   lessonPlan: LessonPlan;
   studentChapters: (StudentChapter & { recorded_by_teacher?: Tables<'teachers'> })[];
   testResults: (Tables<'test_results'> & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
-  homeworkRecords: (Tables<'student_homework_records'> & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date' | 'lesson_plan_id'> })[];
+  homeworkRecords: (Tables<'student_homework_records'> & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date'> })[];
 }
 
 export default function StudentReport() {
@@ -301,7 +301,7 @@ export default function StudentReport() {
           const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === tr.tests.lesson_plan_id);
           if (correspondingLessonPlan) {
             dataMap.set(tr.tests.lesson_plan_id, {
-              lessonPlan: correspondingLessonPlan,
+              lessonPlan: correspondingLessonPlan as any,
               studentChapters: [],
               testResults: [],
               homeworkRecords: [],
@@ -314,23 +314,16 @@ export default function StudentReport() {
       }
     });
 
-    // Process homework records
+    // Process homework records - skip if no lesson_plan link since homework table doesn't have lesson_plan_id
+    // Homework is matched by subject instead
     homeworkStatus.forEach((hs: any) => {
-      if (hs.homework?.lesson_plan_id) {
-        if (!dataMap.has(hs.homework.lesson_plan_id)) {
-          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === hs.homework.lesson_plan_id);
-          if (correspondingLessonPlan) {
-            dataMap.set(hs.homework.lesson_plan_id, {
-              lessonPlan: correspondingLessonPlan,
-              studentChapters: [],
-              testResults: [],
-              homeworkRecords: [],
-            });
-          } else {
-            return; // Skip if no corresponding lesson plan found
-          }
+      const hwSubject = hs.homework?.subject;
+      if (hwSubject) {
+        // Find a lesson plan with the same subject
+        const matchingLessonPlan = allLessonPlans.find(lp => lp.subject === hwSubject);
+        if (matchingLessonPlan && dataMap.has(matchingLessonPlan.id)) {
+          dataMap.get(matchingLessonPlan.id)?.homeworkRecords.push(hs);
         }
-        dataMap.get(hs.homework.lesson_plan_id)?.homeworkRecords.push(hs);
       }
     });
 
@@ -355,20 +348,13 @@ export default function StudentReport() {
     ).sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime());
   }, [selectedStudent, studentChapters, allLessonPlans, dateRange]);
 
-  // NEW: Calculate Overdue Homework
+  // Overdue Homework - based on student_homework_records
   const overdueHomeworks = useMemo(() => {
-    if (!selectedStudent || !selectedStudent.grade) return [];
-    const studentGrade = selectedStudent.grade;
-
-    const studentHomeworkIds = new Set(homeworkStatus.map(hs => hs.homework_id));
-
-    return allLessonPlans.filter(lp => 
-      lp.grade === studentGrade && // Filter by student's grade
-      !studentHomeworkIds.has(lp.id) && // Check if there's no record for this homework
-      new Date(lp.lesson_date) >= dateRange.from &&
-      new Date(lp.lesson_date) <= dateRange.to
-    ).sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime());
-  }, [selectedStudent, homeworkStatus, allLessonPlans, dateRange]);
+    return homeworkStatus.filter((hs: any) => {
+      const dueDate = hs.homework?.due_date ? new Date(hs.homework.due_date) : null;
+      return dueDate && isPast(dueDate) && !['completed', 'checked'].includes(hs.status);
+    });
+  }, [homeworkStatus]);
 
 
   const getRatingStars = (rating: number | null) => {
@@ -447,15 +433,15 @@ export default function StudentReport() {
     });
     csvRows.push([]);
 
-    // NEW: Overdue Homework to CSV
+    // Overdue Homework to CSV
     csvRows.push(["Overdue Homework"]);
-    csvRows.push(["Title", "Subject", "Grade", "Due Date"]);
-    overdueHomeworks.forEach(hw => {
+    csvRows.push(["Title", "Subject", "Status", "Due Date"]);
+    overdueHomeworks.forEach((hw: any) => {
       csvRows.push([
-        hw.title || '',
-        hw.subject || '',
-        hw.grade || '',
-        safeFormatDate(hw.lesson_date, "PPP"), // Using lesson_date as due_date for homework
+        hw.homework?.title || '',
+        hw.homework?.subject || '',
+        hw.status || '',
+        safeFormatDate(hw.homework?.due_date, "PPP"),
       ]);
     });
     csvRows.push([]);
@@ -847,17 +833,17 @@ export default function StudentReport() {
                       <tr>
                         <th className="border px-2 py-1">Title</th>
                         <th className="border px-2 py-1">Subject</th>
-                        <th className="border px-2 py-1">Grade</th>
+                        <th className="border px-2 py-1">Status</th>
                         <th className="border px-2 py-1">Due Date</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {overdueHomeworks.map((hw) => (
+                      {overdueHomeworks.map((hw: any) => (
                         <tr key={hw.id}>
-                          <td className="border px-2 py-1">{hw.title}</td>
-                          <td className="border px-2 py-1">{hw.subject}</td>
-                          <td className="border px-2 py-1">{hw.grade}</td>
-                          <td className="border px-2 py-1">{safeFormatDate(hw.lesson_date, "PPP")}</td> {/* Using lesson_date as due_date for homework */}
+                          <td className="border px-2 py-1">{hw.homework?.title || '-'}</td>
+                          <td className="border px-2 py-1">{hw.homework?.subject || '-'}</td>
+                          <td className="border px-2 py-1">{hw.status}</td>
+                          <td className="border px-2 py-1">{safeFormatDate(hw.homework?.due_date, "PPP")}</td>
                         </tr>
                       ))}
                     </tbody>

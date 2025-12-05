@@ -39,7 +39,7 @@ interface ChapterPerformanceGroup {
   lessonPlan: LessonPlan;
   studentChapters: (StudentChapter & { recorded_by_teacher?: Tables<'teachers'> })[];
   testResults: (TestResult & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
-  homeworkRecords: (StudentHomeworkRecord & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date' | 'lesson_plan_id'> })[];
+  homeworkRecords: (StudentHomeworkRecord & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date'> })[];
 }
 
 const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSelectedMonth }) => {
@@ -437,7 +437,7 @@ const ParentDashboardContent = () => {
           const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === tr.tests.lesson_plan_id);
           if (correspondingLessonPlan) {
             dataMap.set(tr.tests.lesson_plan_id, {
-              lessonPlan: correspondingLessonPlan,
+              lessonPlan: correspondingLessonPlan as any,
               studentChapters: [],
               testResults: [],
               homeworkRecords: [],
@@ -450,23 +450,14 @@ const ParentDashboardContent = () => {
       }
     });
 
-    // Process homework records
+    // Process homework records - match by subject instead of lesson_plan_id
     filteredHomeworkRecords.forEach((hs: any) => {
-      if (hs.homework?.lesson_plan_id) {
-        if (!dataMap.has(hs.homework.lesson_plan_id)) {
-          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === hs.homework.lesson_plan_id);
-          if (correspondingLessonPlan) {
-            dataMap.set(hs.homework.lesson_plan_id, {
-              lessonPlan: correspondingLessonPlan,
-              studentChapters: [],
-              testResults: [],
-              homeworkRecords: [],
-            });
-          } else {
-            return; // Skip if no corresponding lesson plan found
-          }
+      const hwSubject = hs.homework?.subject;
+      if (hwSubject) {
+        const matchingLessonPlan = allLessonPlans.find(lp => lp.subject === hwSubject);
+        if (matchingLessonPlan && dataMap.has(matchingLessonPlan.id)) {
+          dataMap.get(matchingLessonPlan.id)?.homeworkRecords.push(hs);
         }
-        dataMap.get(hs.homework.lesson_plan_id)?.homeworkRecords.push(hs);
       }
     });
 
