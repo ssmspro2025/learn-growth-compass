@@ -129,8 +129,8 @@ export default function LessonTracking() {
           id,
           student_id,
           marks_obtained,
-          tests(id, name, subject, total_marks, lesson_plan_id, lesson_plans(chapter))
-        `)
+          tests(id, name, subject, total_marks, lesson_plan_id)
+        `) // Removed lesson_plans(chapter) as it's not directly on tests
         .eq("tests.center_id", user.center_id); // Ensure tests belong to the same center
       if (error) throw error;
       return data;
@@ -176,19 +176,29 @@ export default function LessonTracking() {
         });
       }
       
-      // Filter relevant test results for this student and lesson plan
+      // Filter relevant test results for this specific student and lesson plan
       const linkedTestResults = allTestResults.filter(tr => {
-        const isStudentMatch = tr.student_id === record.students?.id;
-        const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
-        // console.log(`DEBUG: Checking test result ${tr.id} for student ${record.students?.id} and lesson plan ${record.lesson_plan_id}: StudentMatch=${isStudentMatch}, LessonPlanMatch=${isLessonPlanMatch}`);
+        const testLessonPlanId = (tr.tests as Test)?.lesson_plan_id;
+        const recordStudentId = record.students?.id;
+        const recordLessonPlanId = record.lesson_plan_id;
+
+        const isStudentMatch = recordStudentId && tr.student_id === recordStudentId;
+        const isLessonPlanMatch = recordLessonPlanId && testLessonPlanId === recordLessonPlanId;
+
+        // console.log(`DEBUG: Checking test result ${tr.id} for student ${recordStudentId} (match: ${isStudentMatch}) and lesson plan ${recordLessonPlanId} (match: ${isLessonPlanMatch}). Test's LP ID: ${testLessonPlanId}`);
         return isStudentMatch && isLessonPlanMatch;
       });
 
       // Filter relevant homework records for this student and lesson plan
       const linkedHomeworkRecords = allHomeworkRecords.filter(hr => {
-        const isStudentMatch = hr.student_id === record.students?.id;
-        const isLessonPlanMatch = (hr.homework as Homework)?.lesson_plan_id === record.lesson_plan_id;
-        // console.log(`DEBUG: Checking homework record ${hr.id} for student ${record.students?.id} and lesson plan ${record.lesson_plan_id}: StudentMatch=${isStudentMatch}, LessonPlanMatch=${isLessonPlanMatch}`);
+        const homeworkLessonPlanId = (hr.homework as Homework)?.lesson_plan_id;
+        const recordStudentId = record.students?.id;
+        const recordLessonPlanId = record.lesson_plan_id;
+
+        const isStudentMatch = recordStudentId && hr.student_id === recordStudentId;
+        const isLessonPlanMatch = recordLessonPlanId && homeworkLessonPlanId === recordLessonPlanId;
+
+        // console.log(`DEBUG: Checking homework record ${hr.id} for student ${recordStudentId} (match: ${isStudentMatch}) and lesson plan ${recordLessonPlanId} (match: ${isLessonPlanMatch}). Homework's LP ID: ${homeworkLessonPlanId}`);
         return isStudentMatch && isLessonPlanMatch;
       });
 

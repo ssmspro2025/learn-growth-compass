@@ -80,8 +80,8 @@ export default function ChapterPerformanceOverview() {
       if (!user?.center_id) return [];
       let query = supabase.from("student_chapters").select(`
         *,
-        students(id, name, grade),
-        lesson_plans(id, subject, chapter, topic, lesson_date),
+        students(id, name, grade, center_id),
+        lesson_plans(id, chapter, subject, topic, grade, lesson_date, lesson_file_url),
         recorded_by_teacher:recorded_by_teacher_id(name)
       `).eq("students.center_id", user.center_id);
 
@@ -97,6 +97,8 @@ export default function ChapterPerformanceOverview() {
 
       const { data, error } = await query.order("completed_at", { ascending: false });
       if (error) throw error;
+
+      // Filter out records where student or lesson_plan data might be missing
       return data?.filter((d: any) => d.students && d.lesson_plans) || [];
     },
     enabled: !!user?.center_id,
@@ -114,7 +116,7 @@ export default function ChapterPerformanceOverview() {
           student_id,
           marks_obtained,
           tests(id, name, subject, total_marks, lesson_plan_id)
-        `)
+        `) // Removed lesson_plans(chapter) as it's not directly on tests
         .eq("tests.center_id", user.center_id); // Ensure tests belong to the same center
       if (error) throw error;
       return data;
@@ -136,10 +138,15 @@ export default function ChapterPerformanceOverview() {
       if (!student || !lessonPlan) return;
 
       // Filter associated test results for this specific student and lesson plan
-      const associatedTests = allTestResults.filter(tr =>
-        tr.student_id === student.id &&
-        (tr.tests as Test)?.lesson_plan_id === lessonPlan.id
-      );
+      const associatedTests = allTestResults.filter(tr => {
+        const testLessonPlanId = (tr.tests as Test)?.lesson_plan_id;
+        const recordStudentId = student.id;
+        const recordLessonPlanId = lessonPlan.id;
+
+        const isStudentMatch = recordStudentId && tr.student_id === recordStudentId;
+        const isLessonPlanMatch = recordLessonPlanId && testLessonPlanId === recordLessonPlanId;
+        return isStudentMatch && isLessonPlanMatch;
+      });
 
       records.push({
         studentChapterId: sc.id,
