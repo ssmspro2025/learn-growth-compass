@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -114,24 +114,42 @@ const ParentDashboardContent = () => {
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [dateRange, setDateRange] = useState<{from: string, to: string}>({from: '', to: ''});
-  // Removed subjectFilter from here, it will be on dedicated pages
+  
+  // Multi-child support: track selected student
+  const linkedStudents = user?.linked_students || [];
+  const hasMultipleChildren = linkedStudents.length > 1;
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
+    user?.student_id || linkedStudents[0]?.id || null
+  );
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
 
-  if (!user || user.role !== 'parent' || !user.student_id) {
+  // Update selected student when linked_students changes
+  useEffect(() => {
+    if (!selectedStudentId && linkedStudents.length > 0) {
+      setSelectedStudentId(linkedStudents[0].id);
+    }
+  }, [linkedStudents, selectedStudentId]);
+
+  if (!user || user.role !== 'parent' || (!user.student_id && linkedStudents.length === 0)) {
     navigate('/login-parent');
     return null;
   }
 
+  // Use the selected student ID (or fallback to user.student_id for legacy support)
+  const activeStudentId = selectedStudentId || user.student_id;
+
   // Fetch student details
   const { data: student } = useQuery({
-    queryKey: ['student', user.student_id],
+    queryKey: ['student', activeStudentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('students').select('*').eq('id', user.student_id).single();
+      if (!activeStudentId) return null;
+      const { data, error } = await supabase.from('students').select('*').eq('id', activeStudentId).single();
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Fetch latest broadcast message for this parent's conversation
@@ -163,69 +181,79 @@ const ParentDashboardContent = () => {
 
   // Attendance
   const { data: attendance = [] } = useQuery({
-    queryKey: ['attendance', user.student_id],
+    queryKey: ['attendance', activeStudentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('attendance').select('*').eq('student_id', user.student_id).order('date', { ascending: true });
+      if (!activeStudentId) return [];
+      const { data, error } = await supabase.from('attendance').select('*').eq('student_id', activeStudentId).order('date', { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Tests (for MiniCalendar tooltip)
   const { data: testResults = [] } = useQuery({
-    queryKey: ['test-results-mini-calendar', user.student_id],
+    queryKey: ['test-results-mini-calendar', activeStudentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('test_results').select('*, tests(*)').eq('student_id', user.student_id).order('date_taken', { ascending: false });
+      if (!activeStudentId) return [];
+      const { data, error } = await supabase.from('test_results').select('*, tests(*)').eq('student_id', activeStudentId).order('date_taken', { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Lesson Records (student_chapters now links to lesson_plans)
   const { data: lessonRecords = [] } = useQuery({
-    queryKey: ['student-lesson-records-mini-calendar', user.student_id],
+    queryKey: ['student-lesson-records-mini-calendar', activeStudentId],
     queryFn: async () => {
+      if (!activeStudentId) return [];
       let query = supabase.from('student_chapters').select(`
         *,
         lesson_plans(id, subject, chapter, topic, lesson_date)
-      `).eq('student_id', user.student_id).order('completed_at', { ascending: false });
+      `).eq('student_id', activeStudentId).order('completed_at', { ascending: false });
       
       const { data, error } = await query;
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Homework Records
   const { data: homeworkStatus = [] } = useQuery({
-    queryKey: ['student-homework-records', user.student_id],
+    queryKey: ['student-homework-records', activeStudentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('student_homework_records').select('*, homework(*)').eq('student_id', user.student_id).order('created_at', { ascending: false });
+      if (!activeStudentId) return [];
+      const { data, error } = await supabase.from('student_homework_records').select('*, homework(*)').eq('student_id', activeStudentId).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Discipline Issues
   const { data: disciplineIssues = [] } = useQuery({
-    queryKey: ['student-discipline-issues', user.student_id],
+    queryKey: ['student-discipline-issues', activeStudentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('discipline_issues').select('*').eq('student_id', user.student_id).order('issue_date', { ascending: false });
+      if (!activeStudentId) return [];
+      const { data, error } = await supabase.from('discipline_issues').select('*').eq('student_id', activeStudentId).order('issue_date', { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!activeStudentId,
   });
 
   // Fetch Invoices for Pending Fees
   const { data: invoices = [] } = useQuery({
-    queryKey: ['student-invoices-dashboard', user.student_id],
+    queryKey: ['student-invoices-dashboard', activeStudentId],
     queryFn: async () => {
-      if (!user.student_id) return [];
-      const { data, error } = await supabase.from('invoices').select('*').eq('student_id', user.student_id);
+      if (!activeStudentId) return [];
+      const { data, error } = await supabase.from('invoices').select('*').eq('student_id', activeStudentId);
       if (error) throw error;
       return data as Invoice[];
     },
-    enabled: !!user.student_id,
+    enabled: !!activeStudentId,
   });
 
   // Attendance summary
@@ -338,6 +366,29 @@ const ParentDashboardContent = () => {
             <LogOut className="h-4 w-4 mr-2" /> Logout
           </Button>
         </div>
+
+        {/* STUDENT SELECTOR FOR MULTI-CHILD */}
+        {hasMultipleChildren && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Select Child</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select value={selectedStudentId || ''} onValueChange={setSelectedStudentId}>
+                <SelectTrigger className="w-full md:w-[300px]">
+                  <SelectValue placeholder="Select a child" />
+                </SelectTrigger>
+                <SelectContent>
+                  {linkedStudents.map((child) => (
+                    <SelectItem key={child.id} value={child.id}>
+                      {child.name} {child.grade ? `(Grade ${child.grade})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        )}
 
         {/* STUDENT INFO */}
         <Card>

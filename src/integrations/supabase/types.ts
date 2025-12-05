@@ -1512,6 +1512,7 @@ export type Database = {
           student_id: string
           submission_date: string | null
           submitted_at: string | null
+          teacher_remarks: string | null
         }
         Insert: {
           created_at?: string
@@ -1521,6 +1522,7 @@ export type Database = {
           student_id: string
           submission_date?: string | null
           submitted_at?: string | null
+          teacher_remarks?: string | null
         }
         Update: {
           created_at?: string
@@ -1530,6 +1532,7 @@ export type Database = {
           student_id?: string
           submission_date?: string | null
           submitted_at?: string | null
+          teacher_remarks?: string | null
         }
         Relationships: [
           {
@@ -2015,7 +2018,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_center_id: { Args: { user_id: string }; Returns: string }
+      get_user_role: { Args: { user_id: string }; Returns: string }
+      is_same_center: { Args: { target_center_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
