@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isPast, isToday } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
+import ParentChapterPerformanceTable from '@/components/parent/ParentChapterPerformanceTable'; // NEW
+import ParentChapterDetailModal from '@/components/parent/ParentChapterDetailModal'; // NEW
 
 // Initialize QueryClient (v4 syntax)
 const queryClient = new QueryClient({
@@ -28,6 +30,16 @@ type LessonPlan = Tables<'lesson_plans'>;
 type StudentChapter = Tables<'student_chapters'>;
 type Invoice = Tables<'invoices'>;
 type Payment = Tables<'payments'>;
+type Test = Tables<'tests'>;
+type Homework = Tables<'homework'>;
+type TestResult = Tables<'test_results'>;
+
+interface ChapterPerformanceGroup {
+  lessonPlan: LessonPlan;
+  studentChapters: (StudentChapter & { recorded_by_teacher?: Tables<'teachers'> })[];
+  testResults: (TestResult & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
+  homeworkRecords: (StudentHomeworkRecord & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date' | 'lesson_plan_id'> })[];
+}
 
 const MiniCalendar = ({ attendance, lessonRecords, tests, selectedMonth, setSelectedMonth }) => {
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
@@ -113,7 +125,10 @@ const ParentDashboardContent = () => {
   const navigate = useNavigate();
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [dateRange, setDateRange] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [dateRange, setDateRange] = useState<{from: string, to: string}>({
+    from: format(subMonths(new Date(), 3), 'yyyy-MM-dd'), // Default to last 3 months
+    to: format(new Date(), 'yyyy-MM-dd')
+  });
   
   // Multi-child support: track selected student
   const linkedStudents = user?.linked_students || [];
@@ -121,6 +136,9 @@ const ParentDashboardContent = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
     user?.student_id || linkedStudents[0]?.id || null
   );
+
+  const [showChapterDetailModal, setShowChapterDetailModal] = useState(false); // NEW
+  const [selectedChapterGroup, setSelectedChapterGroup] = useState<ChapterPerformanceGroup | null>(null); // NEW
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -349,6 +367,98 @@ const ParentDashboardContent = () => {
     di.issue_date && isToday(new Date(di.issue_date))
   );
 
+  // NEW: Chapter-wise Performance Data Grouping for Parent Dashboard
+  const chapterPerformanceData: ChapterPerformanceGroup[] = useMemo(() => {
+    const dataMap = new Map<string, ChapterPerformanceGroup>();
+
+    // Filter studentChapters, testResults, homeworkStatus by dateRange
+    const filteredStudentChapters = lessonRecords.filter((sc: any) => {
+      if (!sc.completed_at) return false;
+      const date = new Date(sc.completed_at);
+      return date >= new Date(dateRange.from) && date <= new Date(dateRange.to);
+    });
+
+    const filteredTestResults = testResults.filter((tr: any) => {
+      if (!tr.date_taken) return false;
+      const date = new Date(tr.date_taken);
+      return date >= new Date(dateRange.from) && date <= new Date(dateRange.to);
+    });
+
+    const filteredHomeworkRecords = homeworkStatus.filter((hs: any) => {
+      if (!hs.homework?.due_date) return false;
+      const date = new Date(hs.homework.due_date);
+      return date >= new Date(dateRange.from) && date <= new Date(dateRange.to);
+    });
+
+    // Fetch all lesson plans for the center (needed for grouping)
+    const { data: allLessonPlans = [] } = queryClient.getQueryData(["all-lesson-plans-for-report", user?.center_id]) || { data: [] };
+
+    // Process student_chapters (lesson evaluations)
+    filteredStudentChapters.forEach((sc: any) => {
+      if (sc.lesson_plan_id && sc.lesson_plans) {
+        if (!dataMap.has(sc.lesson_plan_id)) {
+          dataMap.set(sc.lesson_plan_id, {
+            lessonPlan: sc.lesson_plans,
+            studentChapters: [],
+            testResults: [],
+            homeworkRecords: [],
+          });
+        }
+        dataMap.get(sc.lesson_plan_id)?.studentChapters.push(sc);
+      }
+    });
+
+    // Process test results
+    filteredTestResults.forEach((tr: any) => {
+      if (tr.tests?.lesson_plan_id) {
+        if (!dataMap.has(tr.tests.lesson_plan_id)) {
+          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === tr.tests.lesson_plan_id);
+          if (correspondingLessonPlan) {
+            dataMap.set(tr.tests.lesson_plan_id, {
+              lessonPlan: correspondingLessonPlan,
+              studentChapters: [],
+              testResults: [],
+              homeworkRecords: [],
+            });
+          } else {
+            return; // Skip if no corresponding lesson plan found
+          }
+        }
+        dataMap.get(tr.tests.lesson_plan_id)?.testResults.push(tr);
+      }
+    });
+
+    // Process homework records
+    filteredHomeworkRecords.forEach((hs: any) => {
+      if (hs.homework?.lesson_plan_id) {
+        if (!dataMap.has(hs.homework.lesson_plan_id)) {
+          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === hs.homework.lesson_plan_id);
+          if (correspondingLessonPlan) {
+            dataMap.set(hs.homework.lesson_plan_id, {
+              lessonPlan: correspondingLessonPlan,
+              studentChapters: [],
+              testResults: [],
+              homeworkRecords: [],
+            });
+          } else {
+            return; // Skip if no corresponding lesson plan found
+          }
+        }
+        dataMap.get(hs.homework.lesson_plan_id)?.homeworkRecords.push(hs);
+      }
+    });
+
+    // Sort by lesson plan date
+    return Array.from(dataMap.values()).sort((a, b) => 
+      new Date(b.lessonPlan.lesson_date).getTime() - new Date(a.lessonPlan.lesson_date).getTime()
+    );
+  }, [lessonRecords, testResults, homeworkStatus, dateRange, user?.center_id]); // Added user?.center_id to dependencies
+
+  const handleViewChapterDetails = (chapterGroup: ChapterPerformanceGroup) => {
+    setSelectedChapterGroup(chapterGroup);
+    setShowChapterDetailModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -542,43 +652,38 @@ const ParentDashboardContent = () => {
           />
         )}
 
-        {/* Date Range Filter */}
-        <div className="flex items-center gap-2">
-          <label>From:</label>
-          <input type="date" value={dateRange.from} onChange={e => setDateRange({...dateRange, from: e.target.value})} className="border p-1 rounded"/>
-          <label>To:</label>
-          <input type="date" value={dateRange.to} onChange={e => setDateRange({...dateRange, to: e.target.value})} className="border p-1 rounded"/>
-        </div>
-
-        {/* ATTENDANCE SUMMARY */}
+        {/* Date Range Filter for Chapter Performance */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" /> Attendance Summary
+              <BookOpen className="h-5 w-5" /> Chapter-wise Performance
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">{totalDays}</p>
-                <p className="text-sm text-muted-foreground">Total Days</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{presentDays}</p>
-                <p className="text-sm text-muted-foreground">Present</p>
-              </div>
-              <div className="text-center p-4 bg-red-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">{absentDays}</p>
-                <p className="text-sm text-muted-foreground">Absent</p>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">{attendancePercentage}%</p>
-                <p className="text-sm text-muted-foreground">Attendance</p>
-              </div>
+            <div className="flex items-center gap-2 mb-4">
+              <label className="text-sm font-medium">Filter by Date:</label>
+              <Input
+                type="date"
+                value={dateRange.from}
+                onChange={e => setDateRange({...dateRange, from: e.target.value})}
+                className="w-[150px]"
+              />
+              <span className="text-muted-foreground">-</span>
+              <Input
+                type="date"
+                value={dateRange.to}
+                onChange={e => setDateRange({...dateRange, to: e.target.value})}
+                className="w-[150px]"
+              />
             </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-green-600 transition-all duration-300" style={{ width: `${attendancePercentage}%` }} />
-            </div>
+            {activeStudentId ? (
+              <ParentChapterPerformanceTable
+                chapterPerformanceData={chapterPerformanceData}
+                onViewDetails={handleViewChapterDetails}
+              />
+            ) : (
+              <p className="text-muted-foreground text-center py-8">Please select a student to view chapter performance.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -624,6 +729,13 @@ const ParentDashboardContent = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Chapter Detail Modal */}
+      <ParentChapterDetailModal
+        open={showChapterDetailModal}
+        onOpenChange={setShowChapterDetailModal}
+        chapterGroup={selectedChapterGroup}
+      />
     </div>
   );
 };
