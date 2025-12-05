@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User } from "lucide-react";
+import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
 import EditStudentLessonRecord from "@/components/center/EditStudentLessonRecord"; // Import the new component
@@ -19,6 +21,8 @@ import EditStudentLessonRecord from "@/components/center/EditStudentLessonRecord
 type LessonPlan = Tables<'lesson_plans'>;
 type Student = Tables<'students'>;
 type StudentChapter = Tables<'student_chapters'>;
+type TestResult = Tables<'test_results'>;
+type Test = Tables<'tests'>;
 
 interface GroupedLessonRecord {
   lessonPlan: LessonPlan;
@@ -103,6 +107,26 @@ export default function LessonTracking() {
 
       // Filter out records where student or lesson_plan data might be missing
       return data?.filter((d: any) => d.students && d.lesson_plans) || [];
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // NEW: Fetch all test results for the center, including test details and linked lesson_plan_id
+  const { data: allTestResults = [] } = useQuery({
+    queryKey: ["all-test-results-for-lesson-tracking", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("test_results")
+        .select(`
+          id,
+          student_id,
+          marks_obtained,
+          tests(id, name, subject, chapter, total_marks, lesson_plan_id)
+        `)
+        .eq("tests.center_id", user.center_id); // Ensure tests belong to the same center
+      if (error) throw error;
+      return data;
     },
     enabled: !!user?.center_id,
   });
@@ -416,37 +440,60 @@ export default function LessonTracking() {
                 {showStudentsMap[group.lessonPlan.id] && (
                   <div className="mt-4 border-t pt-4 space-y-2">
                     <h4 className="font-semibold text-md">Students Attended:</h4>
-                    {group.students.map((record) => (
-                      <div key={record.id} className="flex items-center justify-between p-2 bg-muted/20 rounded">
-                        <span>{record.students?.name} (Grade {record.students?.grade})</span>
-                        <div className="flex items-center gap-2">
-                          {record.teacher_notes && <span className="text-xs text-muted-foreground italic">"{record.teacher_notes}"</span>}
-                          {record.evaluation_rating && (
-                            <span className="text-xs flex items-center gap-1">
-                              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {record.evaluation_rating}/5
-                            </span>
+                    {group.students.map((record) => {
+                      // NEW: Filter relevant test results for this student and lesson plan
+                      const relevantTestResults = allTestResults.filter(tr =>
+                        tr.student_id === record.students?.id &&
+                        (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id
+                      );
+
+                      return (
+                        <div key={record.id} className="flex flex-col gap-2 p-2 bg-muted/20 rounded">
+                          <div className="flex items-center justify-between">
+                            <span>{record.students?.name} (Grade {record.students?.grade})</span>
+                            <div className="flex items-center gap-2">
+                              {record.teacher_notes && <span className="text-xs text-muted-foreground italic">"{record.teacher_notes}"</span>}
+                              {record.evaluation_rating && (
+                                <span className="text-xs flex items-center gap-1">
+                                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {record.evaluation_rating}/5
+                                </span>
+                              )}
+                              {record.recorded_by_teacher?.name && (
+                                <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                                  <User className="h-3 w-3" /> {record.recorded_by_teacher.name}
+                                </span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingStudentChapterId(record.id);
+                                  setShowEditStudentRecordDialog(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => deleteStudentLessonRecordMutation.mutate(record.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {/* NEW: Display relevant test results */}
+                          {relevantTestResults.length > 0 && (
+                            <div className="ml-4 text-sm text-muted-foreground">
+                              <p className="font-semibold">Associated Test Results:</p>
+                              <ul className="list-disc list-inside">
+                                {relevantTestResults.map(tr => (
+                                  <li key={tr.id}>
+                                    {(tr.tests as Test)?.name} ({tr.marks_obtained}/{(tr.tests as Test)?.total_marks})
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
-                          {record.recorded_by_teacher?.name && (
-                            <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                              <User className="h-3 w-3" /> {record.recorded_by_teacher.name}
-                            </span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingStudentChapterId(record.id);
-                              setShowEditStudentRecordDialog(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => deleteStudentLessonRecordMutation.mutate(record.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
