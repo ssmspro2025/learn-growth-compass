@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Star, FileText, Book, User, CheckCircle, XCircle, Clock } from "lucide-react";
 import { safeFormatDate } from "@/lib/utils";
