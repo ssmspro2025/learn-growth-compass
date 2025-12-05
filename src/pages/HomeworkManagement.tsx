@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 type Homework = Tables<'homework'>;
 type Student = Tables<'students'>;
 type StudentHomeworkRecord = Tables<'student_homework_records'>;
+type LessonPlan = Tables<'lesson_plans'>; // Import LessonPlan type
 
 export default function HomeworkManagement() {
   const queryClient = useQueryClient();
@@ -34,6 +35,7 @@ export default function HomeworkManagement() {
   const [dueDate, setDueDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [file, setFile] = useState<File | null>(null);
   const [image, setImage] = useState<File | null>(null);
+  const [lessonPlanId, setLessonPlanId] = useState<string | null>(null); // New state for lesson plan ID
 
   const [selectedHomeworkForStatus, setSelectedHomeworkForStatus] = useState<Homework | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
@@ -45,7 +47,7 @@ export default function HomeworkManagement() {
       if (!user?.center_id) return [];
       let query = supabase
         .from("homework")
-        .select("*")
+        .select("*, lesson_plans(id, subject, chapter, topic, grade)") // Fetch linked lesson plan details
         .eq("center_id", user.center_id)
         .order("due_date", { ascending: false });
       
@@ -59,6 +61,22 @@ export default function HomeworkManagement() {
       const { data, error } = await query;
       if (error) throw error;
       return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Fetch lesson plans for the dropdown
+  const { data: lessonPlans = [] } = useQuery({
+    queryKey: ["lesson-plans-for-homework", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("lesson_plans")
+        .select("id, subject, chapter, topic, grade")
+        .eq("center_id", user.center_id)
+        .order("lesson_date", { ascending: false });
+      if (error) throw error;
+      return data as LessonPlan[];
     },
     enabled: !!user?.center_id,
   });
@@ -102,6 +120,7 @@ export default function HomeworkManagement() {
     setDueDate(format(new Date(), "yyyy-MM-dd"));
     setFile(null);
     setImage(null);
+    setLessonPlanId(null); // Reset lesson plan ID
     setEditingHomework(null);
   };
 
@@ -149,6 +168,7 @@ export default function HomeworkManagement() {
         attachment_url: fileUrl || imageUrl,
         attachment_name: file?.name || image?.name || null,
         teacher_id: user.teacher_id || null,
+        lesson_plan_id: lessonPlanId, // Save the selected lesson plan ID
       }).select().single();
       if (error) throw error;
 
@@ -199,6 +219,7 @@ export default function HomeworkManagement() {
         due_date: dueDate,
         attachment_url: attachmentUrl,
         attachment_name: attachmentName,
+        lesson_plan_id: lessonPlanId, // Update the selected lesson plan ID
       }).eq("id", editingHomework.id);
       if (error) throw error;
     },
@@ -254,6 +275,7 @@ export default function HomeworkManagement() {
     setDueDate(homework.due_date);
     setFile(null);
     setImage(null);
+    setLessonPlanId(homework.lesson_plan_id); // Set lesson plan ID for editing
     setIsDialogOpen(true);
   };
 
@@ -342,6 +364,22 @@ export default function HomeworkManagement() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="lessonPlan">Link to Lesson Plan (Optional)</Label>
+                  <Select value={lessonPlanId || "none"} onValueChange={(value) => setLessonPlanId(value === "none" ? null : value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a lesson plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Lesson Plan</SelectItem>
+                      {lessonPlans.map((lp) => (
+                        <SelectItem key={lp.id} value={lp.id}>
+                          {lp.subject}: {lp.chapter} - {lp.topic} ({lp.grade})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="description">Description (Optional)</Label>
                   <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Instructions for homework" />
                 </div>
@@ -387,12 +425,17 @@ export default function HomeworkManagement() {
             <p className="text-muted-foreground text-center py-8">No homework assignments found for the selected grade/subject.</p>
           ) : (
             <div className="space-y-4">
-              {homeworkList.map((hw) => (
+              {homeworkList.map((hw: any) => (
                 <div key={hw.id} className="border rounded-lg p-4 flex items-start justify-between">
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{hw.title} ({hw.subject} - Grade {hw.grade})</h3>
                     <p className="text-sm text-muted-foreground">Due: {format(new Date(hw.due_date), "PPP")}</p>
                     {hw.description && <p className="text-sm">{hw.description}</p>}
+                    {hw.lesson_plans?.chapter && (
+                      <p className="text-sm text-blue-600 flex items-center gap-1">
+                        <Book className="h-4 w-4" /> Linked to: {hw.lesson_plans.subject}: {hw.lesson_plans.chapter}
+                      </p>
+                    )}
                     <div className="flex gap-2 mt-2">
                       {hw.attachment_url && (
                         <Button variant="outline" size="sm" asChild>

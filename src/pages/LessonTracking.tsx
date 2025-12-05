@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User, FileText } from "lucide-react";
+import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
 import EditStudentLessonRecord from "@/components/center/EditStudentLessonRecord"; // Import the new component
@@ -23,10 +23,17 @@ type Student = Tables<'students'>;
 type StudentChapter = Tables<'student_chapters'>;
 type TestResult = Tables<'test_results'>;
 type Test = Tables<'tests'>;
+type Homework = Tables<'homework'>;
+type StudentHomeworkRecord = Tables<'student_homework_records'>;
 
 interface GroupedLessonRecord {
   lessonPlan: LessonPlan;
-  students: (StudentChapter & { students: Student; recorded_by_teacher?: Tables<'teachers'> })[];
+  students: (StudentChapter & { 
+    students: Student; 
+    recorded_by_teacher?: Tables<'teachers'>;
+    linked_test_results?: (TestResult & { tests: Test })[]; // Added linked test results
+    linked_homework_records?: (StudentHomeworkRecord & { homework: Homework })[]; // Added linked homework records
+  })[];
 }
 
 export default function LessonTracking() {
@@ -131,8 +138,26 @@ export default function LessonTracking() {
     enabled: !!user?.center_id,
   });
 
-  // DEBUG: Log allTestResults to console
-  console.log("All Test Results fetched:", allTestResults);
+  // NEW: Fetch all student homework records for the center, including homework details and linked lesson_plan_id
+  const { data: allHomeworkRecords = [] } = useQuery({
+    queryKey: ["all-homework-records-for-lesson-tracking", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("student_homework_records")
+        .select(`
+          id,
+          student_id,
+          status,
+          teacher_remarks,
+          homework(id, title, subject, due_date, lesson_plan_id)
+        `)
+        .eq("homework.center_id", user.center_id); // Ensure homework belongs to the same center
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
 
   // Group studentLessonRecords by lesson_plan
   const groupedLessonRecords: GroupedLessonRecord[] = useMemo(() => {
@@ -148,11 +173,30 @@ export default function LessonTracking() {
           students: [],
         });
       }
-      groups.get(lessonPlan.id)?.students.push(record);
+      
+      // Filter relevant test results for this student and lesson plan
+      const linkedTestResults = allTestResults.filter(tr => {
+        const isStudentMatch = tr.student_id === record.students?.id;
+        const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
+        return isStudentMatch && isLessonPlanMatch;
+      });
+
+      // Filter relevant homework records for this student and lesson plan
+      const linkedHomeworkRecords = allHomeworkRecords.filter(hr => {
+        const isStudentMatch = hr.student_id === record.students?.id;
+        const isLessonPlanMatch = (hr.homework as Homework)?.lesson_plan_id === record.lesson_plan_id;
+        return isStudentMatch && isLessonPlanMatch;
+      });
+
+      groups.get(lessonPlan.id)?.students.push({
+        ...record,
+        linked_test_results: linkedTestResults,
+        linked_homework_records: linkedHomeworkRecords,
+      });
     });
 
     return Array.from(groups.values());
-  }, [studentLessonRecordsRaw]);
+  }, [studentLessonRecordsRaw, allTestResults, allHomeworkRecords]);
 
 
   // Fetch attendance for auto-selecting present students
@@ -261,6 +305,19 @@ export default function LessonTracking() {
   const getRatingStars = (rating: number | null) => {
     if (rating === null) return "N/A";
     return Array(rating).fill("⭐").join("");
+  };
+
+  const getHomeworkStatusIcon = (status: StudentHomeworkRecord['status']) => {
+    switch (status) {
+      case 'completed':
+      case 'checked':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'in_progress':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'assigned':
+      default:
+        return <XCircle className="h-4 w-4 text-red-600" />;
+    }
   };
 
   return (
@@ -444,18 +501,6 @@ export default function LessonTracking() {
                   <div className="mt-4 border-t pt-4 space-y-2">
                     <h4 className="font-semibold text-md">Students Attended:</h4>
                     {group.students.map((record) => {
-                      // NEW: Filter relevant test results for this student and lesson plan
-                      const relevantTestResults = allTestResults.filter(tr => {
-                        const isStudentMatch = tr.student_id === record.students?.id;
-                        const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
-                        
-                        console.log(`DEBUG: Comparing Test Result (ID: ${tr.id})`);
-                        console.log(`  TR Student ID: ${tr.student_id}, TR Lesson Plan ID: ${(tr.tests as Test)?.lesson_plan_id}`);
-                        console.log(`  Record Student ID: ${record.students?.id}, Record Lesson Plan ID: ${record.lesson_plan_id}`);
-
-                        return isStudentMatch && isLessonPlanMatch;
-                      });
-
                       return (
                         <div key={record.id} className="flex flex-col gap-2 p-2 bg-muted/20 rounded">
                           <div className="flex items-center justify-between">
@@ -487,21 +532,35 @@ export default function LessonTracking() {
                               </Button>
                             </div>
                           </div>
-                          {/* NEW: Display relevant test results */}
-                          {relevantTestResults.length > 0 ? (
+                          {/* Display relevant test results */}
+                          {record.linked_test_results && record.linked_test_results.length > 0 && (
                             <div className="ml-4 text-sm text-muted-foreground">
-                              <p className="font-semibold">Associated Test Results:</p>
+                              <p className="font-semibold flex items-center gap-1"><FileText className="h-4 w-4" /> Associated Test Results:</p>
                               <ul className="list-disc list-inside">
-                                {relevantTestResults.map(tr => (
+                                {record.linked_test_results.map(tr => (
                                   <li key={tr.id}>
-                                    {(tr.tests as Test)?.name} ({tr.marks_obtained}/{(tr.tests as Test)?.total_marks})
+                                    {(tr.tests as Test)?.name}: {tr.marks_obtained}/{(tr.tests as Test)?.total_marks}
                                   </li>
                                 ))}
                               </ul>
                             </div>
-                          ) : (
+                          )}
+                          {/* Display relevant homework records */}
+                          {record.linked_homework_records && record.linked_homework_records.length > 0 && (
+                            <div className="ml-4 text-sm text-muted-foreground">
+                              <p className="font-semibold flex items-center gap-1"><Book className="h-4 w-4" /> Associated Homework:</p>
+                              <ul className="list-disc list-inside">
+                                {record.linked_homework_records.map(hr => (
+                                  <li key={hr.id} className="flex items-center gap-1">
+                                    {getHomeworkStatusIcon(hr.status)} {(hr.homework as Homework)?.title} (Status: {hr.status})
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {record.linked_test_results?.length === 0 && record.linked_homework_records?.length === 0 && (
                             <div className="ml-4 text-xs text-muted-foreground italic">
-                              No linked tests found for this student and lesson plan.
+                              No linked tests or homework found for this student and lesson plan.
                             </div>
                           )}
                         </div>
