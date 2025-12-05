@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock, Star, MessageSquare, Radio } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
+import { Input } from '@/components/ui/input'; // Import Input component
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isPast, isToday } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 import { safeFormatDate } from '@/lib/utils'; // Import safeFormatDate
@@ -274,6 +275,11 @@ const ParentDashboardContent = () => {
     enabled: !!activeStudentId,
   });
 
+  // Calculate summary - handle null paid_amount
+  const pendingFees = useMemo(() => {
+    return invoices.reduce((sum, inv) => sum + (inv.total_amount - (inv.paid_amount || 0)), 0);
+  }, [invoices]);
+
   // Attendance summary
   const totalDays = attendance.length;
   const presentDays = attendance.filter(a => a.status === 'present').length;
@@ -348,11 +354,6 @@ const ParentDashboardContent = () => {
     const isUpcoming = !isPast(dueDate) && !isToday(dueDate);
     return isNotCompleted && (isOverdue || isUpcoming);
   });
-
-  // Pending Fees
-  const pendingFees = useMemo(() => {
-    return invoices.reduce((sum, inv) => sum + (inv.total_amount - (inv.paid_amount || 0)), 0);
-  }, [invoices]);
 
   // Today's Attendance
   const todaysAttendance = attendance.find(a => isToday(new Date(a.date)));
