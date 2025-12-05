@@ -19,6 +19,15 @@ type StudentHomeworkRecord = Tables<'student_homework_records'>;
 type StudentActivity = Tables<'student_activities'>;
 type DisciplineIssue = Tables<'discipline_issues'>;
 type StudentChapter = Tables<'student_chapters'>; // Import StudentChapter type
+type Test = Tables<'tests'>;
+type Homework = Tables<'homework'>;
+
+interface ChapterPerformance {
+  lessonPlan: LessonPlan;
+  studentChapters: (StudentChapter & { recorded_by_teacher?: Tables<'teachers'> })[];
+  testResults: (Tables<'test_results'> & { tests: Pick<Test, 'id' | 'name' | 'subject' | 'total_marks' | 'lesson_plan_id' | 'questions'> })[];
+  homeworkRecords: (Tables<'student_homework_records'> & { homework: Pick<Homework, 'id' | 'title' | 'subject' | 'due_date' | 'lesson_plan_id'> })[];
+}
 
 export default function StudentReport() {
   const { user } = useAuth();
@@ -64,8 +73,24 @@ export default function StudentReport() {
     enabled: !!selectedStudentId && selectedStudentId !== "none", // Enabled only if a real student is selected
   });
 
-  // Fetch lesson records (student_chapters now links to lesson_plans)
-  const { data: lessonRecords = [] } = useQuery({
+  // Fetch lesson plans (needed for grouping)
+  const { data: allLessonPlans = [] } = useQuery({
+    queryKey: ["all-lesson-plans-for-report", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("lesson_plans")
+        .select("id, subject, chapter, topic, grade, lesson_date, notes, lesson_file_url")
+        .eq("center_id", user.center_id)
+        .order("lesson_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Fetch student_chapters (lesson evaluations)
+  const { data: studentChapters = [] } = useQuery({
     queryKey: ["student-lesson-records-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
@@ -89,7 +114,7 @@ export default function StudentReport() {
     queryKey: ["student-test-results", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
-      let query = supabase.from("test_results").select("*, tests(*)").eq("student_id", selectedStudentId)
+      let query = supabase.from("test_results").select("*, tests(id, name, subject, total_marks, lesson_plan_id, questions)").eq("student_id", selectedStudentId)
         .gte("date_taken", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("date_taken", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (subjectFilter !== "all") query = query.eq("tests.subject", subjectFilter);
@@ -105,7 +130,7 @@ export default function StudentReport() {
     queryKey: ["student-homework-status-report", selectedStudentId, subjectFilter, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
-      let query = supabase.from("student_homework_records").select("*, homework(*)")
+      let query = supabase.from("student_homework_records").select("*, homework(id, title, subject, due_date, lesson_plan_id)")
         .eq("student_id", selectedStudentId)
         .gte("homework.due_date", safeFormatDate(dateRange.from, "yyyy-MM-dd")) // Filter by homework due_date
         .lte("homework.due_date", safeFormatDate(dateRange.to, "yyyy-MM-dd")); // Filter by homework due_date
@@ -150,12 +175,10 @@ export default function StudentReport() {
     queryKey: ["student-invoices-report", selectedStudentId, dateRange],
     queryFn: async () => {
       if (!selectedStudentId || selectedStudentId === "none") return [];
-      console.log("Fetching invoices for student:", selectedStudentId, "from:", safeFormatDate(dateRange.from, "yyyy-MM-dd"), "to:", safeFormatDate(dateRange.to, "yyyy-MM-dd")); // Added explicit log
       const { data, error } = await supabase.from("invoices").select("*").eq("student_id", selectedStudentId)
         .gte("invoice_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("invoice_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
-      console.log("Raw invoices data from Supabase:", data); // Debug log
       return data as Invoice[];
     },
     enabled: !!selectedStudentId && selectedStudentId !== "none",
@@ -180,7 +203,6 @@ export default function StudentReport() {
         .gte("payment_date", safeFormatDate(dateRange.from, "yyyy-MM-dd"))
         .lte("payment_date", safeFormatDate(dateRange.to, "yyyy-MM-dd"));
       if (error) throw error;
-      console.log("Raw payments data from Supabase:", data); // Debug log
       return data as Payment[];
     },
     enabled: !!selectedStudentId && selectedStudentId !== "none",
@@ -189,20 +211,16 @@ export default function StudentReport() {
   // Calculate finance summary
   const totalInvoiced = useMemo(() => {
     const sum = invoices.reduce((acc, inv) => acc + inv.total_amount, 0);
-    console.log("Calculated totalInvoiced:", sum, "from invoices:", invoices); // Debug log
     return sum;
   }, [invoices]);
   
-  // Corrected: Calculate totalPaid from invoices.paid_amount
   const totalPaid = useMemo(() => {
     const sum = invoices.reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
-    console.log("Calculated totalPaid (from invoices.paid_amount):", sum, "from invoices:", invoices); // Debug log
     return sum;
   }, [invoices]);
 
   const outstandingDues = useMemo(() => {
     const dues = totalInvoiced - totalPaid;
-    console.log("Calculated outstandingDues:", dues); // Debug log
     return dues;
   }, [totalInvoiced, totalPaid]);
 
@@ -226,7 +244,7 @@ export default function StudentReport() {
       : 0;
 
   const subjects = Array.from(new Set([
-    ...lessonRecords.map((lr: any) => lr.lesson_plans?.subject).filter(Boolean),
+    ...allLessonPlans.map(lp => lp.subject).filter(Boolean),
     ...testResults.map(t => t.tests?.subject).filter(Boolean),
     ...homeworkStatus.map((hs: any) => hs.homework?.subject).filter(Boolean)
   ]));
@@ -256,29 +274,70 @@ export default function StudentReport() {
     },
   });
 
-  // Chapter Rating Calculations
-  const chapterRatingsBySubject = useMemo(() => {
-    const subjectMap = new Map<string, { totalRating: number; count: number; chapters: (StudentChapter & { lesson_plans: LessonPlan; recorded_by_teacher?: Tables<'teachers'> })[] }>();
+  // Chapter-wise Performance Data Grouping
+  const chapterPerformanceData: ChapterPerformance[] = useMemo(() => {
+    const dataMap = new Map<string, ChapterPerformance>();
 
-    lessonRecords.forEach((record: any) => {
-      if (record.lesson_plans?.subject && record.evaluation_rating !== null) {
-        const subject = record.lesson_plans.subject;
-        if (!subjectMap.has(subject)) {
-          subjectMap.set(subject, { totalRating: 0, count: 0, chapters: [] });
+    // Process student_chapters (lesson evaluations)
+    studentChapters.forEach((sc: any) => {
+      if (sc.lesson_plan_id && sc.lesson_plans) {
+        if (!dataMap.has(sc.lesson_plan_id)) {
+          dataMap.set(sc.lesson_plan_id, {
+            lessonPlan: sc.lesson_plans,
+            studentChapters: [],
+            testResults: [],
+            homeworkRecords: [],
+          });
         }
-        const entry = subjectMap.get(subject)!;
-        entry.totalRating += record.evaluation_rating;
-        entry.count += 1;
-        entry.chapters.push(record);
+        dataMap.get(sc.lesson_plan_id)?.studentChapters.push(sc);
       }
     });
 
-    return Array.from(subjectMap.entries()).map(([subject, data]) => ({
-      subject,
-      averageRating: data.count > 0 ? (data.totalRating / data.count).toFixed(1) : 'N/A',
-      chapters: data.chapters.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime()),
-    }));
-  }, [lessonRecords]);
+    // Process test results
+    testResults.forEach((tr: any) => {
+      if (tr.tests?.lesson_plan_id) {
+        if (!dataMap.has(tr.tests.lesson_plan_id)) {
+          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === tr.tests.lesson_plan_id);
+          if (correspondingLessonPlan) {
+            dataMap.set(tr.tests.lesson_plan_id, {
+              lessonPlan: correspondingLessonPlan,
+              studentChapters: [],
+              testResults: [],
+              homeworkRecords: [],
+            });
+          } else {
+            return; // Skip if no corresponding lesson plan found
+          }
+        }
+        dataMap.get(tr.tests.lesson_plan_id)?.testResults.push(tr);
+      }
+    });
+
+    // Process homework records
+    homeworkStatus.forEach((hs: any) => {
+      if (hs.homework?.lesson_plan_id) {
+        if (!dataMap.has(hs.homework.lesson_plan_id)) {
+          const correspondingLessonPlan = allLessonPlans.find(lp => lp.id === hs.homework.lesson_plan_id);
+          if (correspondingLessonPlan) {
+            dataMap.set(hs.homework.lesson_plan_id, {
+              lessonPlan: correspondingLessonPlan,
+              studentChapters: [],
+              testResults: [],
+              homeworkRecords: [],
+            });
+          } else {
+            return; // Skip if no corresponding lesson plan found
+          }
+        }
+        dataMap.get(hs.homework.lesson_plan_id)?.homeworkRecords.push(hs);
+      }
+    });
+
+    // Sort by lesson plan date
+    return Array.from(dataMap.values()).sort((a, b) => 
+      new Date(b.lessonPlan.lesson_date).getTime() - new Date(a.lessonPlan.lesson_date).getTime()
+    );
+  }, [studentChapters, testResults, homeworkStatus, allLessonPlans]);
 
   const getRatingStars = (rating: number | null) => {
     if (rating === null) return "N/A";
@@ -289,60 +348,64 @@ export default function StudentReport() {
   const exportToCSV = () => {
     if (!selectedStudent) return;
 
-    const csvContent = [
-      ["Student Report"],
-      ["Name", selectedStudent.name],
-      ["Grade", selectedStudent.grade],
-      [""],
-      ["Attendance Summary"],
-      ["Total Days", totalDays],
-      ["Present", presentDays],
-      ["Absent", totalDays - presentDays],
-      ["Percentage", attendancePercentage + "%"],
-      [""],
-      ["Finance Summary"],
-      ["Total Invoiced", totalInvoiced],
-      ["Total Paid", totalPaid],
-      ["Outstanding Dues", outstandingDues],
-      [""],
-      ["Test Results"],
-      ["Test Name", "Subject", "Marks Obtained", "Total Marks", "Date", "Question-wise Marks"],
-      ...testResults.map(r => [
-        r.tests?.name,
-        r.tests?.subject,
-        r.marks_obtained,
-        r.tests?.total_marks,
-        safeFormatDate(r.date_taken, "PPP"),
-        r.question_marks ? JSON.stringify(r.question_marks) : '',
-      ]),
-      [""],
-      ["Lesson Records"],
-      ["Subject", "Chapter", "Topic", "Date Taught", "Session Notes", "Evaluation Rating", "Teacher Notes", "Recorded By", "File Link"],
-      ...lessonRecords.map((lr: any) => [
-        lr.lesson_plans?.subject,
-        lr.lesson_plans?.chapter,
-        lr.lesson_plans?.topic,
-        safeFormatDate(lr.completed_at, "PPP"),
-        lr.notes || '', // General session notes
-        lr.evaluation_rating || 'N/A', // Evaluation rating
-        lr.teacher_notes || '', // Teacher specific notes
-        lr.recorded_by_teacher?.name || 'N/A', // Teacher name
-        lr.lesson_plans?.lesson_file_url ? supabase.storage.from("lesson-plan-files").getPublicUrl(lr.lesson_plans.lesson_file_url).data.publicUrl : '',
-      ]),
-      [""],
-      ["Homework Status"],
-      ["Title", "Subject", "Due Date", "Status", "Teacher Remarks"],
-      ...homeworkStatus.map((hs: any) => [
-        hs.homework?.title,
-        hs.homework?.subject,
-        safeFormatDate(hs.homework?.due_date, "PPP"),
-        hs.status,
-        hs.teacher_remarks,
-      ]),
-      [""],
-      ["Preschool Activities"],
-      ["Type", "Title", "Description", "Date", "Involvement", "Photo Link", "Video Link"],
-      ...preschoolActivities.map((pa: any) => [
+    const csvRows: string[][] = [];
+
+    csvRows.push(["Student Report"]);
+    csvRows.push(["Name", selectedStudent.name]);
+    csvRows.push(["Grade", selectedStudent.grade]);
+    csvRows.push([]);
+
+    csvRows.push(["Attendance Summary"]);
+    csvRows.push(["Total Days", totalDays.toString()]);
+    csvRows.push(["Present", presentDays.toString()]);
+    csvRows.push(["Absent", (totalDays - presentDays).toString()]);
+    csvRows.push(["Percentage", attendancePercentage + "%"]);
+    csvRows.push([]);
+
+    csvRows.push(["Finance Summary"]);
+    csvRows.push(["Total Invoiced", totalInvoiced.toString()]);
+    csvRows.push(["Total Paid", totalPaid.toString()]);
+    csvRows.push(["Outstanding Dues", outstandingDues.toString()]);
+    csvRows.push([]);
+
+    csvRows.push(["Chapter-wise Performance"]);
+    csvRows.push(["Subject", "Chapter", "Topic", "Lesson Date", "Evaluation Rating", "Teacher Notes", "Test Name", "Test Marks", "Homework Title", "Homework Status"]);
+    chapterPerformanceData.forEach(chapterGroup => {
+      const lp = chapterGroup.lessonPlan;
+      const sc = chapterGroup.studentChapters[0]; // Assuming one student_chapter per lesson plan for simplicity in CSV
+      
+      const baseRow = [
+        lp.subject || '',
+        lp.chapter || '',
+        lp.topic || '',
+        safeFormatDate(lp.lesson_date, "PPP"),
+        sc?.evaluation_rating ? `${sc.evaluation_rating}/5` : 'N/A',
+        sc?.teacher_notes || '',
+      ];
+
+      if (chapterGroup.testResults.length > 0 || chapterGroup.homeworkRecords.length > 0) {
+        const maxEntries = Math.max(chapterGroup.testResults.length, chapterGroup.homeworkRecords.length);
+        for (let i = 0; i < maxEntries; i++) {
+          const test = chapterGroup.testResults[i];
+          const homework = chapterGroup.homeworkRecords[i];
+          csvRows.push([
+            ...baseRow,
+            test ? test.tests?.name || '' : '',
+            test ? `${test.marks_obtained}/${test.tests?.total_marks}` : '',
+            homework ? homework.homework?.title || '' : '',
+            homework ? homework.status || '' : '',
+          ]);
+        }
+      } else {
+        csvRows.push([...baseRow, '', '', '', '']); // Add empty columns if no tests/homework
+      }
+    });
+    csvRows.push([]);
+
+    csvRows.push(["Preschool Activities"]);
+    csvRows.push(["Type", "Title", "Description", "Date", "Involvement", "Photo Link", "Video Link"]);
+    preschoolActivities.forEach((pa: any) => {
+      csvRows.push([
         pa.activities?.activity_types?.name || 'N/A',
         pa.activities?.title || 'N/A',
         pa.activities?.description || 'N/A',
@@ -350,19 +413,25 @@ export default function StudentReport() {
         pa.involvement_score || 'N/A',
         pa.activities?.photo_url ? supabase.storage.from("activity-photos").getPublicUrl(pa.activities.photo_url).data.publicUrl : '',
         pa.activities?.video_url ? supabase.storage.from("activity-videos").getPublicUrl(pa.activities.video_url).data.publicUrl : '',
-      ]),
-      [""],
-      ["Discipline Issues"],
-      ["Category", "Description", "Severity", "Date"],
-      ...disciplineIssues.map((di: any) => [
+      ]);
+    });
+    csvRows.push([]);
+
+    csvRows.push(["Discipline Issues"]);
+    csvRows.push(["Category", "Description", "Severity", "Date"]);
+    disciplineIssues.forEach((di: any) => {
+      csvRows.push([
         di.discipline_categories?.name || 'N/A',
         di.description,
         di.severity,
         safeFormatDate(di.issue_date, "PPP"),
-      ]),
-    ].map(row => row.join(",")).join("\n");
+      ]);
+    });
+    csvRows.push([]);
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -385,6 +454,19 @@ export default function StudentReport() {
               table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
               th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
               th { background-color: #f2f2f2; }
+              .text-green-600 { color: #22c55e; }
+              .text-red-600 { color: #ef4444; }
+              .text-orange-600 { color: #f97316; }
+              .text-blue-600 { color: #3b82f6; }
+              .text-yellow-500 { color: #eab308; }
+              .font-semibold { font-weight: 600; }
+              .text-muted-foreground { color: #6b7280; }
+              .flex { display: flex; }
+              .items-center { align-items: center; }
+              .gap-1 { gap: 0.25rem; }
+              .list-disc { list-style-type: disc; }
+              .list-inside { list-style-position: inside; }
+              .ml-4 { margin-left: 1rem; }
             </style>
           </head>
           <body>
@@ -419,7 +501,7 @@ export default function StudentReport() {
     }
   };
 
-  const getSeverityColor = (severity: DisciplineIssue['severity']) => {
+  const getSeverityColor = (severity: Tables<'discipline_issues'>['severity']) => {
     switch (severity) {
       case "low": return "text-green-600";
       case "medium": return "text-orange-600";
@@ -579,158 +661,75 @@ export default function StudentReport() {
             </CardContent>
           </Card>
 
-          {/* Chapter Rating Report */}
+          {/* Chapter-wise Performance */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Star className="h-5 w-5" /> Chapter Rating Report
+                <BookOpen className="h-5 w-5" /> Chapter-wise Performance
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {chapterRatingsBySubject.length === 0 ? (
-                <p className="text-muted-foreground">No chapter ratings available for the selected filters.</p>
+              {chapterPerformanceData.length === 0 ? (
+                <p className="text-muted-foreground">No chapter performance data available for the selected filters.</p>
               ) : (
                 <div className="space-y-6">
-                  {/* Accumulated Subject-wise Rating */}
-                  <h3 className="font-semibold text-lg mb-2">Subject-wise Average Ratings</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    {chapterRatingsBySubject.map((subjectData) => (
-                      <Card key={subjectData.subject} className="p-4">
-                        <h4 className="font-medium text-md">{subjectData.subject}</h4>
-                        <p className="text-2xl font-bold flex items-center gap-1">
-                          {subjectData.averageRating} <span className="text-yellow-500">⭐</span>
-                        </p>
-                        <p className="text-sm text-muted-foreground">{subjectData.chapters.length} chapters rated</p>
-                      </Card>
-                    ))}
-                  </div>
+                  {chapterPerformanceData.map((chapterGroup) => (
+                    <div key={chapterGroup.lessonPlan.id} className="border rounded-lg p-4 space-y-3">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-blue-600" />
+                        {chapterGroup.lessonPlan.subject}: {chapterGroup.lessonPlan.chapter} - {chapterGroup.lessonPlan.topic}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Taught on: {safeFormatDate(chapterGroup.lessonPlan.lesson_date, "PPP")}
+                      </p>
 
-                  {/* Individual Chapter Ratings */}
-                  <h3 className="font-semibold text-lg mb-2">Individual Chapter Ratings</h3>
-                  <div className="overflow-x-auto max-h-96 border rounded">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="border px-2 py-1">Subject</th>
-                          <th className="border px-2 py-1">Chapter</th>
-                          <th className="border px-2 py-1">Topic</th>
-                          <th className="border px-2 py-1">Date Completed</th>
-                          <th className="border px-2 py-1">Rating</th>
-                          <th className="border px-2 py-1">Teacher Notes</th>
-                          <th className="border px-2 py-1">Recorded By</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {chapterRatingsBySubject.flatMap(subjectData =>
-                          subjectData.chapters.map((record: any) => (
-                            <tr key={record.id}>
-                              <td className="border px-2 py-1">{record.lesson_plans?.subject || '-'}</td>
-                              <td className="border px-2 py-1">{record.lesson_plans?.chapter || '-'}</td>
-                              <td className="border px-2 py-1">{record.lesson_plans?.topic || '-'}</td>
-                              <td className="border px-2 py-1">{safeFormatDate(record.completed_at, "PPP")}</td>
-                              <td className="border px-2 py-1 flex items-center gap-1">
-                                {getRatingStars(record.evaluation_rating)}
-                              </td>
-                              <td className="border px-2 py-1">{record.teacher_notes || '-'}</td>
-                              <td className="border px-2 py-1 flex items-center gap-1">
-                                {record.recorded_by_teacher?.name || '-'}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Test Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" /> Test Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div>Total Tests: {totalTests}</div>
-                <div>Average %: {averagePercentage}%</div>
-                <div>Total Marks: {totalMarksObtained}/{totalMaxMarks}</div>
-              </div>
-              <div className="overflow-x-auto max-h-80">
-                <table className="w-full border text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="border px-2 py-1">Test Name</th>
-                      <th className="border px-2 py-1">Subject</th>
-                      <th className="border px-2 py-1">Marks Obtained</th>
-                      <th className="border px-2 py-1">Total Marks</th>
-                      <th className="border px-2 py-1">Percentage</th>
-                      <th className="border px-2 py-1">Date</th>
-                      <th className="border px-2 py-1">Question Marks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {testResults.map((t) => (
-                      <tr key={t.id}>
-                        <td className="border px-2 py-1">{t.tests?.name}</td>
-                        <td className="border px-2 py-1">{t.tests?.subject}</td>
-                        <td className="border px-2 py-1">{t.marks_obtained}</td>
-                        <td className="border px-2 py-1">{t.tests?.total_marks}</td>
-                        <td className="border px-2 py-1">{Math.round((t.marks_obtained / (t.tests?.total_marks || 1)) * 100)}%</td>
-                        <td className="border px-2 py-1">{safeFormatDate(t.date_taken, "PPP")}</td>
-                        <td className="border px-2 py-1 text-xs">
-                          {t.question_marks && (t.question_marks as any[]).map((qm: any, idx: number) => (
-                            <div key={idx}>Q{idx + 1}: {qm.marksObtained}/{t.tests?.questions?.[idx]?.maxMarks || '?'}</div>
+                      {/* Lesson Evaluation */}
+                      {chapterGroup.studentChapters.length > 0 && (
+                        <div className="ml-4 space-y-2">
+                          <p className="font-semibold flex items-center gap-1"><Star className="h-4 w-4" /> Lesson Evaluation:</p>
+                          {chapterGroup.studentChapters.map(sc => (
+                            <div key={sc.id} className="text-sm">
+                              <p>Rating: {getRatingStars(sc.evaluation_rating)}</p>
+                              <p>Teacher Notes: {sc.teacher_notes || '-'}</p>
+                              <p className="text-xs text-muted-foreground">Recorded by: {sc.recorded_by_teacher?.name || 'N/A'}</p>
+                            </div>
                           ))}
-                          {!t.question_marks && "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                        </div>
+                      )}
 
-          {/* Homework Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Book className="h-5 w-5" /> Homework Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {homeworkStatus.length === 0 ? (
-                <p className="text-muted-foreground">No homework assignments found.</p>
-              ) : (
-                <div className="overflow-x-auto max-h-80 border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="border px-2 py-1">Title</th>
-                        <th className="border px-2 py-1">Subject</th>
-                        <th className="border px-2 py-1">Due Date</th>
-                        <th className="border px-2 py-1">Status</th>
-                        <th className="border px-2 py-1">Teacher Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {homeworkStatus.map((hs: any) => (
-                        <tr key={hs.id}>
-                          <td className="border px-2 py-1">{hs.homework?.title}</td>
-                          <td className="border px-2 py-1">{hs.homework?.subject}</td>
-                          <td className="border px-2 py-1">{safeFormatDate(hs.homework?.due_date, "PPP")}</td>
-                          <td className="border px-2 py-1 flex items-center gap-1">
-                            {getHomeworkStatusIcon(hs.status)} {hs.status.replace('_', ' ').toUpperCase()}
-                          </td>
-                          <td className="border px-2 py-1">{hs.teacher_remarks || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      {/* Associated Test Results */}
+                      {chapterGroup.testResults.length > 0 && (
+                        <div className="ml-4 space-y-2">
+                          <p className="font-semibold flex items-center gap-1"><FileText className="h-4 w-4" /> Associated Test Results:</p>
+                          {chapterGroup.testResults.map(tr => (
+                            <div key={tr.id} className="text-sm">
+                              <p>{tr.tests?.name}: {tr.marks_obtained}/{tr.tests?.total_marks} ({Math.round((tr.marks_obtained / (tr.tests?.total_marks || 1)) * 100)}%)</p>
+                              <p className="text-xs text-muted-foreground">Date: {safeFormatDate(tr.date_taken, "PPP")}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Associated Homework Records */}
+                      {chapterGroup.homeworkRecords.length > 0 && (
+                        <div className="ml-4 space-y-2">
+                          <p className="font-semibold flex items-center gap-1"><Book className="h-4 w-4" /> Associated Homework:</p>
+                          {chapterGroup.homeworkRecords.map(hr => (
+                            <div key={hr.id} className="text-sm">
+                              <p className="flex items-center gap-1">
+                                {getHomeworkStatusIcon(hr.status)} {hr.homework?.title} (Due: {safeFormatDate(hr.homework?.due_date, "PPP")})
+                              </p>
+                              <p className="text-xs text-muted-foreground">Status: {hr.status}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {chapterGroup.studentChapters.length === 0 && chapterGroup.testResults.length === 0 && chapterGroup.homeworkRecords.length === 0 && (
+                        <p className="ml-4 text-sm text-muted-foreground italic">No specific records for this chapter.</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
