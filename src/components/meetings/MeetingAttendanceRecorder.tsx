@@ -150,9 +150,31 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
   }, [existingAttendees, participants]);
 
   const updateAttendanceMutation = useMutation({
-    mutationFn: async ({ allTeachersInScope }: { allTeachersInScope: PartialTeacher[] }) => { // Pass allTeachers here
+    mutationFn: async ({ allTeachersInScope }: { allTeachersInScope: PartialTeacher[] }) => {
+      // Batch fetch all parent users for students upfront to avoid N+1 queries
+      let parentUserMap: Record<string, string> = {};
+      
+      if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
+        const studentIds = participants.map(p => p.id);
+        if (studentIds.length > 0) {
+          const { data: parentUsers } = await supabase
+            .from('users')
+            .select('id, student_id')
+            .eq('role', 'parent')
+            .in('student_id', studentIds);
+          
+          if (parentUsers) {
+            parentUsers.forEach(pu => {
+              if (pu.student_id) {
+                parentUserMap[pu.student_id] = pu.id;
+              }
+            });
+          }
+        }
+      }
+
       const recordsToInsert: TablesInsert<'meeting_attendees'>[] = [];
-      const recordsToUpdate: TablesInsert<'meeting_attendees'>[] = []; // Changed to TablesInsert for upsert compatibility
+      const recordsToUpdate: TablesInsert<'meeting_attendees'>[] = [];
       
       for (const participant of participants) {
         const participantId = participant.id;
@@ -164,7 +186,7 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
           (ea.teacher_id === participantId && meetingDetails?.meeting_type === 'teachers')
         );
 
-        const baseRecord: TablesInsert<'meeting_attendees'> = { // Changed to TablesInsert
+        const baseRecord: TablesInsert<'meeting_attendees'> = {
           meeting_id: meetingId,
           attended,
           attendance_status,
@@ -172,17 +194,11 @@ export default function MeetingAttendanceRecorder({ meetingId, onClose }: Meetin
         };
 
         if (meetingDetails?.meeting_type === 'parents' || meetingDetails?.meeting_type === 'general') {
-          // Find the parent user ID associated with this student
-          const { data: parentUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('student_id', participantId)
-            .eq('role', 'parent')
-            .single();
-          
-          Object.assign(baseRecord, { student_id: participantId, user_id: parentUser?.id || null, teacher_id: null });
+          // Use the batched parent user map instead of individual queries
+          const parentUserId = parentUserMap[participantId] || null;
+          Object.assign(baseRecord, { student_id: participantId, user_id: parentUserId, teacher_id: null });
         } else if (meetingDetails?.meeting_type === 'teachers') {
-          const teacherUser = allTeachersInScope.find(t => t.id === participantId); // Use allTeachersInScope
+          const teacherUser = allTeachersInScope.find(t => t.id === participantId);
           Object.assign(baseRecord, { teacher_id: participantId, user_id: teacherUser?.user_id || null, student_id: null });
         }
 
