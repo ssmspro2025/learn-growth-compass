@@ -33,14 +33,29 @@ const AdminFinance = () => {
     enabled: !!user?.center_id
   });
 
-  // Fetch payments
+  // Fetch payments - CORRECTED to filter by invoices belonging to the center
   const { data: payments = [] } = useQuery({
     queryKey: ['payments-total', user?.center_id],
     queryFn: async () => {
       if (!user?.center_id) return [];
+      
+      // First, get all invoice IDs for the current center
+      const { data: centerInvoices, error: invError } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('center_id', user.center_id);
+
+      if (invError) throw invError;
+      const invoiceIds = centerInvoices.map(inv => inv.id);
+
+      if (invoiceIds.length === 0) return []; // No invoices, no payments
+
+      // Then, fetch payments associated with these invoice IDs
       const { data, error } = await supabase
         .from('payments')
-        .select('amount');
+        .select('amount')
+        .in('invoice_id', invoiceIds); // Filter payments by invoice_id
+
       if (error) throw error;
       return data;
     },

@@ -275,6 +275,22 @@ const ParentDashboardContent = () => {
     enabled: !!activeStudentId,
   });
 
+  // Fetch all lesson plans for the center (explicitly for chapterPerformanceData)
+  const { data: allLessonPlans = [] } = useQuery({
+    queryKey: ["all-lesson-plans-for-report", user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const { data, error } = await supabase
+        .from("lesson_plans")
+        .select("id, subject, chapter, topic, grade, lesson_date, notes, lesson_file_url")
+        .eq("center_id", user.center_id) // Filter by center_id
+        .order("lesson_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
   // Calculate summary - handle null paid_amount
   const pendingFees = useMemo(() => {
     return invoices.reduce((sum, inv) => sum + (inv.total_amount - (inv.paid_amount || 0)), 0);
@@ -391,9 +407,6 @@ const ParentDashboardContent = () => {
       return date >= new Date(dateRange.from) && date <= new Date(dateRange.to);
     });
 
-    // Fetch all lesson plans for the center (needed for grouping)
-    const { data: allLessonPlans = [] } = queryClient.getQueryData(["all-lesson-plans-for-report", user?.center_id]) || { data: [] };
-
     // Process student_chapters (lesson evaluations)
     filteredStudentChapters.forEach((sc: any) => {
       if (sc.lesson_plan_id && sc.lesson_plans) {
@@ -453,7 +466,7 @@ const ParentDashboardContent = () => {
     return Array.from(dataMap.values()).sort((a, b) => 
       new Date(b.lessonPlan.lesson_date).getTime() - new Date(a.lessonPlan.lesson_date).getTime()
     );
-  }, [lessonRecords, testResults, homeworkStatus, dateRange, user?.center_id]); // Added user?.center_id to dependencies
+  }, [lessonRecords, testResults, homeworkStatus, dateRange, allLessonPlans]); // Added allLessonPlans to dependencies
 
   const handleViewChapterDetails = (chapterGroup: ChapterPerformanceGroup) => {
     setSelectedChapterGroup(chapterGroup);
