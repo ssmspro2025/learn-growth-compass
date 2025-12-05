@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileUp, Plus, Trash2, Edit, Users, X, FileText, Bot, SquarePen } from "lucide-react";
+import { FileUp, Plus, Trash2, Edit, Users, X, FileText, Bot, SquarePen, BookOpen } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import OCRModal from "@/components/OCRModal";
