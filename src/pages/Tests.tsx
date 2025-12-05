@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +73,7 @@ export default function Tests() {
     queryFn: async () => {
       let query = supabase
         .from("tests")
-        .select("*") // lesson_plans relationship now exists via lesson_plan_id
+        .select("*, lesson_plans(id, subject, chapter, topic, grade)") // Fetch lesson_plans details
         .order("date", { ascending: false });
       
       if (user?.role !== 'admin' && user?.center_id) {
@@ -177,6 +179,7 @@ export default function Tests() {
         total_marks: parseInt(totalMarks),
         center_id: user?.center_id!,
         questions: questions.length > 0 ? (questions as any) : null,
+        lesson_plan_id: lessonPlanId || null, // Save the selected lesson plan ID
       }).select().single();
 
       if (error) throw error;
@@ -624,7 +627,7 @@ export default function Tests() {
                       )}
                       {(test as any).lesson_plans?.chapter && (
                         <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-foreground text-primary">
-                          Linked to: {(test as any).lesson_plans.chapter}
+                          Linked to: {(test as any).lesson_plans.subject}: {(test as any).lesson_plans.chapter}
                         </span>
                       )}
                     </div>
@@ -669,6 +672,16 @@ export default function Tests() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Display Linked Lesson Plan if available */}
+              {(selectedTestData as any).lesson_plans?.chapter && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  <span>
+                    Linked Lesson: {(selectedTestData as any).lesson_plans.subject}: {(selectedTestData as any).lesson_plans.chapter} - {(selectedTestData as any).lesson_plans.topic}
+                  </span>
+                </div>
+              )}
+
               <div>
                 <Label>Select Student</Label>
                 <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
