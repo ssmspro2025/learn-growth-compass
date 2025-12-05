@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Trash2, Users, Plus, ChevronDown, ChevronUp, BookOpen, Edit, Star, User, FileText, CheckCircle, XCircle, Clock, Book } from "lucide-react";
 import { format } from "date-fns";
 import { Tables } from "@/integrations/supabase/types";
 import EditStudentLessonRecord from "@/components/center/EditStudentLessonRecord"; // Import the new component
