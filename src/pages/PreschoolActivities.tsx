@@ -140,7 +140,10 @@ export default function PreschoolActivities() {
       const { data: activity, error: activityError } = await supabase.from("activities").insert({
         center_id: user.center_id,
         name: title,
+        title: title,
         description,
+        activity_date: activityDate,
+        activity_type_id: activityTypeId,
       }).select().single();
       if (activityError) throw activityError;
 
@@ -405,8 +408,8 @@ export default function PreschoolActivities() {
                   <div className="flex-1 space-y-1">
                     <h3 className="font-semibold text-lg">{activity.students?.name} - {activity.activities?.title || 'Activity'}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Date: {activity.activities?.activity_date ? format(new Date(activity.activities.activity_date), "PPP") : 'N/A'}
-                      {activity.activities?.activity_types?.name && ` (Type: ${activity.activities.activity_types.name})`}
+                      Date: {activity.date ? format(new Date(activity.date), "PPP") : (activity.activities?.activity_date ? format(new Date(activity.activities.activity_date), "PPP") : 'N/A')}
+                      {activity.activity_types?.name && ` (Type: ${activity.activity_types.name})`}
                     </p>
                     <p className="text-sm">{activity.activities?.description || 'No description'}</p>
                     {activity.involvement_score && (
