@@ -129,8 +129,8 @@ export default function LessonTracking() {
           id,
           student_id,
           marks_obtained,
-          tests(id, name, subject, total_marks, lesson_plan_id, lesson_plans(chapter))
-        `)
+          tests(id, name, subject, total_marks, lesson_plan_id)
+        `) // Removed lesson_plans(chapter) from here
         .eq("tests.center_id", user.center_id); // Ensure tests belong to the same center
       if (error) throw error;
       return data;
@@ -161,16 +161,11 @@ export default function LessonTracking() {
 
   // Group studentLessonRecords by lesson_plan
   const groupedLessonRecords: GroupedLessonRecord[] = useMemo(() => {
-    console.log("DEBUG: studentLessonRecordsRaw:", studentLessonRecordsRaw);
-    console.log("DEBUG: allTestResults:", allTestResults);
-    console.log("DEBUG: allHomeworkRecords:", allHomeworkRecords);
-
     const groups = new Map<string, GroupedLessonRecord>();
 
     studentLessonRecordsRaw.forEach((record: any) => {
       const lessonPlan = record.lesson_plans;
       if (!lessonPlan) {
-        console.log("DEBUG: Skipping record due to missing lessonPlan:", record);
         return;
       }
 
@@ -185,7 +180,6 @@ export default function LessonTracking() {
       const linkedTestResults = allTestResults.filter(tr => {
         const isStudentMatch = tr.student_id === record.students?.id;
         const isLessonPlanMatch = (tr.tests as Test)?.lesson_plan_id === record.lesson_plan_id;
-        console.log(`DEBUG: Checking test result ${tr.id} for student ${record.students?.id} and lesson plan ${record.lesson_plan_id}: StudentMatch=${isStudentMatch}, LessonPlanMatch=${isLessonPlanMatch}`);
         return isStudentMatch && isLessonPlanMatch;
       });
 
@@ -193,11 +187,8 @@ export default function LessonTracking() {
       const linkedHomeworkRecords = allHomeworkRecords.filter(hr => {
         const isStudentMatch = hr.student_id === record.students?.id;
         const isLessonPlanMatch = (hr.homework as Homework)?.lesson_plan_id === record.lesson_plan_id;
-        console.log(`DEBUG: Checking homework record ${hr.id} for student ${record.students?.id} and lesson plan ${record.lesson_plan_id}: StudentMatch=${isStudentMatch}, LessonPlanMatch=${isLessonPlanMatch}`);
         return isStudentMatch && isLessonPlanMatch;
       });
-
-      console.log(`DEBUG: For lesson plan ${lessonPlan.id}, student ${record.students?.name}: Found ${linkedTestResults.length} linked tests and ${linkedHomeworkRecords.length} linked homeworks.`);
 
       groups.get(lessonPlan.id)?.students.push({
         ...record,

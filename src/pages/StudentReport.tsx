@@ -21,6 +21,7 @@ type DisciplineIssue = Tables<'discipline_issues'>;
 type StudentChapter = Tables<'student_chapters'>; // Import StudentChapter type
 type Test = Tables<'tests'>;
 type Homework = Tables<'homework'>;
+type TestResult = Tables<'test_results'>;
 
 interface ChapterPerformance {
   lessonPlan: LessonPlan;
