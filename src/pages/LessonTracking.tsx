@@ -131,6 +131,9 @@ export default function LessonTracking() {
     enabled: !!user?.center_id,
   });
 
+  // DEBUG: Log allTestResults to console
+  console.log("All Test Results fetched:", allTestResults);
+
   // Group studentLessonRecords by lesson_plan
   const groupedLessonRecords: GroupedLessonRecord[] = useMemo(() => {
     const groups = new Map<string, GroupedLessonRecord>();
@@ -479,7 +482,7 @@ export default function LessonTracking() {
                             </div>
                           </div>
                           {/* NEW: Display relevant test results */}
-                          {relevantTestResults.length > 0 && (
+                          {relevantTestResults.length > 0 ? (
                             <div className="ml-4 text-sm text-muted-foreground">
                               <p className="font-semibold">Associated Test Results:</p>
                               <ul className="list-disc list-inside">
@@ -489,6 +492,10 @@ export default function LessonTracking() {
                                   </li>
                                 ))}
                               </ul>
+                            </div>
+                          ) : (
+                            <div className="ml-4 text-xs text-muted-foreground italic">
+                              No linked tests found for this student and lesson plan.
                             </div>
                           )}
                         </div>
