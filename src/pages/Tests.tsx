@@ -170,6 +170,8 @@ export default function Tests() {
         if (uploadError) throw uploadError;
         uploadedFileUrl = fileName;
       }
+      
+      console.log("DEBUG: Attempting to create test with lessonPlanId:", lessonPlanId); // New log
 
       const { data, error } = await supabase.from("tests").insert({
         name: testName || 'Unnamed Test',
@@ -400,6 +402,14 @@ export default function Tests() {
   };
 
   const selectedTestData = tests.find((t) => t.id === selectedTest);
+  
+  // New useEffect to log selectedTestData's lesson_plan_id
+  useEffect(() => {
+    if (selectedTestData) {
+      console.log("DEBUG: Selected test data. Lesson Plan ID from DB:", selectedTestData.lesson_plan_id);
+    }
+  }, [selectedTestData]);
+
   const testsWithFiles: typeof tests = []; // No uploaded_file_url in schema
 
   const filteredStudents = selectedTestData?.class
