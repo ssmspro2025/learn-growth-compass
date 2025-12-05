@@ -129,7 +129,7 @@ export default function LessonTracking() {
           id,
           student_id,
           marks_obtained,
-          tests(id, name, subject, chapter, total_marks, lesson_plan_id)
+          tests(id, name, subject, total_marks, lesson_plan_id, lesson_plans(chapter))
         `)
         .eq("tests.center_id", user.center_id); // Ensure tests belong to the same center
       if (error) throw error;
