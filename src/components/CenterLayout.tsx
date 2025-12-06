@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign, LayoutList, Book, Paintbrush, AlertTriangle, Users, UserCheck, KeyRound, Video, MessageSquare, Clock, TrendingUp, Settings } from "lucide-react";
+import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign, LayoutList, Book, Paintbrush, AlertTriangle, Users, UserCheck, KeyRound, Video, MessageSquare, Clock, TrendingUp, Settings, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const navItems: Array<{
   { to: "/meetings", label: "Meetings", icon: Video, role: 'center' as const, featureName: 'meetings_management' },
   { to: "/messages", label: "Messages", icon: MessageSquare, role: 'center' as const },
   { to: "/class-routine", label: "Class Routine", icon: Clock, role: 'center' as const },
+  { to: "/calendar", label: "Calendar & Events", icon: CalendarDays, role: 'center' as const },
   { to: "/settings", label: "Settings", icon: Settings, role: 'center' as const },
   { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'center' as const },
 ];

@@ -179,19 +179,36 @@ export default function ClassRoutine() {
   const createScheduleMutation = useMutation({
     mutationFn: async () => {
       if (!user?.center_id) throw new Error("Center ID not found");
-      const { error } = await supabase.from("period_schedules").insert({
-        center_id: user.center_id,
-        class_period_id: schedulePeriodId,
-        grade: scheduleGrade,
-        day_of_week: parseInt(scheduleDay),
-        subject: scheduleSubject,
-        teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
-      });
-      if (error) throw error;
+      
+      // Handle "weekdays" option - create for Mon-Fri (days 1-5)
+      if (scheduleDay === "weekdays") {
+        const weekdayNumbers = [1, 2, 3, 4, 5]; // Monday to Friday
+        const scheduleEntries = weekdayNumbers.map(dayNum => ({
+          center_id: user.center_id,
+          class_period_id: schedulePeriodId,
+          grade: scheduleGrade,
+          day_of_week: dayNum,
+          subject: scheduleSubject,
+          teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
+        }));
+        
+        const { error } = await supabase.from("period_schedules").insert(scheduleEntries);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("period_schedules").insert({
+          center_id: user.center_id,
+          class_period_id: schedulePeriodId,
+          grade: scheduleGrade,
+          day_of_week: parseInt(scheduleDay),
+          subject: scheduleSubject,
+          teacher_id: scheduleTeacherId === "none" ? null : scheduleTeacherId || null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["period-schedules"] });
-      toast.success("Schedule created successfully!");
+      toast.success(scheduleDay === "weekdays" ? "Schedule created for all weekdays!" : "Schedule created successfully!");
       resetScheduleForm();
       setShowScheduleDialog(false);
     },
@@ -378,7 +395,7 @@ export default function ClassRoutine() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{editingSchedule ? "Edit Schedule" : "Add Schedule"}</DialogTitle>
-                  <DialogDescription>Add a class schedule entry for a specific day and period.</DialogDescription>
+                  <DialogDescription>Add a class schedule entry. Use "Apply to Weekdays" to create the same schedule for Mon-Fri.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleScheduleSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -413,6 +430,7 @@ export default function ClassRoutine() {
                       <Select value={scheduleDay} onValueChange={setScheduleDay}>
                         <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="weekdays">All Weekdays (Mon-Fri)</SelectItem>
                           {DAYS_OF_WEEK.map(day => (
                             <SelectItem key={day.value} value={day.value.toString()}>{day.label}</SelectItem>
                           ))}
@@ -436,10 +454,15 @@ export default function ClassRoutine() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {scheduleDay === "weekdays" && (
+                    <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                      This will create the same schedule for Monday through Friday.
+                    </p>
+                  )}
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setShowScheduleDialog(false)}>Cancel</Button>
                     <Button type="submit" disabled={!scheduleGrade || !schedulePeriodId || !scheduleDay || !scheduleSubject}>
-                      {editingSchedule ? "Update" : "Create"}
+                      {editingSchedule ? "Update" : scheduleDay === "weekdays" ? "Create for All Weekdays" : "Create"}
                     </Button>
                   </div>
                 </form>
