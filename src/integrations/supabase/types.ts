@@ -314,29 +314,38 @@ export type Database = {
       centers: {
         Row: {
           address: string | null
+          contact_person: string | null
           created_at: string
           email: string | null
           id: string
+          logo_url: string | null
           name: string
           phone: string | null
+          theme: Json | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          contact_person?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           phone?: string | null
+          theme?: Json | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          contact_person?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           phone?: string | null
+          theme?: Json | null
           updated_at?: string
         }
         Relationships: []
