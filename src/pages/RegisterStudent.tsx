@@ -10,8 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/co
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, } from "lucide-react";
+import { Pencil, Trash2, Save, X, UserPlus, Upload, Download, Users, } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
+import LinkChildToParent from "@/components/center/LinkChildToParent";
 
 interface Student {
   id: string;
@@ -55,6 +56,7 @@ export default function RegisterStudent() {
   const [parsing, setParsing] = useState(false);
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
+  const [showLinkChildDialog, setShowLinkChildDialog] = useState(false);
 
   // Fetch students
   const { data: students, isLoading } = useQuery({
@@ -457,6 +459,9 @@ export default function RegisterStudent() {
             {/* Actions */}
             <div className="flex flex-wrap gap-2 items-center mt-4">
               <Button type="submit">Register Student</Button>
+              <Button type="button" variant="outline" onClick={() => setShowLinkChildDialog(true)}>
+                <Users className="h-4 w-4 mr-2" /> Link Child to Parent
+              </Button>
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -753,6 +758,12 @@ export default function RegisterStudent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Link Child to Parent Dialog */}
+      <LinkChildToParent 
+        open={showLinkChildDialog} 
+        onOpenChange={setShowLinkChildDialog} 
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CenterLayout from "./components/CenterLayout";
 import AdminLayout from "./components/AdminLayout";
@@ -40,10 +41,11 @@ import ParentChapterRating from "./pages/ParentChapterRating";
 import ParentLessonTracking from "./pages/ParentLessonTracking";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherMeetings from "./pages/TeacherMeetings";
-import TeacherMessaging from "./pages/TeacherMessaging"; // NEW
+import TeacherMessaging from "./pages/TeacherMessaging";
 import MeetingManagement from "./pages/MeetingManagement";
 import Messaging from "./pages/Messaging";
 import ClassRoutine from "./pages/ClassRoutine";
+import CalendarEvents from "./pages/CalendarEvents";
 import ParentMessaging from "./pages/ParentMessaging";
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
@@ -57,9 +59,10 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
         <BrowserRouter>
           <Routes>
             {/* Authentication Routes */}
@@ -113,6 +116,7 @@ const App = () => (
             <Route path="/meetings" element={<ProtectedRoute role="center"><CenterLayout><MeetingManagement /></CenterLayout></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute role="center"><CenterLayout><Messaging /></CenterLayout></ProtectedRoute>} />
             <Route path="/class-routine" element={<ProtectedRoute role="center"><CenterLayout><ClassRoutine /></CenterLayout></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute role="center"><CenterLayout><CalendarEvents /></CenterLayout></ProtectedRoute>} />
             <Route path="/chapter-performance-overview" element={<ProtectedRoute role="center"><CenterLayout><ChapterPerformanceOverview /></CenterLayout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute role="center"><CenterLayout><CenterSettings /></CenterLayout></ProtectedRoute>} />
 
@@ -126,6 +130,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </ThemeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
