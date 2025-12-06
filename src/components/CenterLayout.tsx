@@ -1,11 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign, LayoutList, Book, Paintbrush, AlertTriangle, Users, UserCheck, KeyRound, Video, MessageSquare, Clock, TrendingUp } from "lucide-react";
+import { Home, UserPlus, CheckSquare, FileText, BarChart3, BookOpen, ClipboardCheck, User, Brain, LogOut, Shield, Calendar, DollarSign, LayoutList, Book, Paintbrush, AlertTriangle, Users, UserCheck, KeyRound, Video, MessageSquare, Clock, TrendingUp, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import Sidebar from "./Sidebar"; // Import the new Sidebar component
-import { useQuery } from "@tanstack/react-query"; // Import useQuery
-import { supabase } from "@/integrations/supabase/client"; // Import supabase client
+import Sidebar from "./Sidebar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems: Array<{
   to: string;
@@ -28,7 +28,7 @@ const navItems: Array<{
   { to: "/teacher-attendance", label: "Teacher Attendance", icon: UserCheck, role: 'center' as const, featureName: 'teacher_attendance' },
   { to: "/tests", label: "Tests", icon: ClipboardCheck, role: 'center' as const, featureName: 'tests' },
   { to: "/student-report", label: "Student Report", icon: User, role: 'center' as const, featureName: 'student_report' },
-  { to: "/chapter-performance-overview", label: "Chapter Performance", icon: TrendingUp, role: 'center' as const, featureName: 'lesson_tracking' }, // NEW
+  { to: "/chapter-performance-overview", label: "Chapter Performance", icon: TrendingUp, role: 'center' as const, featureName: 'lesson_tracking' },
   { to: "/ai-insights", label: "AI Insights", icon: Brain, role: 'center' as const, featureName: 'ai_insights' },
   { to: "/records", label: "View Records", icon: FileText, role: 'center' as const, featureName: 'view_records' },
   { to: "/summary", label: "Summary", icon: BarChart3, role: 'center' as const, featureName: 'summary' },
@@ -36,6 +36,7 @@ const navItems: Array<{
   { to: "/meetings", label: "Meetings", icon: Video, role: 'center' as const, featureName: 'meetings_management' },
   { to: "/messages", label: "Messages", icon: MessageSquare, role: 'center' as const },
   { to: "/class-routine", label: "Class Routine", icon: Clock, role: 'center' as const },
+  { to: "/settings", label: "Settings", icon: Settings, role: 'center' as const },
   { to: "/change-password", label: "Change Password", icon: KeyRound, role: 'center' as const },
 ];
 

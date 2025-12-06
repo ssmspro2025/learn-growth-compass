@@ -47,9 +47,10 @@ import ClassRoutine from "./pages/ClassRoutine";
 import ParentMessaging from "./pages/ParentMessaging";
 import InitAdmin from "./pages/InitAdmin";
 import NotFound from "./pages/NotFound";
-import Settings from "./pages/admin/Settings";
+import AdminSettings from "./pages/admin/Settings";
+import CenterSettings from "./pages/CenterSettings";
 import ChangePassword from "./pages/ChangePassword";
-import ChapterPerformanceOverview from "./pages/ChapterPerformanceOverview"; // NEW
+import ChapterPerformanceOverview from "./pages/ChapterPerformanceOverview";
 
 const queryClient = new QueryClient();
 
@@ -112,12 +113,13 @@ const App = () => (
             <Route path="/meetings" element={<ProtectedRoute role="center"><CenterLayout><MeetingManagement /></CenterLayout></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute role="center"><CenterLayout><Messaging /></CenterLayout></ProtectedRoute>} />
             <Route path="/class-routine" element={<ProtectedRoute role="center"><CenterLayout><ClassRoutine /></CenterLayout></ProtectedRoute>} />
-            <Route path="/chapter-performance-overview" element={<ProtectedRoute role="center"><CenterLayout><ChapterPerformanceOverview /></CenterLayout></ProtectedRoute>} /> {/* NEW */}
+            <Route path="/chapter-performance-overview" element={<ProtectedRoute role="center"><CenterLayout><ChapterPerformanceOverview /></CenterLayout></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute role="center"><CenterLayout><CenterSettings /></CenterLayout></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin-dashboard" element={<ProtectedRoute role="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/finance" element={<ProtectedRoute role="admin"><AdminLayout><AdminFinance /></AdminLayout></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute role="admin"><AdminLayout><Settings /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute role="admin"><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
