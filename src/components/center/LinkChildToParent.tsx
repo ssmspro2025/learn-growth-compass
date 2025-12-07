@@ -100,15 +100,12 @@ export default function LinkChildToParent({ open, onOpenChange }: LinkChildToPar
         throw new Error("Please select both parent and student");
       }
 
-      if (linkExists(selectedParentId, selectedStudentId)) {
-        throw new Error("This child is already linked to this parent");
-      }
-
-      const { error } = await supabase.from("parent_students").insert({
-        parent_user_id: selectedParentId,
-        student_id: selectedStudentId,
+      const { data, error } = await supabase.functions.invoke('link-child-to-parent', {
+        body: { parent_user_id: selectedParentId, student_id: selectedStudentId }
       });
+      
       if (error) throw error;
+      if (!data.success) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["parent-student-links"] });
@@ -123,12 +120,11 @@ export default function LinkChildToParent({ open, onOpenChange }: LinkChildToPar
 
   const unlinkMutation = useMutation({
     mutationFn: async ({ parentId, studentId }: { parentId: string; studentId: string }) => {
-      const { error } = await supabase
-        .from("parent_students")
-        .delete()
-        .eq("parent_user_id", parentId)
-        .eq("student_id", studentId);
+      const { data, error } = await supabase.functions.invoke('link-child-to-parent', {
+        body: { parent_user_id: parentId, student_id: studentId, action: 'unlink' }
+      });
       if (error) throw error;
+      if (!data.success) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["parent-student-links"] });

@@ -1,1 +1,4 @@
 project_id = "msekkmxlrqnolbxqgznz"
+
+[functions.link-child-to-parent]
+verify_jwt = false

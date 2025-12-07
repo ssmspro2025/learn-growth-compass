@@ -383,6 +383,22 @@ export default function ClassRoutine() {
                   </div>
                 </DialogContent>
               </Dialog>
+              {/* Delete Grade Button - only for custom grades */}
+              {customGrades.includes(selectedGrade) && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => {
+                    const updatedGrades = customGrades.filter(g => g !== selectedGrade);
+                    setCustomGrades(updatedGrades);
+                    localStorage.setItem(`custom_grades_${user?.center_id}`, JSON.stringify(updatedGrades));
+                    setSelectedGrade(allGrades.filter(g => g !== selectedGrade)[0] || "8");
+                    toast.success(`Grade "${selectedGrade}" removed!`);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete Grade
+                </Button>
+              )}
             </div>
 
             <Dialog open={showScheduleDialog} onOpenChange={(open) => {
