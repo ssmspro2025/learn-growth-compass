@@ -73,19 +73,29 @@ export default function PreschoolActivities() {
     enabled: !!user?.center_id,
   });
 
-  // Fetch activities
+  // Fetch activities - filter by center_id via students table
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ["preschool-activities", user?.center_id, gradeFilter],
     queryFn: async () => {
       if (!user?.center_id) return [];
+      // First fetch student IDs for this center
+      const { data: centerStudents, error: studentsError } = await supabase
+        .from("students")
+        .select("id")
+        .eq("center_id", user.center_id);
+      if (studentsError) throw studentsError;
+      
+      const studentIds = centerStudents?.map(s => s.id) || [];
+      if (studentIds.length === 0) return [];
+
       let query = supabase
         .from("student_activities")
-        .select("*, students(name, grade), activities(id, name, description), activity_types(name)")
+        .select("*, students(name, grade, center_id), activities(id, name, description), activity_types(name)")
+        .in("student_id", studentIds)
         .order("created_at", { ascending: false });
 
       const { data, error } = await query;
       if (error) throw error;
-      // Filter by center_id on client side since we need to check students relation
       return data?.filter((d: any) => d.students?.name) || [];
     },
     enabled: !!user?.center_id,

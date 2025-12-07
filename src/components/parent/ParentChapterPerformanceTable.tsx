@@ -54,8 +54,10 @@ export default function ParentChapterPerformanceTable({ chapterPerformanceData, 
             </TableRow>
           ) : (
             chapterPerformanceData.map((group) => {
-              const avgRating = group.studentChapters.length > 0
-                ? (group.studentChapters.reduce((sum, sc) => sum + (sc.evaluation_rating || 0), 0) / group.studentChapters.length).toFixed(1)
+              // Calculate average rating only from chapters that have ratings
+              const ratingsWithValues = group.studentChapters.filter(sc => sc.evaluation_rating !== null && sc.evaluation_rating !== undefined && sc.evaluation_rating > 0);
+              const avgRating = ratingsWithValues.length > 0
+                ? (ratingsWithValues.reduce((sum, sc) => sum + (sc.evaluation_rating || 0), 0) / ratingsWithValues.length).toFixed(1)
                 : 'N/A';
 
               return (

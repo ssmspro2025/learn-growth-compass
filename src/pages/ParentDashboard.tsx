@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock, Star, MessageSquare, Radio } from 'lucide-react';
+import { User, Calendar as CalendarIcon, BookOpen, FileText, LogOut, DollarSign, Book, Paintbrush, AlertTriangle, CheckCircle, XCircle, Clock, Star, MessageSquare, Radio, CalendarDays } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
 import { Input } from '@/components/ui/input'; // Import Input component
@@ -285,6 +285,25 @@ const ParentDashboardContent = () => {
         .select("id, subject, chapter, topic, grade, lesson_date, notes, lesson_file_url")
         .eq("center_id", user.center_id) // Filter by center_id
         .order("lesson_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.center_id,
+  });
+
+  // Fetch upcoming center events
+  const { data: centerEvents = [] } = useQuery({
+    queryKey: ['parent-center-events', user?.center_id],
+    queryFn: async () => {
+      if (!user?.center_id) return [];
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('center_events')
+        .select('*')
+        .eq('center_id', user.center_id)
+        .gte('event_date', today)
+        .order('event_date', { ascending: true })
+        .limit(5);
       if (error) throw error;
       return data;
     },
@@ -657,6 +676,33 @@ const ParentDashboardContent = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Upcoming Events Section */}
+        {centerEvents.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" /> Upcoming Events
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {centerEvents.map((event: any) => (
+                  <div key={event.id} className="flex justify-between items-center p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{event.title}</p>
+                      <p className="text-sm text-muted-foreground">{event.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{format(new Date(event.event_date), "PPP")}</p>
+                      {event.is_holiday && <span className="text-xs text-red-600 font-medium">Holiday</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Attendance Toggle and Mini Calendar */}
         <div className="flex justify-between items-center gap-2">

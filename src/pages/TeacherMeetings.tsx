@@ -25,10 +25,11 @@ export default function TeacherMeetings() {
     return <div className="p-6 text-center text-muted-foreground">Please log in as a teacher to view meetings.</div>;
   }
 
-  // Fetch meetings relevant to the logged-in teacher
+  // Fetch meetings relevant to the logged-in teacher - query by teacher_id
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ["teacher-meetings", user.teacher_id],
     queryFn: async () => {
+      // Query by teacher_id since that's what's stored when creating teacher meetings
       const { data, error } = await supabase
         .from("meeting_attendees")
         .select(`
@@ -38,13 +39,13 @@ export default function TeacherMeetings() {
             meeting_conclusions(conclusion_notes, recorded_at)
           )
         `)
-        .eq("user_id", user.id!)
+        .eq("teacher_id", user.teacher_id!)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data?.filter((att: any) => att.meetings) || [];
     },
-    enabled: !!user.id,
+    enabled: !!user.teacher_id,
   });
 
   const getStatusColor = (status: Meeting['status']) => {

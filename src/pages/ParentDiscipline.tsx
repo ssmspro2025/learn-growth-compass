@@ -80,7 +80,11 @@ export default function ParentDiscipline() {
                         {issue.severity.toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell>{issue.resolved ? 'Resolved' : 'Pending'}</TableCell>
+                    <TableCell>
+                      <span className={issue.status === 'resolved' ? 'text-green-600 font-semibold' : 'text-orange-600 font-semibold'}>
+                        {issue.status === 'resolved' ? 'Resolved' : issue.status?.charAt(0).toUpperCase() + issue.status?.slice(1) || 'Open'}
+                      </span>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

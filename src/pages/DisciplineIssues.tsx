@@ -33,11 +33,13 @@ export default function DisciplineIssues() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [showCategoryManagement, setShowCategoryManagement] = useState(false);
 
-  const [studentId, setStudentId] = useState("select-student"); // Changed initial state
-  const [disciplineCategoryId, setDisciplineCategoryId] = useState("select-category"); // Changed initial state
+  const [studentId, setStudentId] = useState("select-student");
+  const [disciplineCategoryId, setDisciplineCategoryId] = useState("select-category");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<DisciplineIssue['severity']>("medium");
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [resolution, setResolution] = useState("");
+  const [status, setStatus] = useState("open");
   const [modalGradeFilter, setModalGradeFilter] = useState<string>("all"); // New state for grade filter inside modal
 
   // Fetch students
@@ -99,13 +101,15 @@ export default function DisciplineIssues() {
   });
 
   const resetForm = () => {
-    setStudentId("select-student"); // Reset to default placeholder value
-    setDisciplineCategoryId("select-category"); // Reset to default placeholder value
+    setStudentId("select-student");
+    setDisciplineCategoryId("select-category");
     setDescription("");
     setSeverity("medium");
     setIssueDate(format(new Date(), "yyyy-MM-dd"));
+    setResolution("");
+    setStatus("open");
     setEditingIssue(null);
-    setModalGradeFilter("all"); // Reset modal grade filter
+    setModalGradeFilter("all");
   };
 
   const createIssueMutation = useMutation({
@@ -136,7 +140,7 @@ export default function DisciplineIssues() {
 
   const updateIssueMutation = useMutation({
     mutationFn: async () => {
-      if (!editingIssue || !user?.center_id || studentId === "select-student" || disciplineCategoryId === "select-category") throw new Error("Please select a student and category."); // Validation
+      if (!editingIssue || !user?.center_id || studentId === "select-student" || disciplineCategoryId === "select-category") throw new Error("Please select a student and category.");
 
       const { error } = await supabase.from("discipline_issues").update({
         student_id: studentId,
@@ -144,6 +148,8 @@ export default function DisciplineIssues() {
         description,
         severity,
         issue_date: issueDate,
+        resolution: resolution || null,
+        status: status,
       }).eq("id", editingIssue.id);
       if (error) throw error;
     },
@@ -175,12 +181,14 @@ export default function DisciplineIssues() {
   const handleEditClick = (issue: DisciplineIssue) => {
     setEditingIssue(issue);
     setStudentId(issue.student_id);
-    setDisciplineCategoryId(issue.discipline_category_id);
+    setDisciplineCategoryId(issue.discipline_category_id || "select-category");
     setDescription(issue.description);
     setSeverity(issue.severity);
     setIssueDate(issue.issue_date);
+    setResolution(issue.resolution || "");
+    setStatus(issue.status || "open");
     const student = students.find(s => s.id === issue.student_id);
-    setModalGradeFilter(student?.grade || "all"); // Set modal grade filter to current student's grade
+    setModalGradeFilter(student?.grade || "all");
     setIsDialogOpen(true);
   };
 
@@ -317,6 +325,27 @@ export default function DisciplineIssues() {
                   <Label htmlFor="issueDate">Date *</Label>
                   <Input id="issueDate" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
                 </div>
+                {editingIssue && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="resolution">Resolution Notes</Label>
+                      <Textarea id="resolution" value={resolution} onChange={(e) => setResolution(e.target.value)} rows={2} placeholder="How was the issue resolved?" />
+                    </div>
+                  </>
+                )}
                 <Button
                   onClick={handleSubmit}
                   disabled={studentId === "select-student" || disciplineCategoryId === "select-category" || !description || !severity || !issueDate || createIssueMutation.isPending || updateIssueMutation.isPending}
@@ -347,8 +376,13 @@ export default function DisciplineIssues() {
                     <h3 className="font-semibold text-lg">{issue.students?.name} - {issue.discipline_categories?.name}</h3>
                     <p className="text-sm text-muted-foreground">Date: {format(new Date(issue.issue_date), "PPP")}</p>
                     <p className="text-sm">{issue.description}</p>
-                    {issue.resolution_notes && <p className="text-sm font-medium">Resolution: {issue.resolution_notes}</p>}
-                    <p className={`text-sm font-semibold ${getSeverityColor(issue.severity)}`}>Severity: {issue.severity.toUpperCase()}</p>
+                    {issue.resolution && <p className="text-sm font-medium text-green-600">Resolution: {issue.resolution}</p>}
+                    <div className="flex gap-4">
+                      <p className={`text-sm font-semibold ${getSeverityColor(issue.severity)}`}>Severity: {issue.severity?.toUpperCase()}</p>
+                      <p className={`text-sm font-semibold ${issue.status === 'resolved' ? 'text-green-600' : 'text-orange-600'}`}>
+                        Status: {issue.status?.charAt(0).toUpperCase() + issue.status?.slice(1) || 'Open'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" onClick={() => handleEditClick(issue)}>
