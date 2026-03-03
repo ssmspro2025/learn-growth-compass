@@ -69,18 +69,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (invokeError) {
         console.error('AuthContext: Edge Function invocation error:', invokeError);
-        // Try to extract the actual error message from the response
+
         let errorMessage = 'Login failed. Please try again.';
+        const errorContext = (invokeError as any)?.context;
+        const statusCode = typeof errorContext?.status === 'number' ? errorContext.status : undefined;
+
         try {
-          if (invokeError.context && typeof invokeError.context.json === 'function') {
-            const errorBody = await invokeError.context.json();
+          if (errorContext && typeof errorContext.json === 'function') {
+            const errorBody = await errorContext.json();
             errorMessage = errorBody?.error || errorMessage;
+          } else if (errorContext && typeof errorContext.text === 'function') {
+            const rawText = await errorContext.text();
+            if (rawText) {
+              try {
+                const parsed = JSON.parse(rawText);
+                errorMessage = parsed?.error || errorMessage;
+              } catch {
+                errorMessage = rawText;
+              }
+            }
           } else if (invokeError.message) {
             errorMessage = invokeError.message;
           }
-        } catch (e) {
-          console.error('AuthContext: Could not parse error response');
+        } catch {
+          if (invokeError.message) {
+            errorMessage = invokeError.message;
+          }
         }
+
+        if (statusCode === 503 || errorMessage.toLowerCase().includes('database connection error')) {
+          errorMessage = 'Database is temporarily unavailable. Please try again in a few moments.';
+        }
+
         return { success: false, error: errorMessage };
       }
 
