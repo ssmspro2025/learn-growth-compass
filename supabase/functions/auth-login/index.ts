@@ -7,6 +7,62 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const TRANSIENT_DB_ERROR_PATTERNS = [
+  'ssl handshake failed',
+  'error code 525',
+  'cloudflare',
+  'fetch failed',
+  'error sending request',
+  '<!doctype html>',
+  'connection reset',
+  'connection refused',
+  'timed out',
+  'network',
+];
+
+const isTransientDbError = (message: string) => {
+  const normalized = message.toLowerCase();
+  return TRANSIENT_DB_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function withDbRetry<T>(
+  operation: () => Promise<{ data: T; error: any }>,
+  operationName: string,
+  maxAttempts = 3,
+): Promise<{ data: T; error: any }> {
+  let lastResult: { data: T; error: any } | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await operation();
+      lastResult = result;
+
+      if (!result.error) return result;
+
+      const message = result.error?.message ?? '';
+      if (!isTransientDbError(message) || attempt === maxAttempts) {
+        return result;
+      }
+
+      console.warn(`${operationName} transient error (attempt ${attempt}/${maxAttempts}):`, message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (!isTransientDbError(message) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      console.warn(`${operationName} transient throw (attempt ${attempt}/${maxAttempts}):`, message);
+    }
+
+    await sleep(250 * attempt);
+  }
+
+  return lastResult ?? { data: null as T, error: { message: 'Unknown database error' } };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -28,18 +84,20 @@ serve(async (req) => {
     );
 
     // Fetch user by username
-    const { data: userData, error: userError } = await supabaseClient
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .eq('is_active', true)
-      .single();
+    const { data: userData, error: userError } = await withDbRetry(
+      () => supabaseClient
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .eq('is_active', true)
+        .single(),
+      'users lookup',
+    );
 
     if (userError || !userData) {
       console.error('User not found or DB error:', userError?.message || 'No user data');
-      // Check if this is a connection/SSL error vs actual user not found
       const errorMsg = userError?.message || '';
-      if (errorMsg.includes('DOCTYPE') || errorMsg.includes('SSL') || errorMsg.includes('fetch')) {
+      if (isTransientDbError(errorMsg)) {
         return new Response(
           JSON.stringify({ success: false, error: 'Database connection error. Please try again in a moment.' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
@@ -193,6 +251,14 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('Login error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+
+    if (isTransientDbError(errorMessage)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Database connection error. Please try again in a moment.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
