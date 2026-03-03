@@ -36,7 +36,15 @@ serve(async (req) => {
       .single();
 
     if (userError || !userData) {
-      console.error('User not found:', userError);
+      console.error('User not found or DB error:', userError?.message || 'No user data');
+      // Check if this is a connection/SSL error vs actual user not found
+      const errorMsg = userError?.message || '';
+      if (errorMsg.includes('DOCTYPE') || errorMsg.includes('SSL') || errorMsg.includes('fetch')) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Database connection error. Please try again in a moment.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
+        );
+      }
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid username or password' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }

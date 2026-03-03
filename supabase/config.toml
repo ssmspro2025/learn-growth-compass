@@ -1,4 +1,7 @@
 project_id = "msekkmxlrqnolbxqgznz"
 
+[functions.auth-login]
+verify_jwt = false
+
 [functions.link-child-to-parent]
 verify_jwt = false
