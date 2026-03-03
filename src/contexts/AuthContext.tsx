@@ -69,9 +69,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (invokeError) {
         console.error('AuthContext: Edge Function invocation error:', invokeError);
-        // Log the full error object for more details
-        console.error('AuthContext: Full invokeError object:', JSON.stringify(invokeError, null, 2));
-        return { success: false, error: invokeError.message || 'Login failed' };
+        // Try to extract the actual error message from the response
+        let errorMessage = 'Login failed. Please try again.';
+        try {
+          if (invokeError.context && typeof invokeError.context.json === 'function') {
+            const errorBody = await invokeError.context.json();
+            errorMessage = errorBody?.error || errorMessage;
+          } else if (invokeError.message) {
+            errorMessage = invokeError.message;
+          }
+        } catch (e) {
+          console.error('AuthContext: Could not parse error response');
+        }
+        return { success: false, error: errorMessage };
       }
 
       if (!data.success) {
